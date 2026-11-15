@@ -33,6 +33,20 @@ export interface Cursor {
   id: number;
 }
 
+export interface TextRow {
+  id: number;
+  conversation: string;
+  ts: number;
+  sender: string;
+  text: string;
+}
+
+/** A conversation to read texts from, with the sender name the user has in it. */
+export interface TextSource {
+  key: string;
+  selfName: string;
+}
+
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY,
@@ -208,6 +222,45 @@ export class MessageStore {
     return result.rows.map(toStored);
   }
 
+  /**
+   * Streams the texts of the given conversations a page at a time, oldest first: only the ones the user sent
+   * (`from: "self"`) or only the ones everyone else sent (`from: "others"`), at least `minLength` characters long.
+   */
+  async *texts(
+    owner: string,
+    sources: TextSource[],
+    from: "self" | "others",
+    minLength = 1,
+    pageSize = 2000,
+  ): AsyncGenerator<TextRow[]> {
+    const sql =
+      "SELECT id, conversation, ts, sender, text FROM messages WHERE owner = ? AND conversation = ? AND sender " +
+      (from === "self" ? "=" : "<>") +
+      " ? AND text IS NOT NULL AND length(text) >= ?";
+    for (let i = 0; i < sources.length; i += SCAN_GROUP) {
+      const group = sources.slice(i, i + SCAN_GROUP);
+      const firstPages = await this.db.batch(
+        group.map((s) => ({ sql: sql + " ORDER BY ts, id LIMIT ?", args: [owner, s.key, s.selfName, minLength, pageSize + 1] })),
+        "read",
+      );
+      for (let j = 0; j < group.length; j++) {
+        let rows = firstPages[j].rows.map(toTextRow);
+        for (;;) {
+          const done = rows.length <= pageSize;
+          const page = done ? rows : rows.slice(0, pageSize);
+          if (page.length > 0) yield page;
+          if (done) break;
+          const last = page[page.length - 1];
+          const next = await this.db.execute({
+            sql: sql + " AND ts >= ? AND (ts > ? OR id > ?) ORDER BY ts, id LIMIT ?",
+            args: [owner, group[j].key, group[j].selfName, minLength, last.ts, last.ts, last.id, pageSize + 1],
+          });
+          rows = next.rows.map(toTextRow);
+        }
+      }
+    }
+  }
+
   async search(owner: string, query: string, limit: number, conversation?: string): Promise<SearchHit[]> {
     if (!this.fullText) return this.substringSearch(owner, query, limit, conversation);
     const match = toFtsQuery(query);
@@ -282,6 +335,16 @@ function highlight(text: string, terms: string[]): string {
   const start = Math.max(0, first - 40);
   const end = Math.min(text.length, first + 80);
   return (start > 0 ? "…" : "") + text.slice(start, end).replace(re, (m) => "**" + m + "**") + (end < text.length ? "…" : "");
+}
+
+function toTextRow(row: Row): TextRow {
+  return {
+    id: Number(row.id),
+    conversation: String(row.conversation),
+    ts: Number(row.ts),
+    sender: String(row.sender),
+    text: String(row.text),
+  };
 }
 
 function toStored(row: Row): StoredMessage {

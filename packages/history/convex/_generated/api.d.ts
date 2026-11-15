@@ -10,12 +10,16 @@
 
 import type * as account from "../account.js";
 import type * as assistant from "../assistant.js";
+import type * as commonGround from "../commonGround.js";
 import type * as conversations from "../conversations.js";
 import type * as health from "../health.js";
 import type * as ingest from "../ingest.js";
 import type * as ingestData from "../ingestData.js";
 import type * as insights from "../insights.js";
+import type * as interests from "../interests.js";
+import type * as lib_matching from "../lib/matching.js";
 import type * as lib_owner from "../lib/owner.js";
+import type * as matches from "../matches.js";
 import type * as messageStore from "../messageStore.js";
 import type * as messages from "../messages.js";
 import type * as owners from "../owners.js";
@@ -32,12 +36,16 @@ import type {
 declare const fullApi: ApiFromModules<{
   account: typeof account;
   assistant: typeof assistant;
+  commonGround: typeof commonGround;
   conversations: typeof conversations;
   health: typeof health;
   ingest: typeof ingest;
   ingestData: typeof ingestData;
   insights: typeof insights;
+  interests: typeof interests;
+  "lib/matching": typeof lib_matching;
   "lib/owner": typeof lib_owner;
+  matches: typeof matches;
   messageStore: typeof messageStore;
   messages: typeof messages;
   owners: typeof owners;
