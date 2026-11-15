@@ -1,0 +1,24 @@
+{
+  "name": "@textrovert/history",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p convex",
+    "analyze": "tsx scripts/analyze-export.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.18.0",
+    "convex": "^1.50.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "fflate": "^0.8.3",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}
