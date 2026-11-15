@@ -1,5 +1,6 @@
 import { createClient, type Client } from "@libsql/client/web";
 
+import { EpisodeIndex } from "../pipeline/assistant/episodes";
 import { MemoryIndex } from "../pipeline/assistant/memory";
 import { stableId } from "../pipeline/hash";
 import { MessageStore } from "../pipeline/store";
@@ -7,6 +8,7 @@ import { MessageStore } from "../pipeline/store";
 let client: Client | null = null;
 let store: Promise<MessageStore> | null = null;
 let memory: Promise<MemoryIndex> | null = null;
+let episodes: Promise<EpisodeIndex> | null = null;
 
 function tursoClient(): Client {
   if (!client) {
@@ -49,6 +51,21 @@ export function getMemoryIndex(): Promise<MemoryIndex> {
     });
   }
   return memory;
+}
+
+/** Summarized episodes with facets and embeddings, for the assistant's topic, grouping and plan tools. */
+export function getEpisodeIndex(): Promise<EpisodeIndex> {
+  if (!episodes) {
+    episodes = (async () => {
+      const index = new EpisodeIndex(tursoClient());
+      await index.migrate();
+      return index;
+    })();
+    episodes.catch(() => {
+      episodes = null;
+    });
+  }
+  return episodes;
 }
 
 /**
