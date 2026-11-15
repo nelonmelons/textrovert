@@ -12,15 +12,15 @@ const chat = (platform: BeeperChatFile["platform"], network: string): BeeperChat
     type: "group",
     network,
     participants: [
-      { id: "u1", name: "Nelson", isSelf: true },
-      { id: "u2", name: "Emma Di", isSelf: false },
+      { id: "u1", name: "Alex", isSelf: true },
+      { id: "u2", name: "Ava Park", isSelf: false },
     ],
   },
   messages: [
     { id: "m2", senderID: "u1", senderName: null, isSender: true, timestamp: "2026-11-02T18:01:00.000Z", text: "down", type: "TEXT", attachments: [], isDeleted: false, edited: true, reactions: [{ participantID: "u2", reactionKey: "❤️" }] },
-    { id: "m1", senderID: "u2", senderName: "Emma Di", isSender: false, timestamp: "2026-11-02T18:00:00.000Z", text: "yosemite?", type: "TEXT", attachments: [], isDeleted: false, edited: false, reactions: [] },
-    { id: "m3", senderID: "u2", senderName: "Emma Di", isSender: false, timestamp: "2026-11-02T18:02:00.000Z", text: null, type: "IMAGE", attachments: [{ type: "img" }], isDeleted: false, edited: false, reactions: [] },
-    { id: "m4", senderID: "u2", senderName: "Emma Di", isSender: false, timestamp: "2026-11-02T18:03:00.000Z", text: null, type: "REACTION", attachments: [], isDeleted: false, edited: false, reactions: [] },
+    { id: "m1", senderID: "u2", senderName: "Ava Park", isSender: false, timestamp: "2026-11-02T18:00:00.000Z", text: "yosemite?", type: "TEXT", attachments: [], isDeleted: false, edited: false, reactions: [] },
+    { id: "m3", senderID: "u2", senderName: "Ava Park", isSender: false, timestamp: "2026-11-02T18:02:00.000Z", text: null, type: "IMAGE", attachments: [{ type: "img" }], isDeleted: false, edited: false, reactions: [] },
+    { id: "m4", senderID: "u2", senderName: "Ava Park", isSender: false, timestamp: "2026-11-02T18:03:00.000Z", text: null, type: "REACTION", attachments: [], isDeleted: false, edited: false, reactions: [] },
   ],
 });
 
@@ -36,11 +36,11 @@ describe("beeper", () => {
     const whatsapp = beeperParsers.find((p) => p.platform === "whatsapp")!;
     const run = await runParser(whatsapp, files);
     expect(run.claimed).toEqual(["beeper/0.json"]);
-    expect(run.conversations.get("beeper:!room:beeper.com")).toMatchObject({ kind: "group", selfName: "Nelson", participants: ["Nelson", "Emma Di"] });
+    expect(run.conversations.get("beeper:!room:beeper.com")).toMatchObject({ kind: "group", selfName: "Alex", participants: ["Alex", "Ava Park"] });
     expect(run.messages.get("beeper:!room:beeper.com")).toEqual([
-      { ts: Date.parse("2026-11-02T18:00:00Z"), sender: "Emma Di", kind: "text", text: "yosemite?" },
-      { ts: Date.parse("2026-11-02T18:01:00Z"), sender: "Nelson", kind: "text", text: "down", meta: { edited: true, reactions: [{ sender: "Emma Di", emoji: "❤️" }] } },
-      { ts: Date.parse("2026-11-02T18:02:00Z"), sender: "Emma Di", kind: "media", text: null, meta: { media: ["photo"] } },
+      { ts: Date.parse("2026-11-02T18:00:00Z"), sender: "Ava Park", kind: "text", text: "yosemite?" },
+      { ts: Date.parse("2026-11-02T18:01:00Z"), sender: "Alex", kind: "text", text: "down", meta: { edited: true, reactions: [{ sender: "Ava Park", emoji: "❤️" }] } },
+      { ts: Date.parse("2026-11-02T18:02:00Z"), sender: "Ava Park", kind: "media", text: null, meta: { media: ["photo"] } },
     ]);
   });
 });

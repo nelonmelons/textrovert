@@ -12,7 +12,7 @@ import { getMemoryIndex, getMessageStore, storeOwner } from "./messageStore";
 const INDEX_BUDGET_MS = 7 * 60_000;
 
 /**
- * Ask anything about the user's chats ("what did Emma say she wants as a gift?", "who did I talk to about Yosemite?").
+ * Ask anything about the user's chats ("what did Sam say they want as a gift?", "who did I talk to about Yosemite?").
  * The assistant scopes itself to the people and dates in the question and answers with citations; each citation's
  * quote is the original message text and conversationId/messageId/ts open it in context via messages.around.
  * history is the earlier turns of this chat with the assistant, oldest first.

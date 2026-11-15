@@ -79,7 +79,7 @@ For each element output:
 - side: "right" for bubbles sent by the phone owner (right-aligned), "left" for bubbles from others, "center" for dividers and system notices.
 - text: the exact text, preserving spelling, slang, emoji and line breaks. For media write a short bracketed description like "[photo]", "[video]", "[reel shared by @handle]", "[voice message 0:12]", "[sticker]". For a shared link write the URL or link title.
 - senderLabel: the small name printed directly above a left-side bubble (group chats), else null. Never guess a name that is not printed above that bubble.
-- replyHeader: small header text above a reply bubble such as "Emma Di replied to lin" or "You replied to them", else null.
+- replyHeader: small header text above a reply bubble such as "Sam replied to Jo" or "You replied to them", else null.
 - quoted: the faded quoted message shown inside or above a reply bubble, else null.
 - kind: text, media, link, call, system, or unsent ("unsent a message", "This message was deleted").
 - reactions: emoji reactions shown attached under that bubble (e.g. ["❤️","😂"]). Ignore small avatar "seen" indicators.

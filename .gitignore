@@ -7,3 +7,15 @@ out/
 # Convex local deployment state
 .convex/
 .env.local
+
+# Personal chat data never leaves the laptop: exports, recordings, frames, local stores
+.data/
+*.zip
+*.mp4
+*.mov
+*.db
+*.db-*
+*.frames.json
+your_instagram_activity/
+imsg-export/
+beeper-export.zip
