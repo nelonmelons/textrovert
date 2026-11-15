@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 
+import { DEFAULT_TIME_ZONE } from "../pipeline/time";
 import { internal } from "./_generated/api";
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { findProfile } from "./lib/owner";
@@ -19,7 +20,7 @@ export const insertProfile = internalMutation({
   args: { ownerKey: v.string() },
   returns: v.null(),
   handler: async (ctx, { ownerKey }) => {
-    await ctx.db.insert("profiles", { ownerKey, timeZone: "UTC", selfNames: [], insights: null, updatedAt: Date.now() });
+    await ctx.db.insert("profiles", { ownerKey, timeZone: DEFAULT_TIME_ZONE, selfNames: [], insights: null, updatedAt: Date.now() });
     return null;
   },
 });
