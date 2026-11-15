@@ -131,6 +131,36 @@ Local development needs no Turso or Convex: `pnpm analyze ~/Downloads/export.zip
 runs the whole pipeline against a SQLite file in `.data/` and prints the insights (`--json` for the raw output,
 `--me "Your Name"` to say who you are). `pnpm test` runs the parser, store, analyzer, and end-to-end tests; `pnpm typecheck` checks the pipeline and Convex code.
 
+## Local Ask API (dev only)
+
+`scripts/ask-server.ts` runs the assistant (`pipeline/assistant`) over a local message database so an app can try Ask
+against real chats without Convex. It binds 127.0.0.1 only, sends CORS headers, and opens the database on one
+connection with `busy_timeout` and `query_only`, so it never writes. Nothing about the data is hardcoded; it reads:
+
+| Variable | Meaning |
+| --- | --- |
+| `ASK_DB` | Path to the libSQL/SQLite file (messages, chunks, episodes, facts). |
+| `ASK_OWNER` | Store owner of the rows. |
+| `ASK_CONVERSATIONS` | JSON array of `ConversationRef` (the chat directory the assistant scopes to). |
+| `ASK_ENV_FILE` or `OPENAI_API_KEY` | A file containing `OPENAI_API_KEY=...`, or the key itself. |
+| `ASK_TZ` | Owner's IANA time zone (defaults to this machine's). |
+| `ASK_PORT`, `ASSISTANT_MODEL` | Optional: port (8787) and chat model override. |
+
+```sh
+ASK_DB=.data/my.db ASK_OWNER=local ASK_CONVERSATIONS=.data/my-refs.json ASK_ENV_FILE=../ingest/.env \
+ASK_TZ=America/Los_Angeles pnpm ask-server
+```
+
+It exits with a message naming the missing variable or file. Endpoints (all dates are ISO 8601 strings):
+
+- `GET /people` → `{"people": [{"name", "dm", "chats", "messages", "lastAt"}]}`, people with a DM first, by message count.
+- `POST /ask` with `{"question", "person"?, "history"?: [{"role": "user" | "assistant", "content"}]}` →
+  `{"answer", "person", "chats", "citations": [{"n", "messageId", "sender", "fromMe", "chat", "chatId", "sentAt", "text", "quote"}]}`.
+  `answer` carries inline `[n]` markers; each citation's `text` is the full original message and `quote` the exact
+  span the answer relies on. `person` scopes the assistant to the chats that person is in (their DM and shared groups).
+  Errors are `{"error"}` with a 4xx/5xx status.
+- `GET /health` → `{"ok": true, "chats"}`.
+
 ## Limits
 
 - A Convex upload must finish within 2 minutes, so exports should be text-only (no media).
