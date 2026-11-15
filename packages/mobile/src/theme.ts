@@ -26,6 +26,9 @@ export const Theme = {
   },
 };
 
+export const sectionTone = (section: 'reply' | 'plans' | 'together' | 'memories' | 'gifts'): Tone =>
+  section === 'reply' ? Theme.repliesTone : section === 'plans' ? Theme.plansTone : section === 'together' ? Theme.activitiesTone : Theme.coralTone;
+
 export const withAlpha = (color: string, alpha: number) => color.replace(/, [\d.]+\)$/, `, ${alpha})`);
 
 export const Rounded = {
@@ -34,12 +37,13 @@ export const Rounded = {
 };
 
 export const Type = {
-  largeTitle: { fontSize: 34, lineHeight: 41 },
-  title2: { fontSize: 22, lineHeight: 28 },
-  title3: { fontSize: 20, lineHeight: 25 },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600' as const },
-  body: { fontSize: 17, lineHeight: 22 },
-  subheadline: { fontSize: 15, lineHeight: 20 },
-  footnote: { fontSize: 13, lineHeight: 18 },
-  caption: { fontSize: 12, lineHeight: 16 },
+  largeTitle: { fontSize: 34, lineHeight: 40 },
+  title: { fontSize: 28, lineHeight: 33 },
+  title2: { fontSize: 22, lineHeight: 27 },
+  title3: { fontSize: 20, lineHeight: 24 },
+  headline: { fontSize: 17, lineHeight: 21, fontWeight: '600' as const },
+  body: { fontSize: 17, lineHeight: 21 },
+  subheadline: { fontSize: 15, lineHeight: 19 },
+  footnote: { fontSize: 13, lineHeight: 17 },
+  caption: { fontSize: 12, lineHeight: 15 },
 };

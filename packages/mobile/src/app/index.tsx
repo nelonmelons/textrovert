@@ -1,54 +1,27 @@
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SymbolViewProps } from 'expo-symbols';
 import { Rounded, Theme, Type } from '../theme';
-import { Friend, firstName, friends, Milestone, milestoneDateLine, milestoneHeadline, notes, upcomingMilestones } from '../fixtures';
+import { Friend, firstName, friends, upcomingMilestones } from '../fixtures';
 import { art, DeadlineBadge, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../components/Paper';
+import { MilestoneRow } from '../components/MilestoneRow';
+import { useNotes } from '../store';
 
-const serviceSymbol = (service: string): SymbolViewProps['name'] => (service === 'Instagram' ? 'camera' : service === 'WhatsApp' ? 'phone.bubble' : 'message');
+const openProfile = (friend: Friend) => router.push(`/friend/${friend.id}`);
+const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
 
-function Row({ friend, children }: { friend: Friend; children: React.ReactNode }) {
+function Row({ friend, source, children }: { friend: Friend; source: string; children: React.ReactNode }) {
   return (
     <View style={styles.row}>
-      <Face initials={friend.initials} />
-      <Pressable style={({ pressed }) => [styles.rowBody, pressed && styles.pressed]}>
+      <Pressable onPress={() => openProfile(friend)} accessibilityLabel={`Open ${firstName(friend)}’s profile`}>
+        <Face initials={friend.initials} />
+      </Pressable>
+      <Pressable onPress={() => openSource(friend, source)} style={({ pressed }) => [styles.rowBody, pressed && styles.pressed]}>
         <View style={{ flex: 1, gap: 6 }}>{children}</View>
         <RowChevron />
       </Pressable>
     </View>
-  );
-}
-
-function MilestoneRow({ milestone }: { milestone: Milestone }) {
-  const gift = notes(milestone.friend, 'gifts')[0];
-  const source = milestone.friend.messages.find((m) => m.id === milestone.sourceID);
-  return (
-    <Pressable style={({ pressed }) => [styles.milestone, pressed && styles.pressed]}>
-      <View style={styles.milestoneFace}>
-        <Face initials={milestone.friend.initials} />
-        <View style={styles.milestoneBadge}>
-          <Symbol name={milestone.kind === 'birthday' ? 'birthday.cake.fill' : 'heart.fill'} size={11} color={Theme.celebrateTone.ink} weight="bold" />
-        </View>
-      </View>
-      <View style={{ flex: 1, gap: 4 }}>
-        <Text style={[Type.headline, styles.ink]}>{milestoneHeadline(milestone)}</Text>
-        <Text style={[Type.subheadline, styles.secondary]}>{milestoneDateLine(milestone)}</Text>
-        {milestone.kind === 'birthday' && gift ? (
-          <View style={styles.inline}>
-            <Symbol name="gift" size={14} color={Theme.coralTone.ink} weight="medium" />
-            <Text style={[Type.subheadline, { color: Theme.coralTone.ink, fontWeight: '500' }]}>Gift idea: {gift.title}</Text>
-          </View>
-        ) : null}
-        {milestone.kind === 'friendship' && source ? (
-          <View style={styles.inline}>
-            <Symbol name={serviceSymbol(source.service)} size={12} color={Theme.secondary} weight="semibold" />
-            <Text style={[Type.subheadline, styles.secondary]}>First message</Text>
-          </View>
-        ) : null}
-      </View>
-      <RowChevron />
-    </Pressable>
   );
 }
 
@@ -66,6 +39,7 @@ export default function Today() {
   const [focused, setFocused] = useState(false);
   const [panelHeight, setPanelHeight] = useState(140);
   const [contentSize, setContentSize] = useState({ width: 440, height: 1200 });
+  const { items } = useNotes();
   const milestones = upcomingMilestones();
   const sarah = friends[1];
   const mia = friends[0];
@@ -96,8 +70,8 @@ export default function Today() {
               <View style={{ gap: 14 }}>
                 <ToneTab title="Waiting on your reply" symbol="arrowshape.turn.up.left.fill" tone={Theme.repliesTone} />
                 {friends.flatMap((friend) =>
-                  notes(friend, 'reply').map((item) => (
-                    <Row key={friend.id + item.id} friend={friend}>
+                  items(friend, 'reply').map((item) => (
+                    <Row key={friend.id + item.id} friend={friend} source={item.sourceID ?? friend.messages[0].id}>
                       <Text style={[Type.headline, styles.ink]}>
                         {item.title} with {firstName(friend)}
                       </Text>
@@ -119,7 +93,9 @@ export default function Today() {
                   {milestones.map((milestone, index) => (
                     <View key={milestone.id} style={{ gap: 14 }}>
                       {index > 0 ? <Divider /> : null}
-                      <MilestoneRow milestone={milestone} />
+                      <Pressable onPress={() => openProfile(milestone.friend)} style={({ pressed }) => [{ paddingVertical: 4 }, pressed && styles.pressed]}>
+                        <MilestoneRow milestone={milestone} />
+                      </Pressable>
                     </View>
                   ))}
                 </View>
@@ -129,12 +105,12 @@ export default function Today() {
             <SectionCard tone={Theme.plansTone}>
               <View style={{ gap: 14 }}>
                 <ToneTab title="Upcoming plans" symbol="calendar" tone={Theme.plansTone} />
-                <Row friend={mia}>
+                <Row friend={mia} source={mia.messages[0].id}>
                   <Text style={[Type.headline, styles.ink]}>Shopping with Mia · Thursday, 4 PM</Text>
                   <Text style={[Type.subheadline, styles.secondary, { marginTop: -2 }]}>Bookstore</Text>
                 </Row>
                 <Divider />
-                <Row friend={sarah}>
+                <Row friend={sarah} source={sarah.messages[0].id}>
                   <Text style={[Type.headline, styles.ink]}>Brunch with Sarah · Friday, 11 AM</Text>
                   <Text style={[Type.subheadline, styles.secondary, { marginTop: -2 }]}>Juniper · Not confirmed yet</Text>
                 </Row>
@@ -192,21 +168,6 @@ const styles = StyleSheet.create({
   inlineWide: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   row: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  milestone: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 4 },
-  milestoneFace: { alignSelf: 'flex-start' },
-  milestoneBadge: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: Theme.celebrateTone.fill,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   panel: {
     position: 'absolute',
     left: 0,

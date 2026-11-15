@@ -64,6 +64,18 @@ export const friends: Friend[] = [
 
 export const notes = (friend: Friend, section: NoteSection) => friend.notes.filter((n) => n.section === section);
 
+export const friendById = (id: string | string[] | undefined) => friends.find((f) => f.id === id);
+
+export const sectionOrder: NoteSection[] = ['reply', 'plans', 'together', 'memories', 'gifts'];
+
+export const sectionInfo: Record<NoteSection, { title: string; noun: string; symbol: string; prompt: string; empty: (first: string) => string }> = {
+  reply: { title: 'Needs a reply', noun: 'reply', symbol: 'arrowshape.turn.up.left.fill', prompt: 'What do you need to answer?', empty: () => 'Nothing waiting on you.' },
+  plans: { title: 'Plans', noun: 'plan', symbol: 'calendar', prompt: 'Like “Dinner · Saturday, 7 PM”', empty: (f) => `No plans with ${f} yet.` },
+  together: { title: 'Things to do together', noun: 'activity', symbol: 'figure.2', prompt: 'Like “Pottery class”', empty: (f) => `Nothing on your list with ${f} yet.` },
+  memories: { title: 'Memories', noun: 'memory', symbol: 'book.closed.fill', prompt: 'Like “Road trip to Big Sur”', empty: () => 'No memories saved yet.' },
+  gifts: { title: 'Gift ideas', noun: 'gift idea', symbol: 'gift.fill', prompt: 'Like “Jasmine tea”', empty: () => 'No gift ideas mentioned yet.' },
+};
+
 export type Milestone = {
   id: string;
   friend: Friend;
