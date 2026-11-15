@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "convex dev",
     "deploy": "convex deploy",
-    "typecheck": "tsc --noEmit -p convex"
+    "typecheck": "tsc --noEmit -p convex",
+    "test": "node --test test/*.test.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@textrovert/ingest": "workspace:*",
     "convex": "^1.50.0"
   },

@@ -10,6 +10,9 @@
 
 import type * as imports from "../imports.js";
 import type * as ingest from "../ingest.js";
+import type * as lib_messageStore from "../lib/messageStore.js";
+import type * as lib_turso from "../lib/turso.js";
+import type * as messages from "../messages.js";
 import type * as sync from "../sync.js";
 
 import type {
@@ -21,6 +24,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   imports: typeof imports;
   ingest: typeof ingest;
+  "lib/messageStore": typeof lib_messageStore;
+  "lib/turso": typeof lib_turso;
+  messages: typeof messages;
   sync: typeof sync;
 }>;
 

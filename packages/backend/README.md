@@ -11,6 +11,8 @@ pnpm install                       # from the repo root
 cd packages/backend
 npx convex dev                     # first run logs in / creates a dev deployment, writes .env.local
 npx convex env set OPENAI_API_KEY sk-...   # needed for recordings only
+npx convex env set TURSO_DATABASE_URL "$(turso db show textrovert --url)"
+npx convex env set TURSO_AUTH_TOKEN "$(turso db tokens create textrovert)"
 ```
 
 For a throwaway local backend with no Convex account: `CONVEX_AGENT_MODE=anonymous npx convex dev` (state lives in `.convex/`, gitignored).
@@ -20,6 +22,7 @@ Env vars (Convex deployment env, not `.env`):
 | Name | Used by |
 | --- | --- |
 | `OPENAI_API_KEY` | `ingestRecording` (vision model). Missing key makes `ingestRecording` throw immediately. |
+| `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` | Every function that writes or reads messages. The app never sees them. |
 
 ## API (`api.imports.*`)
 
@@ -32,7 +35,7 @@ Env vars (Convex deployment env, not `.env`):
 | `listConversations()` | query | Newest 100 conversations. |
 | `getConversation({ conversationId })` | query | One conversation row. |
 
-Every conversation row carries metadata (`source`, `title`, `isGroup`, `participants`, `messageCount`, `firstTs`, `lastTs`, `warnings`) plus two signed file URLs: `transcriptUrl` (plain text from `renderTranscript`) and `conversationUrl` (full `Conversation` JSON). The blobs live in Convex file storage because they can exceed the 1 MB document limit; fetch them with a plain `fetch(url)`.
+Every conversation row is a summary: `chatKey`, `source`, `title`, `isGroup`, `participants`, `messageCount`, `fromMe`, `fromThem`, `recentCount`, `firstTs`, `lastTs`, `lastMessage`, `score`, `warnings`. The messages themselves live in Turso (see below); read them with the `messages.*` actions using the row's `chatKey`.
 
 `ingestFile`/`ingestRecording` are mutations, not actions, so the app gets the `importId` before processing finishes and can subscribe to `getImport`. Parse and vision failures never throw to the client; they set `status: "error"` and `error` on the import.
 
@@ -71,12 +74,11 @@ const recordingImportId = await ingestRecording({
 // Progress + results (reactive)
 const imp = useQuery(api.imports.getImport, { importId });
 // imp.status: "processing" | "done" | "error"; imp.progress: { done, total } windows; imp.error
-const transcript = imp?.conversations[0]?.transcriptUrl
-  ? await (await fetch(imp.conversations[0].transcriptUrl)).text()
-  : null;
+const getTranscript = useAction(api.messages.getTranscript);
+const transcript = imp?.status === "done" ? await getTranscript({ chatKey: imp.conversations[0].chatKey }) : null;
 ```
 
-Upload frames with some parallelism (e.g. 6 at a time) in the real app; a 60 s recording is ~360 frames. Frame blobs are kept in storage after processing.
+Upload frames with some parallelism (e.g. 6 at a time) in the real app; a 60 s recording is ~360 frames. Frame blobs are deleted from storage once the recording is processed.
 
 ## Notes
 
@@ -86,4 +88,16 @@ Upload frames with some parallelism (e.g. 6 at a time) in the real app; a 60 s r
 
 ## Bulk imports and the chat picker
 
-`ingestFile` accepts a WhatsApp export, an imessage-exporter `.txt`, a zip of an imessage-exporter folder, or an Instagram "Export your information" zip (Messages, JSON). A bulk zip creates one `conversations` row per chat. `getImport` returns them sorted by `score` (highest first), and each row carries `fromMe`, `fromThem`, `recentCount` (messages in the last 30 days), `lastMessage`, and `isGroup`, which is everything a "pick your important people" screen needs. Fetch `transcriptUrl` only for the chats the user picks.
+`ingestFile` accepts a WhatsApp export, an imessage-exporter `.txt`, a zip of an imessage-exporter folder, or an Instagram "Export your information" zip (Messages, JSON). A bulk zip creates one `conversations` row per chat. `getImport` returns them sorted by `score` (highest first), and each row carries `fromMe`, `fromThem`, `recentCount` (messages in the last 30 days), `lastMessage`, and `isGroup`, which is everything a "pick your important people" screen needs. Fetch transcripts only for the chats the user picks.
+
+## Message storage (Turso)
+
+Convex's free plan caps the database at 0.5 GB, so every message is stored in Turso (hosted SQLite, 5 GB free) and Convex keeps only summaries, imports, and progress. Messages are keyed by `(chat_key, time|sender|text|occurrence)`, so re-importing or re-syncing a chat never duplicates rows, and an FTS5 index powers search. The schema is created on first write (`convex/lib/messageStore.ts`).
+
+| Function | Kind | What it does |
+| --- | --- | --- |
+| `messages.getTranscript({ chatKey })` | action | The LLM-ready transcript (`renderTranscript`) built from Turso. |
+| `messages.getMessages({ chatKey, offset?, limit? })` | action | `{ total, messages }` in time order; `limit` defaults to 200, max 1000. |
+| `messages.search({ query, chatKeys, limit? })` | action | Full-text search within the given chats; each hit has `chatKey`, `ts`, `senderId`, `isSelf`, `text`, and a `snippet` with matches in `[brackets]`. |
+
+These are actions because they call Turso over the network, so use `useAction` (no live subscription). Run `pnpm test` for the store's tests against an in-memory SQLite database.

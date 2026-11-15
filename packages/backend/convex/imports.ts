@@ -1,7 +1,8 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
+import { chatSummary } from "./schema";
 
 export const generateUploadUrl = mutation({
   args: {},
@@ -45,14 +46,6 @@ export const ingestRecording = mutation({
   },
 });
 
-async function withUrls(ctx: QueryCtx, c: Doc<"conversations">) {
-  return {
-    ...c,
-    transcriptUrl: await ctx.storage.getUrl(c.transcriptStorageId),
-    conversationUrl: await ctx.storage.getUrl(c.conversationStorageId),
-  };
-}
-
 export const getImport = query({
   args: { importId: v.id("imports") },
   handler: async (ctx, { importId }) => {
@@ -63,24 +56,18 @@ export const getImport = query({
       .withIndex("by_import_score", (q) => q.eq("importId", importId))
       .order("desc")
       .collect();
-    return { ...imp, conversations: await Promise.all(conversations.map((c) => withUrls(ctx, c))) };
+    return { ...imp, conversations };
   },
 });
 
 export const listConversations = query({
   args: {},
-  handler: async (ctx) => {
-    const rows = await ctx.db.query("conversations").order("desc").take(100);
-    return Promise.all(rows.map((c) => withUrls(ctx, c)));
-  },
+  handler: (ctx) => ctx.db.query("conversations").order("desc").take(100),
 });
 
 export const getConversation = query({
   args: { conversationId: v.id("conversations") },
-  handler: async (ctx, { conversationId }) => {
-    const c = await ctx.db.get(conversationId);
-    return c && withUrls(ctx, c);
-  },
+  handler: (ctx, { conversationId }) => ctx.db.get(conversationId),
 });
 
 export const setProgress = internalMutation({
@@ -100,24 +87,7 @@ export const markError = internalMutation({
 });
 
 export const saveConversation = internalMutation({
-  args: {
-    importId: v.id("imports"),
-    source: v.string(),
-    title: v.union(v.string(), v.null()),
-    isGroup: v.boolean(),
-    participants: v.array(v.object({ id: v.string(), name: v.string(), isSelf: v.boolean() })),
-    messageCount: v.number(),
-    firstTs: v.union(v.string(), v.null()),
-    lastTs: v.union(v.string(), v.null()),
-    warnings: v.array(v.string()),
-    fromMe: v.number(),
-    fromThem: v.number(),
-    recentCount: v.number(),
-    lastMessage: v.union(v.string(), v.null()),
-    score: v.number(),
-    transcriptStorageId: v.id("_storage"),
-    conversationStorageId: v.id("_storage"),
-  },
+  args: { ...chatSummary, importId: v.id("imports"), warnings: v.array(v.string()) },
   handler: (ctx, args): Promise<Id<"conversations">> => ctx.db.insert("conversations", args),
 });
 

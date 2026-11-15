@@ -1,6 +1,6 @@
 # @textrovert/mac-sync
 
-Keeps a user's iMessage history in Convex up to date. A launchd job on the Mac runs `imessage-exporter` every 15 minutes for messages since the last run (plus one day of overlap), parses them with `@textrovert/ingest`, and calls `sync:pushChats`. Convex merges new messages into each chat's stored history (duplicates are dropped), re-renders the transcript, and re-ranks the chat.
+Keeps a user's iMessage history in Convex up to date. A launchd job on the Mac runs `imessage-exporter` every 15 minutes for messages since the last run (plus one day of overlap), parses them with `@textrovert/ingest`, and calls `sync:pushChats`. Convex writes new messages to Turso (duplicates are dropped by key) and re-ranks the chat's summary.
 
 ## Setup (on the Mac whose Messages app is signed in)
 
@@ -27,4 +27,4 @@ The job must be able to read `~/Library/Messages/chat.db`, so grant **Full Disk 
 
 ## Reading the data
 
-`api.sync.listChats({ deviceId, limit? })` returns chats best-first with `messageCount`, `fromMe`, `fromThem`, `recentCount`, `lastTs`, `lastMessage`, `score`, and signed `transcriptUrl` / `conversationUrl`. `api.sync.getDevice({ deviceId })` returns `lastSyncAt` and `chatCount`.
+`api.sync.listChats({ deviceId, limit? })` returns chats best-first with `messageCount`, `fromMe`, `fromThem`, `recentCount`, `lastTs`, `lastMessage`, `score`, and `chatKey` (pass it to `messages.getTranscript`, `messages.getMessages`, or `messages.search`). `api.sync.getDevice({ deviceId })` returns `lastSyncAt` and `chatCount`.

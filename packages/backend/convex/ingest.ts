@@ -2,14 +2,13 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { ensureSchema, insertMessages, summarize } from "./lib/messageStore";
+import { turso } from "./lib/turso";
 import {
   extractWindow,
   framesToConversation,
   ingestText,
   ingestZip,
-  rankConversations,
-  renderTranscript,
-  type ChatSummary,
   type Conversation,
   type FrameExtraction,
 } from "@textrovert/ingest";
@@ -18,33 +17,26 @@ const OVERLAP_FRAMES = 2;
 const CONCURRENCY = 8;
 
 async function saveResults(ctx: ActionCtx, importId: Id<"imports">, convs: Conversation[]) {
-  const ranked = rankConversations(convs);
-  for (const summary of ranked) await saveResult(ctx, importId, convs[summary.index], summary);
+  const db = turso();
+  await ensureSchema(db);
+  for (const [k, conv] of convs.entries()) {
+    if (!conv.messages.length) continue;
+    const owner = `import:${importId}`;
+    const chatKey = `${owner}:${k}`;
+    await insertMessages(db, { owner, conversation: chatKey }, conv);
+    await ctx.runMutation(internal.imports.saveConversation, {
+      importId,
+      owner,
+      chatKey,
+      source: conv.source,
+      title: conv.title,
+      isGroup: conv.isGroup,
+      participants: conv.participants.map(({ id, name, isSelf }) => ({ id, name, isSelf })),
+      warnings: conv.warnings,
+      ...summarize(conv),
+    });
+  }
   await ctx.runMutation(internal.imports.markDone, { importId });
-}
-
-async function saveResult(ctx: ActionCtx, importId: Id<"imports">, conv: Conversation, summary: ChatSummary) {
-  const transcriptStorageId = await ctx.storage.store(new Blob([renderTranscript(conv)], { type: "text/plain; charset=utf-8" }));
-  const conversationStorageId = await ctx.storage.store(new Blob([JSON.stringify(conv)], { type: "application/json" }));
-  const timed = conv.messages.filter((m) => m.ts);
-  await ctx.runMutation(internal.imports.saveConversation, {
-    importId,
-    source: conv.source,
-    title: conv.title,
-    isGroup: conv.isGroup,
-    participants: conv.participants.map(({ id, name, isSelf }) => ({ id, name, isSelf })),
-    messageCount: conv.messages.length,
-    firstTs: timed[0]?.ts ?? null,
-    lastTs: timed[timed.length - 1]?.ts ?? null,
-    warnings: conv.warnings,
-    fromMe: summary.fromMe,
-    fromThem: summary.fromThem,
-    recentCount: summary.recentCount,
-    lastMessage: summary.lastMessage,
-    score: summary.score,
-    transcriptStorageId,
-    conversationStorageId,
-  });
 }
 
 async function failImport(ctx: ActionCtx, importId: Id<"imports">, err: unknown) {
@@ -134,6 +126,7 @@ export const runRecording = internalAction({
         recordedAt: new Date(recordedAt - (args.tzOffsetMinutes ?? 0) * 60_000),
       });
       await saveResults(ctx, importId, [conv]);
+      await Promise.all(args.frames.map((f) => ctx.storage.delete(f.storageId)));
     } catch (err) {
       await failImport(ctx, importId, err);
     }
