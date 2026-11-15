@@ -1,6 +1,7 @@
 import type { ConversationKind, Platform } from "../types";
 import type { MessageStore, StoredMessage } from "../store";
 import { clusterVectors, type EpisodeFilter, type EpisodeIndex, type StoredEpisode } from "./episodes";
+import type { FactIndex, StoredFact } from "./facts";
 import type { Embed, MemoryIndex } from "./memory";
 
 /** One of the user's conversations, as the assistant sees it. `id` is what the app opens; `key` is the store key. */
@@ -100,6 +101,28 @@ const EPISODE_TOOLS = [
   },
 ];
 
+const FACT_TOOLS = [
+  {
+    name: "person_facts",
+    description:
+      "What the chats say about a person (or Me): likes, wants, work, school, home, relationships, health, milestones, opinions, habits. Each fact has when it became known, its source message and exact quote; with include_history also facts that later changed (and when). Use for 'what does X like', 'what's new with X', 'how has X changed'.",
+    parameters: {
+      type: "object",
+      properties: {
+        person: { type: "string" },
+        include_history: { type: "boolean" },
+        since: { type: "string", description: "Only facts learned on or after YYYY-MM-DD, e.g. since you last talked." },
+      },
+      required: ["person"],
+    },
+  },
+  {
+    name: "search_facts",
+    description: "Facts about anyone closest in meaning to a query, e.g. 'wants as a gift', 'got a new job', 'allergic'.",
+    parameters: { type: "object", properties: { query: { type: "string" }, include_history: { type: "boolean" } }, required: ["query"] },
+  },
+];
+
 const TOOLS = [
   {
     name: "find_conversations",
@@ -177,6 +200,7 @@ export async function ask(options: {
   store: MessageStore;
   memory: MemoryIndex | null;
   episodes?: EpisodeIndex | null;
+  facts?: FactIndex | null;
   embed: Embed | null;
   complete: Complete;
   timeZone: string;
@@ -184,7 +208,8 @@ export async function ask(options: {
 }): Promise<AssistantAnswer> {
   const { owner, store, memory, embed, timeZone } = options;
   const episodes = options.episodes ?? null;
-  const tools = toTools(episodes ? [...EPISODE_TOOLS, ...TOOLS] : TOOLS);
+  const facts = options.facts ?? null;
+  const tools = toTools([...(episodes ? EPISODE_TOOLS : []), ...(facts ? FACT_TOOLS : []), ...TOOLS]);
   const handles = new Map(options.conversations.map((c, i) => ["c" + (i + 1), c]));
   const byKey = new Map([...handles].map(([h, c]) => [c.key, { handle: h, ...c }]));
   const seen = new Map<number, StoredMessage>();
@@ -226,12 +251,29 @@ export async function ask(options: {
     mood: typeof args.mood === "string" ? args.mood : undefined,
     kind: typeof args.kind === "string" ? args.kind : undefined,
   });
+  const factLine = (f: StoredFact, source: StoredMessage | undefined) => {
+    if (source) seen.set(source.id, source);
+    const c = byKey.get(f.conversation);
+    const window = f.validTo === null ? "since " + day.format(f.validFrom) : day.format(f.validFrom) + " → " + day.format(f.validTo) + " (changed)";
+    return `${f.subject} ${f.predicate}: ${f.object} [${window}] from #${f.messageId} in ${c?.handle ?? "?"} ${c?.title ?? ""}: "${f.quote}"`;
+  };
   const month = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit" });
 
   const run = async (name: string, args: Record<string, unknown>): Promise<string> => {
     const after = parseDay(args.after, false);
     const before = parseDay(args.before, true);
     if (episodes && name in EPISODE_RUNNERS) return EPISODE_RUNNERS[name](args, after, before);
+    if (facts && (name === "person_facts" || name === "search_facts")) {
+      const found =
+        name === "person_facts"
+          ? await facts.about(owner, String(args.person ?? ""), { includeHistory: !!args.include_history, since: parseDay(args.since, false) })
+          : embed
+            ? await facts.search(owner, (await embed([String(args.query ?? "")]))[0], 20, !!args.include_history)
+            : [];
+      if (found.length === 0) return "No facts recorded.";
+      const sources = new Map((await store.byIds(owner, [...new Set(found.map((f) => f.messageId))])).map((m) => [m.id, m]));
+      return found.map((f) => factLine(f, sources.get(f.messageId))).join("\n");
+    }
     return runBase(name, args, after, before);
   };
 
@@ -359,6 +401,9 @@ export async function ask(options: {
         "Search several ways before concluding something isn't there: keyword variants and meaning search. Read context around promising hits.",
         ...(episodes
           ? ["Episodes, groupings, topics and plans are summaries: use them to orient, then cite the underlying messages (read around an episode's starting #id, or the source messages a plan lists)."]
+          : []),
+        ...(facts
+          ? ["Facts carry their source message and exact quote, so cite the fact's #id with that quote. When a fact changed, say what it was and what it became, with dates."]
           : []),
         "Only state what the messages support, and only include messages that are really about what was asked. Put an [n] marker right after each claim in the answer text, and quote words exactly as they appear. Be concise and warm, never invent details, and don't rate friendships.",
         "The answer text is what the user reads: no closing offers or menus of follow-ups, and never end with the word Answer.",
