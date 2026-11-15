@@ -233,7 +233,8 @@ export async function ask(options: {
         "Today is " + day.format(options.now) + " (" + timeZone + "). The user appears as \"Me\".",
         "Work out what the question is about and scope your searches: if it names a person, find their chats (DMs and shared groups) and search within those; if it names a time, pass dates. If it is open-ended (\"someone\", \"who\"), search everything.",
         "Search several ways before concluding something isn't there: keyword variants and meaning search. Read context around promising hits.",
-        "Only state what the messages support. Cite with [n] markers and quote words exactly as they appear. Be concise and warm, never invent details, and don't rate friendships.",
+        "Only state what the messages support, and only include messages that are really about what was asked. Put an [n] marker right after each claim in the answer text, and quote words exactly as they appear. Be concise and warm, never invent details, and don't rate friendships.",
+        "The answer text is what the user reads: no closing offers or menus of follow-ups, and never end with the word Answer.",
         "Finish by calling answer.",
         "Chats, most recent first" + (handles.size > DIRECTORY_IN_PROMPT ? " (more via find_conversations)" : "") + ":",
         ...directory,
@@ -306,7 +307,9 @@ export function verify(
       quote: (exact ?? message.text).slice(0, QUOTE_MAX),
     });
   }
-  const cleaned = answer.replace(/\[(\d+)\]/g, (m, d) => (kept.has(Number(d)) ? m : "")).replace(/ +([.,;!?])/g, "$1");
+  // The model sometimes repeats its citations or tool name as prose; the app renders citations itself.
+  const body = answer.split(/\n\s*(?:citations|sources)\s*:/i)[0].replace(/\s*\banswer\.?\s*$/i, "");
+  const cleaned = body.replace(/\[(\d+)\]/g, (m, d) => (kept.has(Number(d)) ? m : "")).replace(/ +([.,;!?])/g, "$1");
   return { answer: cleaned.trim(), citations: citations.sort((a, b) => a.n - b.n) };
 }
 

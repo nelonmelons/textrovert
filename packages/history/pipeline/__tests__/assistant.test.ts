@@ -124,6 +124,12 @@ describe("ask", () => {
 });
 
 describe("verify", () => {
+  it("drops citation lists and stray tool names the model writes into the answer text", () => {
+    const out = verify("Sam suggested Yosemite [1]\n\nCitations:\n[1] message_id 7: \"x\"\n\nAnswer.", [], new Map(), new Map());
+    expect(out.answer).toBe("Sam suggested Yosemite");
+    expect(verify("Done.\n\nAnswer.", [], new Map(), new Map()).answer).toBe("Done.");
+  });
+
   it("falls back to the original message when the quote was paraphrased", () => {
     const m: StoredMessage = { id: 7, conversation: "k-sam", ts: T0, sender: "Sam Lee", kind: "text", text: "yosemite trip in june?", meta: null };
     const out = verify("Sam suggested Yosemite [1]", [{ n: 1, message_id: 7, quote: "let's go to yosemite" }], new Map([[7, m]]), new Map(conversations.map((c) => [c.key, c])));
