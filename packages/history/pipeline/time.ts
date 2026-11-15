@@ -12,13 +12,16 @@ export interface LocalParts {
   dayIndex: number;
 }
 
+/** The team is in San Francisco, so a missing or unknown zone means Pacific time rather than the server's UTC. */
+export const DEFAULT_TIME_ZONE = "America/Los_Angeles";
+
 export function safeTimeZone(timeZone: string | null | undefined): string {
-  if (!timeZone) return "UTC";
+  if (!timeZone) return DEFAULT_TIME_ZONE;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone });
     return timeZone;
   } catch {
-    return "UTC";
+    return DEFAULT_TIME_ZONE;
   }
 }
 
