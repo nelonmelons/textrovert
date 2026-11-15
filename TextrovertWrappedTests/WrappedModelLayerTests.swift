@@ -36,7 +36,7 @@ final class WrappedModelLayerTests: XCTestCase {
         XCTAssertEqual(saga.sourceMessageIDs, ["theo-01", "theo-19", "theo-11"])
         XCTAssertEqual(saga.quantity?.value, "3")
         XCTAssertEqual(saga.quantity?.detail, "over 13 days")
-        XCTAssertTrue(saga.why.hasPrefix("My read: "))
+        XCTAssertEqual(saga.why, "")
     }
 
     func testModelNeverSuppliesQuoteText() throws {

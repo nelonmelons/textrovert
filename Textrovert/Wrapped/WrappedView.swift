@@ -477,7 +477,9 @@ struct WrappedSourceSheet: View {
                             .font(.footnote)
                             .accessibilityIdentifier("wrappedModelNote")
                     }
-                    Text(highlight.why)
+                    if !highlight.why.isEmpty {
+                        Text(highlight.why)
+                    }
                     Text("I counted \(highlight.sourceMessageIDs.count) source message\(highlight.sourceMessageIDs.count == 1 ? "" : "s").").font(.footnote).foregroundStyle(.secondary)
                 }
             }

@@ -120,7 +120,7 @@ struct WrappedSuggestionProvider: WrappedCandidateProviding {
                   Set(WrappedText.tokens(headline)).isDisjoint(with: Self.blockedHeadlineWords),
                   WrappedText.sensitivity(of: headline, fromOwner: false, friendFirstName: ctx.friend.firstName) == nil,
                   why.count <= 200 else { return nil }
-            return candidate(kind, entries, headline: headline, why: why.isEmpty ? "" : "My read: \(why)", ctx: ctx)
+            return candidate(kind, entries, headline: headline, why: "", ctx: ctx)
         }
     }
 

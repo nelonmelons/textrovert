@@ -1,5 +1,36 @@
 import SwiftUI
 import UIKit
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+enum QueryIntent {
+    static func guess(_ query: String) -> Bool {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let first = text.split(separator: " ").first.map(String.init) ?? ""
+        return text.hasSuffix("?") || ["who", "who’s", "what", "what’s", "when", "where", "why", "how", "is", "are", "does", "do", "should", "can", "will", "did", "tell", "help", "remind", "give", "find"].contains(first)
+    }
+
+    static func isQuestion(_ query: String) async -> Bool {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        if text.hasSuffix("?") { return true }
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *), ProcessInfo.processInfo.environment["TEXTROVERT_INTENT_MODEL"] != "off", case .available = SystemLanguageModel.default.availability {
+            let session = LanguageModelSession(instructions: """
+            You sort what someone typed into the search box of a friends app. \
+            A search is a person's name, a handle like @mia.c, an activity, an interest or a short keyword phrase. \
+            A question is anything asked of an assistant, including requests and commands like "gift ideas for Mia" or "remind me who plays volleyball". \
+            Reply with exactly one word: question or search.
+            """)
+            if let reply = try? await session.respond(to: text) {
+                return reply.content.lowercased().contains("question")
+            }
+        }
+        #endif
+        return guess(text)
+    }
+}
 
 struct Tone {
     let ink: Color
@@ -69,13 +100,9 @@ struct TodayView: View {
     @State private var query = ""
     @State private var selectedReference: MessageReference?
     @State private var askedQuestion: String?
+    @State private var looksLikeQuestion = false
     @FocusState private var searchFocused: Bool
     private var searching: Bool { !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var looksLikeQuestion: Bool {
-        let text = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let first = text.split(separator: " ").first.map(String.init) ?? ""
-        return text.hasSuffix("?") || ["who", "what", "when", "where", "why", "how", "is", "are", "does", "do", "should", "can", "will", "did"].contains(first)
-    }
 
     var body: some View {
         NavigationStack {
@@ -131,6 +158,13 @@ struct TodayView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .safeAreaInset(edge: .bottom, spacing: 0) { searchBar }
+            .task(id: query) {
+                looksLikeQuestion = QueryIntent.guess(query)
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled else { return }
+                let answer = await QueryIntent.isQuestion(query)
+                if !Task.isCancelled { looksLikeQuestion = answer }
+            }
         }
     }
 
@@ -151,7 +185,11 @@ struct TodayView: View {
                         .submitLabel(.search)
                         .onSubmit {
                             searchFocused = false
-                            if searching && looksLikeQuestion { askedQuestion = query }
+                            let submitted = query
+                            guard searching else { return }
+                            Task {
+                                if await QueryIntent.isQuestion(submitted), submitted == query { askedQuestion = submitted }
+                            }
                         }
                         .accessibilityIdentifier("search")
                     if !query.isEmpty {
@@ -326,7 +364,7 @@ struct TodayView: View {
                     HedgehogAvatar()
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Ask me").font(.system(.headline, design: .rounded, weight: .bold))
-                        Text("“\(query.trimmingCharacters(in: .whitespacesAndNewlines))”")
+                        Text(query.trimmingCharacters(in: .whitespacesAndNewlines))
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)

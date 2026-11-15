@@ -8,7 +8,7 @@ final class FlowTests: XCTestCase {
 
     private func launch(_ arguments: [String] = [], environment: [String: String] = [:], reset: Bool = true, app: XCUIApplication = XCUIApplication()) -> XCUIApplication {
         app.launchArguments = arguments
-        var env = ["TEXTROVERT_NOW": "2026-11-15T10:00"]
+        var env = ["TEXTROVERT_NOW": "2026-11-15T10:00", "TEXTROVERT_INTENT_MODEL": "off"]
         if reset { env["TEXTROVERT_STORE_RESET"] = "1" }
         env.merge(environment) { $1 }
         app.launchEnvironment = env
@@ -90,7 +90,12 @@ final class FlowTests: XCTestCase {
         app.swipeDown()
         app.swipeDown()
         let plan = app.buttons["plan-mia"]
-        scrollTo(app, plan)
+        let panelTop = app.buttons["Search for Mia"].frame.minY - 16
+        var tries = 0
+        while plan.frame.maxY > panelTop && tries < 8 {
+            app.swipeUp(velocity: .slow)
+            tries += 1
+        }
         plan.tap()
         XCTAssertTrue(has(app, "See you Thursday at 4 for shopping. Let's meet at the bookstore."))
         XCTAssertFalse(app.staticTexts["Original message"].exists)

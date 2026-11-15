@@ -332,11 +332,13 @@ struct WrappedJokeScene: View {
                         WrappedBubble(quote: last, context: context, fill: w.hot, text: WrappedPalette.ink, caption: w.glow.opacity(0.85))
                             .transition(reduceMotion ? .opacity : .scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity))
                     }
-                    Text(highlight.why)
-                        .font(.footnote)
-                        .foregroundStyle(w.glow.opacity(0.9))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .wrappedEnter(env.active, order: 5)
+                    if !highlight.why.isEmpty {
+                        Text(highlight.why)
+                            .font(.footnote)
+                            .foregroundStyle(w.glow.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .wrappedEnter(env.active, order: 5)
+                    }
                 }
             }
         }
@@ -431,11 +433,13 @@ struct WrappedTicketScene: View {
                         }
                         .transition(.opacity)
                     }
-                    Text(highlight.why)
-                        .font(.footnote)
-                        .foregroundStyle(WrappedPalette.ink.opacity(0.85))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .wrappedEnter(env.active, order: 4)
+                    if !highlight.why.isEmpty {
+                        Text(highlight.why)
+                            .font(.footnote)
+                            .foregroundStyle(WrappedPalette.ink.opacity(0.85))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .wrappedEnter(env.active, order: 4)
+                    }
                 }
             }
         }
@@ -489,10 +493,12 @@ struct WrappedTwistScene: View {
                                 }
                             }
                         }
-                        Text(highlight.why)
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(revealed ? WrappedPalette.ink.opacity(0.85) : w.glow.opacity(0.9))
-                            .fixedSize(horizontal: false, vertical: true)
+                        if !highlight.why.isEmpty {
+                            Text(highlight.why)
+                                .font(.footnote.weight(.medium))
+                                .foregroundStyle(revealed ? WrappedPalette.ink.opacity(0.85) : w.glow.opacity(0.9))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     .padding(.top, 70)
                     .padding(.bottom, 28)
@@ -555,11 +561,13 @@ struct WrappedPivotScene: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(w.glow.opacity(0.9))
                     }
-                    Text(highlight.why)
-                        .font(.footnote)
-                        .foregroundStyle(w.glow.opacity(0.9))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .wrappedEnter(env.active, order: 4)
+                    if !highlight.why.isEmpty {
+                        Text(highlight.why)
+                            .font(.footnote)
+                            .foregroundStyle(w.glow.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .wrappedEnter(env.active, order: 4)
+                    }
                 }
             }
         }
@@ -641,10 +649,12 @@ struct WrappedGhostScene: View {
                                 WrappedGapBar(seconds: g, fraction: g / longest, color: i == 0 ? w.hot : w.glow, delay: Double(i) * 0.15)
                             }
                         }
-                        Text(highlight.why)
-                            .font(.footnote)
-                            .foregroundStyle(w.glow.opacity(0.9))
-                            .fixedSize(horizontal: false, vertical: true)
+                        if !highlight.why.isEmpty {
+                            Text(highlight.why)
+                                .font(.footnote)
+                                .foregroundStyle(w.glow.opacity(0.9))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
             }
@@ -771,10 +781,12 @@ struct WrappedBusiestScene: View {
                             WrappedEyebrow(text: "Last text of the day", color: w.glow)
                             WrappedBubble(quote: last, context: context, fill: w.hot, text: WrappedPalette.ink, caption: w.glow.opacity(0.85))
                         }
-                        Text(highlight.why)
-                            .font(.footnote)
-                            .foregroundStyle(w.glow.opacity(0.9))
-                            .fixedSize(horizontal: false, vertical: true)
+                        if !highlight.why.isEmpty {
+                            Text(highlight.why)
+                                .font(.footnote)
+                                .foregroundStyle(w.glow.opacity(0.9))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
             }
@@ -1050,11 +1062,13 @@ struct WrappedWarmScene: View {
                                 .wrappedEnter(env.active, order: 3)
                         }
                     }
-                    Text(highlight.why)
-                        .font(.footnote)
-                        .foregroundStyle(WrappedPalette.butter.opacity(0.9))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .wrappedEnter(env.active, order: 4)
+                    if !highlight.why.isEmpty {
+                        Text(highlight.why)
+                            .font(.footnote)
+                            .foregroundStyle(WrappedPalette.butter.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .wrappedEnter(env.active, order: 4)
+                    }
                 }
             }
         }
