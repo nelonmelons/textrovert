@@ -1,7 +1,20 @@
-import { buildConversation, localIso, monthIndex, SYSTEM_SENDER, to24h } from "./conversation.ts";
-import type { Conversation, DraftMessage, MessageKind } from "./types.ts";
+import type { MessageKind, MessageMeta } from "../types";
+
+/** [year, month 1-12, day, hour, minute] in the chat's local time. */
+export type LocalParts = [number, number, number, number, number];
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const monthIndex = (name: string) => MONTHS.indexOf(name.slice(0, 3).toLowerCase());
+
+function to24h(hour: number, meridiem: string | undefined): number {
+  if (!meridiem) return hour;
+  const pm = meridiem.toLowerCase().startsWith("p");
+  if (hour === 12) return pm ? 12 : 0;
+  return pm ? hour + 12 : hour;
+}
 
 export type Side = "left" | "right" | "center";
+export type FrameKind = "text" | "media" | "link" | "call" | "system" | "unsent";
 
 export interface FrameItem {
   type: "divider" | "message" | "system";
@@ -10,7 +23,7 @@ export interface FrameItem {
   senderLabel: string | null;
   replyHeader: string | null;
   quoted: string | null;
-  kind: MessageKind;
+  kind: FrameKind;
   reactions: string[];
   cutOff: boolean;
 }
@@ -219,10 +232,13 @@ interface Segment {
   seq: Placed[];
 }
 
-export function stitchFrames(frames: FrameExtraction[], reference: Date, warnings: string[] = []): Placed[] {
+export function stitchFrames(frames: FrameExtraction[], reference: LocalParts, warnings: string[] = []): Placed[] {
   const segments = new Map<string, Segment>();
   const heads: { before: string; items: FrameItem[]; frame: number }[] = [];
-  const keyOf = (divider: FrameItem) => parseDivider(divider.text, reference) ?? `?${norm(divider.text)}`;
+  const keyOf = (divider: FrameItem) => {
+    const parts = parseDivider(divider.text, reference);
+    return parts ? parts.map((n) => String(n).padStart(4, "0")).join("-") : `?${norm(divider.text)}`;
+  };
   const labels = new Set(
     frames.flatMap((f) =>
       f.items
@@ -302,13 +318,15 @@ export function stitchFrames(frames: FrameExtraction[], reference: Date, warning
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-export function parseDivider(text: string, reference: Date): string | null {
+/** Resolves a chat date divider ("FRI 9:04 P.M.", "Yesterday 9:41 AM", "OCT 30, 11:05 A.M.") to local wall-clock parts. */
+export function parseDivider(text: string, reference: LocalParts): LocalParts | null {
   const t = text.toUpperCase().replace(/\./g, "").replace(/\bAT\b/g, " ").replace(/,/g, " ").replace(/\s+/g, " ").trim();
   const time = /(\d{1,2}):(\d{2})\s*(AM|PM)?/.exec(t);
   if (!time) return null;
   const hour = to24h(Number(time[1]), time[3]);
   const minute = Number(time[2]);
-  const refDay = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+  const day0 = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d));
+  const refDay = day0(reference[0], reference[1] - 1, reference[2]);
   let day: Date | null = null;
 
   const md = /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\s+(\d{1,2})\b(?:\s+(\d{4}))?/.exec(t);
@@ -316,39 +334,65 @@ export function parseDivider(text: string, reference: Date): string | null {
   if (md) {
     const month = monthIndex(md[1]);
     const dayOfMonth = Number(md[2]);
-    let year = md[3] ? Number(md[3]) : refDay.getFullYear();
-    day = new Date(year, month, dayOfMonth);
-    if (!md[3] && day > refDay) day = new Date(year - 1, month, dayOfMonth);
+    const year = md[3] ? Number(md[3]) : refDay.getUTCFullYear();
+    day = day0(year, month, dayOfMonth);
+    if (!md[3] && day > refDay) day = day0(year - 1, month, dayOfMonth);
   } else if (/\bYESTERDAY\b/.test(t)) {
-    day = new Date(refDay.getFullYear(), refDay.getMonth(), refDay.getDate() - 1);
+    day = day0(refDay.getUTCFullYear(), refDay.getUTCMonth(), refDay.getUTCDate() - 1);
   } else if (wd) {
     const target = WEEKDAYS.indexOf(wd[1].toLowerCase());
-    const back = (refDay.getDay() - target + 7) % 7 || 7;
-    day = new Date(refDay.getFullYear(), refDay.getMonth(), refDay.getDate() - back);
+    const back = (refDay.getUTCDay() - target + 7) % 7 || 7;
+    day = day0(refDay.getUTCFullYear(), refDay.getUTCMonth(), refDay.getUTCDate() - back);
   } else {
     day = refDay;
   }
-  return localIso(day.getFullYear(), day.getMonth() + 1, day.getDate(), hour, minute);
+  return [day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), hour, minute];
 }
 
 function senderFromReplyHeader(header: string | null): { self: boolean; name: string } | null {
   if (!header) return null;
   const m = /^(.+?) replied to /i.exec(header.trim());
   if (!m) return null;
-  return /^you$/i.test(m[1]) ? { self: true, name: "Me" } : { self: false, name: m[1] };
+  return /^you$/i.test(m[1]) ? { self: true, name: SELF } : { self: false, name: m[1] };
 }
 
-export function framesToConversation(
-  frames: FrameExtraction[],
-  opts: { recordedAt?: Date; source?: "instagram" | "screenshots"; title?: string } = {},
-): Conversation {
+export interface RecordedMessage {
+  /** Local wall-clock time from the nearest date divider above it (filled from neighbors when none was visible). */
+  local: LocalParts;
+  sender: string;
+  isSelf: boolean;
+  kind: MessageKind;
+  text: string;
+  meta?: MessageMeta;
+}
+
+export interface RecordedChat {
+  title: string;
+  platform: string | null;
+  isGroup: boolean;
+  participants: string[];
+  messages: RecordedMessage[];
+  warnings: string[];
+}
+
+const SELF = "Me";
+
+function mediaKind(text: string): string {
+  const t = text.toLowerCase();
+  if (/reel|post|shared/.test(t)) return "share";
+  if (/video/.test(t)) return "video";
+  if (/voice|audio/.test(t)) return "audio";
+  if (/sticker|gif/.test(t)) return "sticker";
+  return "photo";
+}
+
+/** Turns the vision model's per-window transcriptions of a scrolling screen recording into one ordered chat. */
+export function framesToChat(frames: FrameExtraction[], opts: { recordedAt: LocalParts; selfName?: string | null }): RecordedChat {
   const warnings: string[] = [];
-  const reference = opts.recordedAt ?? new Date();
-  const placed = stitchFrames(frames, reference, warnings);
-  const titles = frames.map((f) => f.chatTitle).filter((t): t is string => !!t);
-  const title = opts.title ?? mostCommon(titles);
-  const platforms = frames.map((f) => f.platform?.toLowerCase()).filter(Boolean);
-  const source = opts.source ?? (mostCommon(platforms as string[]) === "instagram" ? "instagram" : "screenshots");
+  const self = opts.selfName || SELF;
+  const placed = stitchFrames(frames, opts.recordedAt, warnings);
+  const title = mostCommon(frames.map((f) => f.chatTitle).filter((t): t is string => !!t)) ?? "Screen recording";
+  const platform = mostCommon(frames.map((f) => f.platform?.toLowerCase()).filter((p): p is string => !!p));
   const labelCounts = new Map<string, number>();
   for (const p of placed) if (p.senderLabel) labelCounts.set(p.senderLabel, (labelCounts.get(p.senderLabel) ?? 0) + p.frames.length);
   const canonical = (label: string) => {
@@ -359,63 +403,46 @@ export function framesToConversation(
   for (const p of placed) if (p.senderLabel) p.senderLabel = canonical(p.senderLabel);
   const isGroup = placed.some((p) => p.senderLabel);
 
-  const drafts: DraftMessage[] = [];
-  let ts: string | null = null;
-  let sinceDivider = 0;
+  const drafts: (Omit<RecordedMessage, "local"> & { local: LocalParts | null })[] = [];
+  let local: LocalParts | null = null;
   let runSender: string | null = null;
   for (const p of placed) {
     if (p.type === "divider") {
-      const parsed = parseDivider(p.text, reference);
-      if (parsed) {
-        ts = parsed;
-        sinceDivider = 0;
-      } else {
-        warnings.push(`Could not read date divider "${p.text}".`);
-      }
+      const parsed = parseDivider(p.text, opts.recordedAt);
+      if (parsed) local = parsed;
+      else warnings.push(`Could not read date divider "${p.text}".`);
       runSender = null;
       continue;
     }
-    const sourceRef = `frames ${p.frames[0]}${p.frames.length > 1 ? "-" + p.frames[p.frames.length - 1] : ""}`;
-    const tsConfidence = ts ? (sinceDivider === 0 ? "exact" : "inferred") : "none";
-    sinceDivider++;
     if (p.type === "system" || p.side === "center") {
-      drafts.push({ ts, tsConfidence, sender: SYSTEM_SENDER, isSelf: false, kind: "system", text: p.text, sourceRef });
+      drafts.push({ local, sender: "", isSelf: false, kind: "system", text: p.text });
       continue;
     }
-    let sender: string;
-    let isSelf = p.side === "right";
+    const isSelf = p.side === "right";
     const fromHeader = senderFromReplyHeader(p.replyHeader);
-    if (isSelf) {
-      sender = "Me";
-      runSender = null;
-    } else {
-      if (p.senderLabel) runSender = p.senderLabel;
-      else if (fromHeader && !fromHeader.self) runSender = fromHeader.name;
-      sender = runSender ?? (isGroup ? "Unknown" : (title ?? "Them"));
-    }
-    const draft: DraftMessage = { ts, tsConfidence, sender, isSelf, kind: p.kind, text: p.text, sourceRef };
-    if (p.quoted) draft.replyQuote = p.quoted;
-    if (p.reactions.length) draft.reactions = p.reactions.map((emoji) => ({ emoji, by: null }));
-    drafts.push(draft);
+    if (isSelf) runSender = null;
+    else if (p.senderLabel) runSender = p.senderLabel;
+    else if (fromHeader && !fromHeader.self) runSender = fromHeader.name;
+    const sender = isSelf ? self : (runSender ?? (isGroup ? "Unknown" : title));
+    const meta: MessageMeta = {};
+    let kind: MessageKind = "text";
+    if (p.kind === "media" || p.kind === "link") {
+      meta.media = [p.kind === "link" ? "share" : mediaKind(p.text)];
+      if (p.kind === "media") kind = "media";
+    } else if (p.kind === "call") kind = "call";
+    else if (p.kind === "unsent") kind = "deleted";
+    else if (p.kind === "system") kind = "system";
+    if (p.reactions.length) meta.reactions = p.reactions.map((emoji) => ({ sender: "", emoji }));
+    drafts.push({ local, sender, isSelf, kind, text: p.text, ...(Object.keys(meta).length ? { meta } : {}) });
   }
 
-  for (const d of drafts) {
-    if (!d.replyQuote) continue;
-    let best = -1;
-    let bestScore = 0.6;
-    for (let k = 0; k < drafts.length && drafts[k] !== d; k++) {
-      const s = similarity(drafts[k].text, d.replyQuote);
-      if (s >= bestScore) {
-        bestScore = s;
-        best = k;
-      }
-    }
-    if (best >= 0) d.replyToDraft = best;
-  }
-  if (drafts.some((d) => d.sender === "Unknown")) {
-    warnings.push("Some group messages had no visible sender name; they are attributed to \"Unknown\".");
-  }
-  return buildConversation(source, title, drafts, warnings);
+  const firstKnown = drafts.find((d) => d.local)?.local ?? null;
+  if (!firstKnown && drafts.length) warnings.push("No date dividers were readable; messages are dated to the recording time.");
+  const fallback: LocalParts = firstKnown ?? opts.recordedAt;
+  const messages = drafts.map((d) => ({ ...d, local: d.local ?? fallback }));
+  if (messages.some((m) => m.sender === "Unknown")) warnings.push('Some group messages had no visible sender name; they are attributed to "Unknown".');
+  const participants = [...new Set(messages.filter((m) => m.sender).map((m) => m.sender))];
+  return { title, platform, isGroup, participants, messages, warnings };
 }
 
 function mostCommon(values: string[]): string | null {

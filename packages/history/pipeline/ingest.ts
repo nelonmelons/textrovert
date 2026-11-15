@@ -130,7 +130,7 @@ export async function ingestArchive(options: {
     throw new UnrecognizedExportError(
       "No chats found in " +
         archive.name +
-        ". Supported exports: WhatsApp, iMessage (chat.db), Instagram, Messenger, Snapchat, Discord, Telegram, ChatGPT, Claude, and CSV.",
+        ". Supported exports: Beeper, WhatsApp, iMessage (chat.db), Instagram, Messenger, Snapchat, Discord, Telegram, ChatGPT, Claude, and CSV.",
     );
   }
   const skipped = remaining.filter((entry) => TEXT_FILE_RE.test(entry.path));

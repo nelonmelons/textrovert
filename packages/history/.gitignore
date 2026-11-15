@@ -1,2 +1,4 @@
 # local message store written by pnpm analyze
 .data/
+
+.env.local

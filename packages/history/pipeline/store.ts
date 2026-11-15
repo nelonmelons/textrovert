@@ -180,6 +180,34 @@ export class MessageStore {
     }
   }
 
+  /** The owner's messages with these ids, in no particular order; ids that aren't the owner's are skipped. */
+  async byIds(owner: string, ids: number[]): Promise<StoredMessage[]> {
+    if (ids.length === 0) return [];
+    const result = await this.db.execute({
+      sql: `SELECT ${COLUMNS} FROM messages WHERE owner = ? AND id IN (${ids.map(() => "?").join(",")})`,
+      args: [owner, ...ids],
+    });
+    return result.rows.map(toStored);
+  }
+
+  /** Chronological messages of one conversation sent between two instants, inclusive. */
+  async between(owner: string, conversation: string, fromTs: number, toTs: number, limit: number): Promise<StoredMessage[]> {
+    const result = await this.db.execute({
+      sql: `SELECT ${COLUMNS} FROM messages WHERE owner = ? AND conversation = ? AND ts >= ? AND ts <= ? ORDER BY ts, id LIMIT ?`,
+      args: [owner, conversation, fromTs, toTs, limit],
+    });
+    return result.rows.map(toStored);
+  }
+
+  /** Chronological messages of one conversation stored after row `afterId`, whatever their timestamps. */
+  async storedAfter(owner: string, conversation: string, afterId: number): Promise<StoredMessage[]> {
+    const result = await this.db.execute({
+      sql: `SELECT ${COLUMNS} FROM messages WHERE owner = ? AND conversation = ? AND id > ? ORDER BY ts, id`,
+      args: [owner, conversation, afterId],
+    });
+    return result.rows.map(toStored);
+  }
+
   async search(owner: string, query: string, limit: number, conversation?: string): Promise<SearchHit[]> {
     if (!this.fullText) return this.substringSearch(owner, query, limit, conversation);
     const match = toFtsQuery(query);

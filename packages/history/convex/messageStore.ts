@@ -1,21 +1,31 @@
-import { createClient } from "@libsql/client/web";
+import { createClient, type Client } from "@libsql/client/web";
 
+import { MemoryIndex } from "../pipeline/assistant/memory";
 import { stableId } from "../pipeline/hash";
 import { MessageStore } from "../pipeline/store";
 
+let client: Client | null = null;
 let store: Promise<MessageStore> | null = null;
+let memory: Promise<MemoryIndex> | null = null;
+
+function tursoClient(): Client {
+  if (!client) {
+    const url = process.env.TURSO_DATABASE_URL;
+    if (!url) {
+      throw new Error(
+        "The message store isn't configured. Run: npx convex env set TURSO_DATABASE_URL <libsql://...> and npx convex env set TURSO_AUTH_TOKEN <token>",
+      );
+    }
+    client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+  }
+  return client;
+}
 
 /** The Turso-backed message store, created once per runtime instance and migrated on first use. */
 export function getMessageStore(): Promise<MessageStore> {
   if (!store) {
     store = (async () => {
-      const url = process.env.TURSO_DATABASE_URL;
-      if (!url) {
-        throw new Error(
-          "The message store isn't configured. Run: npx convex env set TURSO_DATABASE_URL <libsql://...> and npx convex env set TURSO_AUTH_TOKEN <token>",
-        );
-      }
-      const messageStore = new MessageStore(createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN }));
+      const messageStore = new MessageStore(tursoClient());
       await messageStore.migrate();
       return messageStore;
     })();
@@ -24,6 +34,21 @@ export function getMessageStore(): Promise<MessageStore> {
     });
   }
   return store;
+}
+
+/** Chunk embeddings for the assistant's meaning search, in the same Turso database as the messages. */
+export function getMemoryIndex(): Promise<MemoryIndex> {
+  if (!memory) {
+    memory = (async () => {
+      const index = new MemoryIndex(tursoClient());
+      await index.migrate();
+      return index;
+    })();
+    memory.catch(() => {
+      memory = null;
+    });
+  }
+  return memory;
 }
 
 /**

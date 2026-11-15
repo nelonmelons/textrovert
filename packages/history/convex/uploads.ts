@@ -68,6 +68,50 @@ export const start = mutation({
   },
 });
 
+const MAX_RECORDING_FRAMES = 600;
+
+/**
+ * Screen-recording variant of start: the phone samples frames from a recording of a chat (scrolling up through it),
+ * uploads each one via generateUploadUrl, then registers them here in time order. Frames are read by a vision
+ * model, stitched into one chat, and stored like any export. Watch the returned upload id with uploads.get.
+ */
+export const startRecording = mutation({
+  args: {
+    ownerKey: v.string(),
+    frames: v.array(v.object({ storageId: v.id("_storage"), timeSec: v.number() })),
+    recordedAt: v.number(),
+    timeZone: v.string(),
+  },
+  returns: v.id("uploads"),
+  handler: async (ctx, args) => {
+    const profile = await requireProfile(ctx, args.ownerKey);
+    if (args.frames.length === 0 || args.frames.length > MAX_RECORDING_FRAMES) {
+      throw new ConvexError("A recording needs between 1 and " + MAX_RECORDING_FRAMES + " frames");
+    }
+    const timeZone = args.timeZone.trim().slice(0, 64) || profile.timeZone;
+    const uploadId = await ctx.db.insert("uploads", {
+      ownerKey: args.ownerKey,
+      storageId: null,
+      frames: [...args.frames].sort((a, b) => a.timeSec - b.timeSec),
+      recordedAt: args.recordedAt,
+      fileName: "Screen recording",
+      fileSize: null,
+      timeZone,
+      selfName: null,
+      status: "queued",
+      progress: { messagesParsed: 0, messagesStored: 0, conversations: 0, conversationsAnalyzed: 0 },
+      sources: [],
+      warnings: [],
+      error: null,
+      updatedAt: Date.now(),
+      finishedAt: null,
+    });
+    await ctx.scheduler.runAfter(0, internal.ingest.runRecording, { uploadId });
+    await ctx.scheduler.runAfter(WATCHDOG_INTERVAL_MS, internal.uploads.watchdog, { uploadId });
+    return uploadId;
+  },
+});
+
 /** Live status of one upload: queued → parsing → analyzing → done (or failed, with error). */
 export const get = query({
   args: { ownerKey: v.string(), uploadId: v.id("uploads") },
@@ -143,8 +187,10 @@ async function patchUpload(
   await ctx.db.patch("uploads", upload._id, {
     ...fields,
     updatedAt: Date.now(),
-    ...(finished ? { finishedAt: Date.now(), storageId: null } : {}),
+    ...(finished ? { finishedAt: Date.now(), storageId: null, frames: [] } : {}),
   });
   // The raw export is never kept once processing ends: its messages are in the message store, or it failed.
-  if (finished && upload.storageId) await ctx.storage.delete(upload.storageId);
+  if (!finished) return;
+  if (upload.storageId) await ctx.storage.delete(upload.storageId);
+  for (const frame of upload.frames ?? []) await ctx.storage.delete(frame.storageId);
 }

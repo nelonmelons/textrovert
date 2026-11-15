@@ -12,7 +12,10 @@ import { v } from "convex/values";
 
 import { analyzeStoredConversations, type AnalysisTarget } from "../pipeline/analyze";
 import { openArchive } from "../pipeline/archive";
-import { ingestArchive } from "../pipeline/ingest";
+import { ingestArchive, type IngestResult } from "../pipeline/ingest";
+import { framesToChat, type FrameExtraction } from "../pipeline/recording/frames";
+import { recordingParser } from "../pipeline/recording/parser";
+import { frameWindows, readFrames } from "../pipeline/recording/vision";
 import { buildInsights, buildPeople, type ConversationSummary } from "../pipeline/insights";
 import { LocalTime, safeTimeZone } from "../pipeline/time";
 import { internal } from "./_generated/api";
@@ -22,6 +25,7 @@ import { getMessageStore, storeOwner } from "./messageStore";
 
 const ANALYSIS_BUDGET_MS = 7 * 60_000;
 const ANALYSIS_BATCH = 40;
+const VISION_CONCURRENCY = 8;
 
 /**
  * Stage 1: download the export, detect and parse every chat in it, and write all messages to the message store.
@@ -56,40 +60,7 @@ export const run = internalAction({
           onProgress: (p) =>
             ctx.runMutation(internal.uploads.update, { uploadId, progress: { ...p, conversationsAnalyzed: 0 } }),
         });
-        for (let i = 0; i < result.conversations.length; i += 100) {
-          await ctx.runMutation(internal.ingestData.upsertConversations, {
-            ownerKey: upload.ownerKey,
-            uploadId,
-            conversations: result.conversations.slice(i, i + 100).map((c) => ({
-              key: c.key,
-              platform: c.platform,
-              kind: c.kind,
-              title: c.title.slice(0, 200),
-              selfName: c.selfName,
-              participants: c.participants.slice(0, 100),
-              parsed: c.parsed,
-            })),
-          });
-        }
-        if (result.learnedSelfNames.length > 0) {
-          await ctx.runMutation(internal.ingestData.rememberSelfNames, {
-            ownerKey: upload.ownerKey,
-            names: result.learnedSelfNames,
-          });
-        }
-        await ctx.runMutation(internal.uploads.update, {
-          uploadId,
-          status: "analyzing",
-          sources: result.sources,
-          warnings: result.warnings,
-          progress: {
-            messagesParsed: result.messagesParsed,
-            messagesStored: result.messagesStored,
-            conversations: result.conversations.length,
-            conversationsAnalyzed: 0,
-          },
-        });
-        await ctx.scheduler.runAfter(0, internal.ingest.analyze, { uploadId });
+        await saveIngested(ctx, uploadId, upload.ownerKey, result);
       } finally {
         await archive.close();
       }
@@ -101,6 +72,100 @@ export const run = internalAction({
     return null;
   },
 });
+
+/**
+ * Stage 1 for a screen recording: a vision model reads overlapping windows of frames, the windows are stitched into
+ * one chat, and its messages go through the same ingest as an export. Hands off to `analyze` like `run`.
+ */
+export const runRecording = internalAction({
+  args: { uploadId: v.id("uploads") },
+  returns: v.null(),
+  handler: async (ctx, { uploadId }) => {
+    const upload = await ctx.runQuery(internal.uploads.load, { uploadId });
+    if (!upload || upload.status !== "queued" || !upload.frames?.length) return null;
+    await ctx.runMutation(internal.uploads.update, { uploadId, status: "parsing" });
+    try {
+      const apiKey = process.env.OPENAI_API_KEY;
+      if (!apiKey) throw new Error("Screen recordings need a vision model. Run: npx convex env set OPENAI_API_KEY <key>");
+      const frames = await Promise.all(
+        upload.frames.map(async (f) => {
+          const imageUrl = await ctx.storage.getUrl(f.storageId);
+          if (!imageUrl) throw new Error("A recording frame is missing");
+          return { timeSec: f.timeSec, imageUrl };
+        }),
+      );
+      const windows = frameWindows(frames);
+      const extractions: FrameExtraction[] = new Array(windows.length);
+      let next = 0;
+      await Promise.all(
+        Array.from({ length: Math.min(VISION_CONCURRENCY, windows.length) }, async () => {
+          while (next < windows.length) {
+            const i = next++;
+            extractions[i] = await readFrames(windows[i], i, { apiKey });
+          }
+        }),
+      );
+      const local = new LocalTime(safeTimeZone(upload.timeZone));
+      const recordedAt = upload.recordedAt ?? upload._creationTime;
+      const wall = new Date(recordedAt + local.offsetMs(recordedAt));
+      const chat = framesToChat(extractions, {
+        recordedAt: [wall.getUTCFullYear(), wall.getUTCMonth() + 1, wall.getUTCDate(), wall.getUTCHours(), wall.getUTCMinutes()],
+      });
+      if (chat.messages.length === 0) throw new Error("No chat messages were visible in the recording");
+      const { parser, archive } = recordingParser(chat);
+      const result = await ingestArchive({
+        owner: storeOwner(upload.ownerKey),
+        archive,
+        store: await getMessageStore(),
+        timeZone: local.timeZone,
+        selfNames: [],
+        parsers: [parser],
+      });
+      await saveIngested(ctx, uploadId, upload.ownerKey, result);
+    } catch (error) {
+      await fail(ctx, uploadId, error);
+    }
+    return null;
+  },
+});
+
+/** Records what stage 1 parsed and schedules analysis. */
+async function saveIngested(ctx: ActionCtx, uploadId: Id<"uploads">, ownerKey: string, result: IngestResult) {
+  for (let i = 0; i < result.conversations.length; i += 100) {
+    await ctx.runMutation(internal.ingestData.upsertConversations, {
+      ownerKey,
+      uploadId,
+      conversations: result.conversations.slice(i, i + 100).map((c) => ({
+        key: c.key,
+        platform: c.platform,
+        kind: c.kind,
+        title: c.title.slice(0, 200),
+        selfName: c.selfName,
+        participants: c.participants.slice(0, 100),
+        parsed: c.parsed,
+      })),
+    });
+  }
+  if (result.learnedSelfNames.length > 0) {
+    await ctx.runMutation(internal.ingestData.rememberSelfNames, {
+      ownerKey,
+      names: result.learnedSelfNames,
+    });
+  }
+  await ctx.runMutation(internal.uploads.update, {
+    uploadId,
+    status: "analyzing",
+    sources: result.sources,
+    warnings: result.warnings,
+    progress: {
+      messagesParsed: result.messagesParsed,
+      messagesStored: result.messagesStored,
+      conversations: result.conversations.length,
+      conversationsAnalyzed: 0,
+    },
+  });
+  await ctx.scheduler.runAfter(0, internal.ingest.analyze, { uploadId });
+}
 
 /**
  * Stage 2: re-read every conversation touched by new data from the message store (so stats always cover the
@@ -166,6 +231,7 @@ export const analyze = internalAction({
       }
       await ctx.runMutation(internal.ingestData.saveInsights, { ownerKey, insights: buildInsights(summaries, people, now) });
       await ctx.runMutation(internal.uploads.update, { uploadId, status: "done" });
+      await ctx.scheduler.runAfter(0, internal.assistant.index, { ownerKey });
     } catch (error) {
       await fail(ctx, uploadId, error);
     }

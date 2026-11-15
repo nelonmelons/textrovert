@@ -8,13 +8,15 @@
     "deploy": "convex deploy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p convex",
-    "analyze": "tsx scripts/analyze-export.ts"
+    "analyze": "tsx scripts/analyze-export.ts",
+    "beeper-export": "tsx scripts/beeper-export.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
     "convex": "^1.50.0"
   },
   "devDependencies": {
+    "@beeper/desktop-api": "^6.0.0",
     "@types/node": "^24.19.2",
     "fflate": "^0.8.3",
     "tsx": "^4.23.15",

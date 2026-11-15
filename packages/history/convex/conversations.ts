@@ -71,6 +71,29 @@ export const byKeys = internalQuery({
   },
 });
 
+/** Every conversation of the owner, newest activity first, as the assistant's directory of chats. */
+export const directory = internalQuery({
+  args: { ownerKey: v.string() },
+  handler: async (ctx, { ownerKey }) => {
+    const rows = await ctx.db
+      .query("conversations")
+      .withIndex("by_ownerKey_and_lastAt", (q) => q.eq("ownerKey", ownerKey))
+      .order("desc")
+      .take(2000);
+    return rows.map((c) => ({
+      id: c._id as string,
+      key: c.key,
+      title: c.title,
+      platform: c.platform,
+      kind: c.kind,
+      participants: c.participants.slice(0, 30),
+      selfName: c.selfName,
+      messageCount: c.messageCount,
+      lastAt: c.lastAt,
+    }));
+  },
+});
+
 function listItem(c: Doc<"conversations">) {
   return {
     _id: c._id,

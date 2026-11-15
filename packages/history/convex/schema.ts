@@ -35,6 +35,10 @@ export default defineSchema({
     ownerKey: v.string(),
     // Raw export in Convex file storage; deleted once its messages are in the message store.
     storageId: v.union(v.id("_storage"), v.null()),
+    // Screen recordings arrive as sampled frames instead of one file; also deleted once processing ends.
+    frames: v.optional(v.array(v.object({ storageId: v.id("_storage"), timeSec: v.number() }))),
+    // When the screen recording was made, to resolve dividers like "Yesterday" and "FRI 7:05 PM".
+    recordedAt: v.optional(v.number()),
     fileName: v.string(),
     fileSize: v.union(v.number(), v.null()),
     timeZone: v.string(),

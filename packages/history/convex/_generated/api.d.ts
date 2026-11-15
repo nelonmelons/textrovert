@@ -9,6 +9,7 @@
  */
 
 import type * as account from "../account.js";
+import type * as assistant from "../assistant.js";
 import type * as conversations from "../conversations.js";
 import type * as health from "../health.js";
 import type * as ingest from "../ingest.js";
@@ -30,6 +31,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  assistant: typeof assistant;
   conversations: typeof conversations;
   health: typeof health;
   ingest: typeof ingest;

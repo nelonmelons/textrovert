@@ -11,6 +11,10 @@ export const platformV = v.union(
   v.literal("chatgpt"),
   v.literal("claude"),
   v.literal("csv"),
+  v.literal("signal"),
+  v.literal("slack"),
+  v.literal("sms"),
+  v.literal("other"),
 );
 export type Platform = Infer<typeof platformV>;
 
