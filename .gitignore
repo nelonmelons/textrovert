@@ -7,3 +7,11 @@ out/
 # Convex local deployment state
 .convex/
 .env.local
+
+build/
+build2/
+*.xcuserstate
+xcuserdata/
+.revyl/
+*.xcresult
+.DS_Store
