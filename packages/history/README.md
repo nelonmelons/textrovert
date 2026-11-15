@@ -152,7 +152,7 @@ prints both profiles and the comparison.
 | Discord | Settings → Data & Privacy → Request data | the package .zip |
 | ChatGPT | Settings → Data controls → Export | the .zip |
 | Claude | Settings → Privacy → Export data | the .zip |
-| iMessage | On a Mac: `~/Library/Messages/chat.db` (copy it, then AirDrop to the phone) | chat.db |
+| iMessage | On a Mac: the Textrovert Mac app in `mac/` exports it with imessage-exporter and uploads it. Or copy `~/Library/Messages/chat.db` | done by the Mac app, or chat.db |
 | Anything else | CSV with date, sender, and text columns | the .csv |
 
 Several platforms can go in one zip, or be uploaded one after another; it all merges.

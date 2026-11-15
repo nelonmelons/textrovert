@@ -4,7 +4,7 @@ import { ConvexError, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
-import { getMemoryIndex, getMessageStore, storeOwner } from "./messageStore";
+import { getEpisodeIndex, getFactIndex, getMemoryIndex, getMessageStore, storeOwner } from "./messageStore";
 
 /** Erases everything stored for this owner: full message history and assistant memory in Turso, then every Convex row and file. */
 export const deleteAllData = action({
@@ -15,6 +15,8 @@ export const deleteAllData = action({
     const store = await getMessageStore();
     await store.deleteOwner(storeOwner(ownerKey));
     await (await getMemoryIndex()).deleteOwner(storeOwner(ownerKey));
+    await (await getEpisodeIndex()).deleteOwner(storeOwner(ownerKey));
+    await (await getFactIndex()).deleteOwner(storeOwner(ownerKey));
     while (await ctx.runMutation(internal.owners.deleteBatch, { ownerKey })) {
       // keep deleting until nothing is left
     }

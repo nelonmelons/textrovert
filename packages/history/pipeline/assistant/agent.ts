@@ -1,5 +1,7 @@
 import type { ConversationKind, Platform } from "../types";
 import type { MessageStore, StoredMessage } from "../store";
+import { clusterVectors, type EpisodeFilter, type EpisodeIndex, type StoredEpisode } from "./episodes";
+import type { FactIndex, StoredFact } from "./facts";
 import type { Embed, MemoryIndex } from "./memory";
 
 /** One of the user's conversations, as the assistant sees it. `id` is what the app opens; `key` is the store key. */
@@ -63,6 +65,64 @@ const dateParams = {
   before: { type: "string", description: "Only messages on or before this date, YYYY-MM-DD." },
 };
 
+const episodeFilterParams = {
+  conversations: conversationsParam,
+  ...dateParams,
+  person: { type: "string", description: "Only episodes where this person spoke or was talked about." },
+  mood: { type: "string", enum: ["hype", "chill", "planning", "venting", "banter", "serious", "wholesome", "chaotic"] },
+  kind: { type: "string", enum: ["logistics", "inside joke", "news/update", "debate", "support", "media sharing", "small talk", "decision"] },
+};
+
+const EPISODE_TOOLS = [
+  {
+    name: "find_episodes",
+    description:
+      "Episodes are summarized stretches of conversation with facets (title, summary, topics, people, places, plans, mood, kind). Filter them, optionally ranked by meaning with query. Best first step for broad or fuzzy questions (\"what have we been up to\", \"times we argued\", \"anything about her job\").",
+    parameters: { type: "object", properties: { query: { type: "string" }, ...episodeFilterParams } },
+  },
+  {
+    name: "group_episodes",
+    description: "Counts episodes grouped by a facet (person, month, conversation, mood, kind, topic, place), with example titles per group. For 'who/when/how often' questions.",
+    parameters: {
+      type: "object",
+      properties: { by: { type: "string", enum: ["person", "month", "conversation", "mood", "kind", "topic", "place"] }, ...episodeFilterParams },
+      required: ["by"],
+    },
+  },
+  {
+    name: "cluster_topics",
+    description: "Groups the matching episodes into topics by meaning and lists each topic's episodes with dates; name the topics yourself. For 'what do we talk about' or 'main themes' questions.",
+    parameters: { type: "object", properties: episodeFilterParams },
+  },
+  {
+    name: "list_plans",
+    description: "Plans, events and intentions extracted from the chats, with dates when known and the messages they came from. Defaults to plans dated today or later.",
+    parameters: { type: "object", properties: { ...episodeFilterParams, include_past: { type: "boolean" } } },
+  },
+];
+
+const FACT_TOOLS = [
+  {
+    name: "person_facts",
+    description:
+      "What the chats say about a person (or Me): likes, wants, work, school, home, relationships, health, milestones, opinions, habits. Each fact has when it became known, its source message and exact quote; with include_history also facts that later changed (and when). Use for 'what does X like', 'what's new with X', 'how has X changed'.",
+    parameters: {
+      type: "object",
+      properties: {
+        person: { type: "string" },
+        include_history: { type: "boolean" },
+        since: { type: "string", description: "Only facts learned on or after YYYY-MM-DD, e.g. since you last talked." },
+      },
+      required: ["person"],
+    },
+  },
+  {
+    name: "search_facts",
+    description: "Facts about anyone closest in meaning to a query, e.g. 'wants as a gift', 'got a new job', 'allergic'.",
+    parameters: { type: "object", properties: { query: { type: "string" }, include_history: { type: "boolean" } }, required: ["query"] },
+  },
+];
+
 const TOOLS = [
   {
     name: "find_conversations",
@@ -123,7 +183,9 @@ const TOOLS = [
       required: ["answer", "citations"],
     },
   },
-].map((t) => ({ type: "function", function: t }));
+];
+
+const toTools = (defs: { name: string }[]) => defs.map((t) => ({ type: "function", function: t }));
 
 /**
  * Answers a question about the user's chats with an agent loop over the message store: it scopes itself to whoever
@@ -137,12 +199,17 @@ export async function ask(options: {
   owner: string;
   store: MessageStore;
   memory: MemoryIndex | null;
+  episodes?: EpisodeIndex | null;
+  facts?: FactIndex | null;
   embed: Embed | null;
   complete: Complete;
   timeZone: string;
   now: number;
 }): Promise<AssistantAnswer> {
   const { owner, store, memory, embed, timeZone } = options;
+  const episodes = options.episodes ?? null;
+  const facts = options.facts ?? null;
+  const tools = toTools([...(episodes ? EPISODE_TOOLS : []), ...(facts ? FACT_TOOLS : []), ...TOOLS]);
   const handles = new Map(options.conversations.map((c, i) => ["c" + (i + 1), c]));
   const byKey = new Map([...handles].map(([h, c]) => [c.key, { handle: h, ...c }]));
   const seen = new Map<number, StoredMessage>();
@@ -171,9 +238,108 @@ export async function ask(options: {
     return `#${m.id} [${stamp.format(m.ts)}] ${c?.handle ?? "?"} ${who}: ${m.text ?? "[" + m.kind + "]"}`;
   };
 
+  const episodeLine = (e: StoredEpisode) => {
+    const c = byKey.get(e.conversation);
+    const extras = [e.people.length ? "people: " + e.people.join(", ") : "", e.places.length ? "places: " + e.places.join(", ") : ""].filter(Boolean).join("; ");
+    return `E${e.id} [${stamp.format(e.startTs)} → ${stamp.format(e.endTs)}] ${c?.handle ?? "?"} ${c?.title ?? ""} · ${e.mood}/${e.kind} · starts at #${e.firstId}\n  ${e.title}: ${e.summary}${extras ? " (" + extras + ")" : ""}`;
+  };
+  const episodeFilter = (args: Record<string, unknown>, after?: number, before?: number): EpisodeFilter => ({
+    conversations: scope(args.conversations),
+    after,
+    before,
+    person: typeof args.person === "string" && args.person.trim() ? args.person.trim() : undefined,
+    mood: typeof args.mood === "string" ? args.mood : undefined,
+    kind: typeof args.kind === "string" ? args.kind : undefined,
+  });
+  const factLine = (f: StoredFact, source: StoredMessage | undefined) => {
+    if (source) seen.set(source.id, source);
+    const c = byKey.get(f.conversation);
+    const window = f.validTo === null ? "since " + day.format(f.validFrom) : day.format(f.validFrom) + " → " + day.format(f.validTo) + " (changed)";
+    return `${f.subject} ${f.predicate}: ${f.object} [${window}] from #${f.messageId} in ${c?.handle ?? "?"} ${c?.title ?? ""}: "${f.quote}"`;
+  };
+  const month = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit" });
+
   const run = async (name: string, args: Record<string, unknown>): Promise<string> => {
     const after = parseDay(args.after, false);
     const before = parseDay(args.before, true);
+    if (episodes && name in EPISODE_RUNNERS) return EPISODE_RUNNERS[name](args, after, before);
+    if (facts && (name === "person_facts" || name === "search_facts")) {
+      const found =
+        name === "person_facts"
+          ? await facts.about(owner, String(args.person ?? ""), { includeHistory: !!args.include_history, since: parseDay(args.since, false) })
+          : embed
+            ? await facts.search(owner, (await embed([String(args.query ?? "")]))[0], 20, !!args.include_history)
+            : [];
+      if (found.length === 0) return "No facts recorded.";
+      const sources = new Map((await store.byIds(owner, [...new Set(found.map((f) => f.messageId))])).map((m) => [m.id, m]));
+      return found.map((f) => factLine(f, sources.get(f.messageId))).join("\n");
+    }
+    return runBase(name, args, after, before);
+  };
+
+  const EPISODE_RUNNERS: Record<string, (args: Record<string, unknown>, after?: number, before?: number) => Promise<string>> = {
+    async find_episodes(args, after, before) {
+      const query = typeof args.query === "string" && args.query.trim() ? args.query : null;
+      const vector = query && embed ? (await embed([query]))[0] : undefined;
+      const found = await episodes!.find(owner, episodeFilter(args, after, before), 12, vector);
+      return found.length ? found.map(episodeLine).join("\n") : "No episodes match.";
+    },
+    async group_episodes(args, after, before) {
+      const found = await episodes!.find(owner, episodeFilter(args, after, before), 3000);
+      const groups = new Map<string, StoredEpisode[]>();
+      const add = (k: string, e: StoredEpisode) => groups.set(k, [...(groups.get(k) ?? []), e]);
+      for (const e of found) {
+        const by = String(args.by);
+        if (by === "person") for (const p of new Set([...e.senders, ...e.people])) add(p, e);
+        else if (by === "month") add(month.format(e.startTs), e);
+        else if (by === "conversation") add(byKey.get(e.conversation)?.title ?? "?", e);
+        else if (by === "mood") add(e.mood, e);
+        else if (by === "kind") add(e.kind, e);
+        else if (by === "topic") for (const t of e.topics) add(t.toLowerCase(), e);
+        else if (by === "place") for (const p of e.places) add(p, e);
+      }
+      const rows = [...groups].sort((a, b) => b[1].length - a[1].length).slice(0, 25);
+      return rows.length
+        ? `${found.length} episodes\n` + rows.map(([k, es]) => `${k}: ${es.length} — e.g. ${es.slice(0, 3).map((e) => e.title).join("; ")}`).join("\n")
+        : "No episodes match.";
+    },
+    async cluster_topics(args, after, before) {
+      const found = await episodes!.find(owner, episodeFilter(args, after, before), 600);
+      if (found.length < 3) return found.length ? found.map(episodeLine).join("\n") : "No episodes match.";
+      const vectors = await episodes!.vectors(owner, found.map((e) => e.id));
+      const usable = found.filter((e) => vectors.has(e.id));
+      const clusters = clusterVectors(usable.map((e) => vectors.get(e.id)!));
+      return clusters
+        .slice(0, 15)
+        .map((idx, i) => {
+          const es = idx.map((j) => usable[j]).sort((a, b) => a.startTs - b.startTs);
+          return `Topic ${i + 1} (${es.length} episodes, ${day.format(es[0].startTs)} → ${day.format(es[es.length - 1].endTs)}):\n` + es.slice(0, 6).map((e) => `  E${e.id} ${day.format(e.startTs)} ${e.title}`).join("\n");
+        })
+        .join("\n");
+    },
+    async list_plans(args, after, before) {
+      const found = await episodes!.find(owner, episodeFilter(args, undefined, before), 3000);
+      const today = day.format(options.now);
+      const plans = found.flatMap((e) => e.plans.map((p) => ({ ...p, e })));
+      const wanted = plans
+        .filter((p) => (args.include_past ? true : p.date !== null && p.date >= today))
+        .filter((p) => after === undefined || (p.date !== null && p.date >= day.format(after)))
+        .sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"))
+        .slice(0, 40);
+      if (wanted.length === 0) return "No plans found.";
+      const sources = await store.byIds(owner, [...new Set(wanted.flatMap((p) => p.sources))].slice(0, 120));
+      const byId = new Map(sources.map((m) => [m.id, m]));
+      return wanted
+        .map((p) => {
+          const c = byKey.get(p.e.conversation);
+          const said = p.sources.map((id) => byId.get(id)).filter((m): m is StoredMessage => !!m).map(line);
+          return `${p.date ?? "date unknown"} (${p.when}) ${p.what}${p.who.length ? " — " + p.who.join(", ") : ""} [${c?.handle ?? "?"} ${c?.title ?? ""}]\n  ${said.join("\n  ")}`;
+        })
+        .join("\n");
+    },
+  };
+
+  const runBase = async (name: string, args: Record<string, unknown>, after?: number, before?: number): Promise<string> => {
     const inRange = (m: { ts: number }) => (after === undefined || m.ts >= after) && (before === undefined || m.ts <= before);
     switch (name) {
       case "find_conversations": {
@@ -233,6 +399,12 @@ export async function ask(options: {
         "Today is " + day.format(options.now) + " (" + timeZone + "). The user appears as \"Me\".",
         "Work out what the question is about and scope your searches: if it names a person, find their chats (DMs and shared groups) and search within those; if it names a time, pass dates. If it is open-ended (\"someone\", \"who\"), search everything.",
         "Search several ways before concluding something isn't there: keyword variants and meaning search. Read context around promising hits.",
+        ...(episodes
+          ? ["Episodes, groupings, topics and plans are summaries: use them to orient, then cite the underlying messages (read around an episode's starting #id, or the source messages a plan lists)."]
+          : []),
+        ...(facts
+          ? ["Facts carry their source message and exact quote, so cite the fact's #id with that quote. When a fact changed, say what it was and what it became, with dates."]
+          : []),
         "Only state what the messages support, and only include messages that are really about what was asked. Put an [n] marker right after each claim in the answer text, and quote words exactly as they appear. Be concise and warm, never invent details, and don't rate friendships.",
         "The answer text is what the user reads: no closing offers or menus of follow-ups, and never end with the word Answer.",
         "Finish by calling answer.",
@@ -245,7 +417,7 @@ export async function ask(options: {
   ];
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const reply = await options.complete(messages, step === MAX_STEPS - 1 ? TOOLS.filter((t) => t.function.name === "answer") : TOOLS);
+    const reply = await options.complete(messages, step === MAX_STEPS - 1 ? tools.filter((t) => t.function.name === "answer") : tools);
     const calls = reply.tool_calls ?? [];
     if (calls.length === 0) return { answer: reply.content ?? "", citations: [] };
     messages.push({ role: "assistant", content: reply.content, tool_calls: calls });
