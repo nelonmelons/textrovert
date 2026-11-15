@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Rounded, Theme, Type } from '../theme';
 import { Friend, firstName, friends, upcomingMilestones } from '../fixtures';
 import { art, DeadlineBadge, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../components/Paper';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { useNotes } from '../store';
+import { SearchResults } from '../components/SearchResults';
 
 const openProfile = (friend: Friend) => router.push(`/friend/${friend.id}`);
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
@@ -35,8 +36,14 @@ function Chip({ text, onPress }: { text: string; onPress: () => void }) {
 
 export default function Today() {
   const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState('');
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  const [query, setQuery] = useState(q ?? '');
+  useEffect(() => {
+    if (q !== undefined) setQuery(q);
+  }, [q]);
   const [focused, setFocused] = useState(false);
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
+  const searching = query.trim().length > 0;
   const [panelHeight, setPanelHeight] = useState(140);
   const [contentSize, setContentSize] = useState({ width: 440, height: 1200 });
   const { items } = useNotes();
@@ -63,6 +70,15 @@ export default function Today() {
             </Pressable>
           </View>
 
+          {searching ? (
+            <SearchResults
+              query={query}
+              onBack={() => {
+                setQuery('');
+                input.current?.blur();
+              }}
+            />
+          ) : (
           <View style={{ gap: 22 }}>
             <Text style={[Type.largeTitle, { fontFamily: Rounded.bold, color: Theme.ink }]}>Today</Text>
 
@@ -117,6 +133,7 @@ export default function Today() {
               </View>
             </SectionCard>
           </View>
+          )}
         </View>
       </ScrollView>
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: Theme.paper }} />
@@ -133,6 +150,7 @@ export default function Today() {
               <Symbol name="magnifyingglass" size={16} color={focused ? '#FFFFFF' : Theme.accent} weight="bold" />
             </View>
             <TextInput
+              ref={input}
               value={query}
               onChangeText={setQuery}
               onFocus={() => setFocused(true)}
@@ -142,15 +160,26 @@ export default function Today() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
+              onSubmitEditing={() => input.current?.blur()}
               style={[Type.body, { flex: 1, color: Theme.ink }]}
             />
+            {query.length > 0 ? (
+              <Pressable onPress={() => { setQuery(''); input.current?.blur(); }} accessibilityLabel="Clear search" hitSlop={12}>
+                <Symbol name="xmark.circle.fill" size={17} color={Theme.secondary} />
+              </Pressable>
+            ) : null}
           </View>
+          {focused ? (
+            <Pressable onPress={() => input.current?.blur()} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={[Type.body, { color: Theme.ink, fontWeight: '600' }]}>Done</Text>
+            </Pressable>
+          ) : null}
         </View>
         {query.length === 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             <Text style={[Type.subheadline, styles.secondary]}>Try</Text>
             {['Mia', 'need +1 for VB tomorrow', '@sarahp', 'who’s waiting on me?'].map((text) => (
-              <Chip key={text} text={text} onPress={() => setQuery(text)} />
+              <Chip key={text} text={text} onPress={() => { setQuery(text); input.current?.blur(); }} />
             ))}
           </ScrollView>
         ) : null}
