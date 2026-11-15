@@ -1,6 +1,7 @@
 import { createClient, type Client } from "@libsql/client/web";
 
 import { EpisodeIndex } from "../pipeline/assistant/episodes";
+import { FactIndex } from "../pipeline/assistant/facts";
 import { MemoryIndex } from "../pipeline/assistant/memory";
 import { stableId } from "../pipeline/hash";
 import { MessageStore } from "../pipeline/store";
@@ -9,6 +10,7 @@ let client: Client | null = null;
 let store: Promise<MessageStore> | null = null;
 let memory: Promise<MemoryIndex> | null = null;
 let episodes: Promise<EpisodeIndex> | null = null;
+let facts: Promise<FactIndex> | null = null;
 
 function tursoClient(): Client {
   if (!client) {
@@ -66,6 +68,21 @@ export function getEpisodeIndex(): Promise<EpisodeIndex> {
     });
   }
   return episodes;
+}
+
+/** Facts about people with validity windows and character-exact sources. */
+export function getFactIndex(): Promise<FactIndex> {
+  if (!facts) {
+    facts = (async () => {
+      const index = new FactIndex(tursoClient());
+      await index.migrate();
+      return index;
+    })();
+    facts.catch(() => {
+      facts = null;
+    });
+  }
+  return facts;
 }
 
 /**
