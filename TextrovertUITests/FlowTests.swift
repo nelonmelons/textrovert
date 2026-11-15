@@ -444,6 +444,60 @@ final class FlowTests: XCTestCase {
         capture("30-Search-ask-fallback")
     }
 
+    func testSettingsAccountsAndLogout() {
+        let app = launch()
+        app.buttons["settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        for id in ["imessage", "instagram", "tiktok", "snapchat", "whatsapp"] {
+            XCTAssertTrue(app.descendants(matching: .any)["account-\(id)"].exists)
+        }
+        let tiktok = app.descendants(matching: .any)["accountState-tiktok"]
+        XCTAssertEqual(tiktok.label, "Not connected")
+        XCTAssertEqual(app.descendants(matching: .any)["accountState-whatsapp"].label, "Needs attention")
+        XCTAssertTrue(has(app, "pretend connections"))
+        capture("31-Settings")
+        app.buttons["accountAction-tiktok"].tap()
+        XCTAssertEqual(tiktok.label, "Connecting…")
+        let connected = expectation(for: NSPredicate(format: "label == 'Connected'"), evaluatedWith: tiktok)
+        wait(for: [connected], timeout: 4)
+        capture("32-Settings-connected")
+
+        let logout = app.buttons["logout"]
+        scrollTo(app, logout)
+        logout.tap()
+        app.buttons["Log out and reset"].firstMatch.tap()
+        let intro = app.descendants(matching: .any)["intro"]
+        XCTAssertTrue(intro.waitForExistence(timeout: 3))
+        wait(for: [expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: intro)], timeout: 6)
+        XCTAssertTrue(app.staticTexts["Today"].waitForExistence(timeout: 10))
+        app.buttons["settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.descendants(matching: .any)["accountState-tiktok"].label, "Not connected")
+    }
+
+    func testContactsImportKeepsRunning() {
+        let app = launch()
+        app.buttons["settings"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        let importButton = app.buttons["Import from Contacts"]
+        scrollTo(app, importButton)
+        importButton.tap()
+        let sheet = app.navigationBars["Your contacts"]
+        let denied = app.staticTexts["Allow Contacts in Settings to import your people."]
+        let failed = app.staticTexts["Contacts couldn’t be loaded. Please try again."]
+        let deadline = Date().addingTimeInterval(8)
+        while Date() < deadline && !sheet.exists && !denied.exists && !failed.exists { usleep(250_000) }
+        XCTAssertEqual(app.state, .runningForeground)
+        XCTAssertFalse(failed.exists)
+        XCTAssertTrue(sheet.exists || denied.exists)
+        capture(sheet.exists ? "33-Contacts-granted" : "34-Contacts-denied")
+        if sheet.exists {
+            app.buttons["Done"].firstMatch.tap()
+        }
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.state, .runningForeground)
+    }
+
     private func circular(_ value: CGFloat) -> CGFloat {
         let period: CGFloat = 22
         var v = value.truncatingRemainder(dividingBy: period)

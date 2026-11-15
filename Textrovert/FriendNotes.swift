@@ -144,6 +144,11 @@ final class NotesStore: ObservableObject {
         }
     }
 
+    func reset() {
+        try? FileManager.default.removeItem(at: file)
+        saved = Saved()
+    }
+
     func items(_ friend: Friend, _ section: NoteSection) -> [NoteItem] {
         let base = friend.baseNotes.filter { $0.section == section }.map { saved.edits["\(friend.id)/\($0.id)"] ?? $0 }
         return base + (saved.added[friend.id] ?? []).filter { $0.section == section }

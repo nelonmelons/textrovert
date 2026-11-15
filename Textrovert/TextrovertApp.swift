@@ -51,10 +51,11 @@ enum Theme {
 struct RootView: View {
     @State private var showIntro = true
     @StateObject private var store = NotesStore()
+    @StateObject private var session = DemoSession()
 
     var body: some View {
         ZStack {
-            TodayView()
+            TodayView().id(session.generation)
             if showIntro {
                 IntroView { withAnimation(.easeOut(duration: 0.35)) { showIntro = false } }
                     .transition(.opacity)
@@ -62,7 +63,9 @@ struct RootView: View {
             }
         }
         .environmentObject(store)
+        .environmentObject(session)
         .foregroundStyle(Theme.ink)
+        .onChange(of: session.generation) { showIntro = true }
     }
 }
 
@@ -491,42 +494,138 @@ struct ConversationAnalysis: View {
     }
 }
 
+enum AccountState: String, Codable {
+    case notConnected, connecting, connected, needsAttention
+
+    var label: String {
+        switch self {
+        case .notConnected: "Not connected"
+        case .connecting: "Connecting…"
+        case .connected: "Connected"
+        case .needsAttention: "Needs attention"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .notConnected: "circle.dashed"
+        case .connecting: "arrow.triangle.2.circlepath"
+        case .connected: "checkmark.circle.fill"
+        case .needsAttention: "exclamationmark.triangle.fill"
+        }
+    }
+}
+
+struct DemoAccount: Identifiable {
+    let id: String
+    let name: String
+    let symbol: String
+    let purpose: String
+
+    static let all: [DemoAccount] = [
+        DemoAccount(id: "imessage", name: "iMessage", symbol: "message.fill", purpose: "So I can spot plans, replies and birthdays in your texts."),
+        DemoAccount(id: "instagram", name: "Instagram", symbol: "camera.fill", purpose: "So I can catch plans and questions in your DMs."),
+        DemoAccount(id: "tiktok", name: "TikTok", symbol: "music.note", purpose: "So I can learn what friends are into from videos they send you."),
+        DemoAccount(id: "snapchat", name: "Snapchat", symbol: "bolt.heart.fill", purpose: "So I can remember plans you make in snaps and chats."),
+        DemoAccount(id: "whatsapp", name: "WhatsApp", symbol: "phone.bubble.fill", purpose: "So I can keep track of group plans and replies you owe.")
+    ]
+}
+
+@MainActor
+final class DemoSession: ObservableObject {
+    static let fixtureStates: [String: AccountState] = ["imessage": .connected, "instagram": .connected, "whatsapp": .needsAttention, "tiktok": .notConnected, "snapchat": .notConnected]
+    private static let key = "textrovert.demo.accounts.v1"
+
+    @Published private(set) var states: [String: AccountState]
+    @Published private(set) var generation = 0
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard, environment: [String: String] = ProcessInfo.processInfo.environment) {
+        self.defaults = defaults
+        if environment["TEXTROVERT_STORE_RESET"] == "1" { defaults.removeObject(forKey: Self.key) }
+        let stored = defaults.data(forKey: Self.key).flatMap { try? JSONDecoder().decode([String: AccountState].self, from: $0) }
+        states = (stored ?? Self.fixtureStates).mapValues { $0 == .connecting ? .notConnected : $0 }
+    }
+
+    func state(_ account: DemoAccount) -> AccountState { states[account.id] ?? .notConnected }
+
+    func connect(_ account: DemoAccount) {
+        set(account.id, .connecting)
+        Task {
+            try? await Task.sleep(for: .milliseconds(1200))
+            if states[account.id] == .connecting { set(account.id, .connected) }
+        }
+    }
+
+    func disconnect(_ account: DemoAccount) { set(account.id, .notConnected) }
+
+    func logOut(notes: NotesStore) {
+        notes.reset()
+        defaults.removeObject(forKey: Self.key)
+        states = Self.fixtureStates
+        generation += 1
+    }
+
+    private func set(_ id: String, _ state: AccountState) {
+        states[id] = state
+        defaults.set(try? JSONEncoder().encode(states), forKey: Self.key)
+    }
+}
+
 struct SettingsView: View {
+    @EnvironmentObject private var session: DemoSession
+    @EnvironmentObject private var notes: NotesStore
     @StateObject private var contacts = ContactImportModel()
     @State private var showingContacts = false
+    @State private var confirmingLogout = false
 
     var body: some View {
-        List {
-            Section {
-                HStack(spacing: 14) {
-                    Face(initials: "ED")
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Emma").font(.headline)
-                        Text("Your profile").foregroundStyle(.secondary)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                profile
+                accounts
+                VStack(alignment: .leading, spacing: 12) {
+                    ToneTab(title: "Your people", symbol: "person.2.fill", tone: Theme.plansTone)
+                    Button {
+                        Task {
+                            await contacts.requestAccessAndLoad()
+                            showingContacts = contacts.hasAccess
+                        }
+                    } label: {
+                        Label("Import from Contacts", systemImage: "person.crop.circle.badge.plus")
                     }
+                    if let message = contacts.message {
+                        Text(message).font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Text("Contacts are only read after you tap import.")
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
-            }
-            Section("Connected accounts") {
-                Label("No accounts connected", systemImage: "link")
-                Text("Connect your chats so I can help with plans, replies and gift ideas.")
-                    .font(.subheadline).foregroundStyle(.secondary)
-            }
-            Section("Your people") {
+                .sectionCard(Theme.plansTone)
                 Button {
-                    Task {
-                        await contacts.requestAccessAndLoad()
-                        showingContacts = contacts.hasAccess
-                    }
+                    confirmingLogout = true
                 } label: {
-                    Label("Import from Contacts", systemImage: "person.crop.circle.badge.plus")
+                    Label("Log out", systemImage: "rectangle.portrait.and.arrow.right")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .background(Color(uiColor: .systemBackground), in: Capsule())
+                        .overlay(Capsule().strokeBorder(Theme.accent, lineWidth: 1.5))
                 }
-                if let message = contacts.message {
-                    Text(message).font(.subheadline).foregroundStyle(.secondary)
+                .buttonStyle(PressableStyle())
+                .accessibilityIdentifier("logout")
+                .confirmationDialog("Log out of the demo?", isPresented: $confirmingLogout, titleVisibility: .visible) {
+                    Button("Log out and reset", role: .destructive) { session.logOut(notes: notes) }
+                        .accessibilityIdentifier("confirmLogout")
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("Your notes and accounts go back to how the demo started.")
                 }
-                Text("Contacts are only read after you tap import.")
-                    .font(.footnote).foregroundStyle(.secondary)
             }
+            .padding(24)
+            .gridPaper()
         }
+        .paperScroll()
+        .paperNavigationBar()
         .navigationTitle("Settings")
         .toolbar(.visible, for: .navigationBar)
         .sheet(isPresented: $showingContacts) {
@@ -549,6 +648,89 @@ struct SettingsView: View {
             }
         }
     }
+
+    private var profile: some View {
+        HStack(spacing: 16) {
+            Face(initials: "ED")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Emma Di").font(.system(.title2, design: .rounded, weight: .bold))
+                Text("\(Friend.fixtures.count) friends · \(session.states.values.filter { $0 == .connected }.count) accounts connected")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("profileSummary")
+            }
+            Spacer(minLength: 0)
+        }
+        .sectionCard(Theme.accentTone)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("profileCard")
+    }
+
+    private var accounts: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                ToneTab(title: "Connected accounts", symbol: "link", tone: Theme.celebrateTone)
+                Spacer()
+                Text("Demo")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(Theme.celebrateTone.ink)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .overlay(Capsule().strokeBorder(Theme.celebrateTone.ink, lineWidth: 1))
+            }
+            ForEach(Array(DemoAccount.all.enumerated()), id: \.element.id) { index, account in
+                if index > 0 { Divider() }
+                accountRow(account)
+            }
+            Text("These are pretend connections for the demo. No real accounts are linked and nothing leaves this phone.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .sectionCard(Theme.celebrateTone)
+    }
+
+    private func accountRow(_ account: DemoAccount) -> some View {
+        let state = session.state(account)
+        let attention = state == .needsAttention
+        return HStack(alignment: .top, spacing: 14) {
+            Image(systemName: account.symbol)
+                .font(.headline)
+                .foregroundStyle(Theme.accent)
+                .frame(width: 44, height: 44)
+                .background(Theme.accentTone.fill, in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(account.name).font(.headline)
+                Text(account.purpose).font(.subheadline).foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    if state == .connecting {
+                        ProgressView().controlSize(.mini)
+                    } else {
+                        Image(systemName: state.symbol)
+                    }
+                    Text(attention ? "Needs attention · sign-in expired" : state.label)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(attention ? Theme.deadline : state == .connected ? Theme.activities : Color.secondary)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(state.label)
+                .accessibilityIdentifier("accountState-\(account.id)")
+            }
+            Spacer(minLength: 0)
+            Button(state == .connected ? "Disconnect" : attention ? "Fix" : "Connect") {
+                if state == .connected { session.disconnect(account) } else { session.connect(account) }
+            }
+            .font(.subheadline.weight(.semibold))
+            .buttonStyle(.bordered)
+            .tint(state == .connected ? Color.secondary : Theme.accent)
+            .disabled(state == .connecting)
+            .opacity(state == .connecting ? 0 : 1)
+            .accessibilityLabel("\(state == .connected ? "Disconnect" : attention ? "Fix" : "Connect") \(account.name)")
+            .accessibilityIdentifier("accountAction-\(account.id)")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("account-\(account.id)")
+    }
 }
 
 @MainActor
@@ -565,7 +747,7 @@ private final class ContactImportModel: ObservableObject {
                 message = "Allow Contacts in Settings to import your people."
                 return
             }
-            let request = CNContactFetchRequest(keysToFetch: [CNContactGivenNameKey as CNKeyDescriptor, CNContactFamilyNameKey as CNKeyDescriptor])
+            let request = CNContactFetchRequest(keysToFetch: [CNContactFormatter.descriptorForRequiredKeys(for: .fullName)])
             var loaded: [String] = []
             try store.enumerateContacts(with: request) { contact, _ in
                 let name = CNContactFormatter.string(from: contact, style: .fullName) ?? ""
@@ -574,6 +756,8 @@ private final class ContactImportModel: ObservableObject {
             names = loaded.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
             hasAccess = true
             message = names.isEmpty ? "No contacts found." : "Loaded \(names.count) contacts on this device."
+        } catch let error as CNError where error.code == .authorizationDenied {
+            message = "Allow Contacts in Settings to import your people."
         } catch {
             message = "Contacts couldn’t be loaded. Please try again."
         }
