@@ -171,6 +171,9 @@ importers:
       '@libsql/client':
         specifier: ^0.18.0
         version: 0.18.0
+      '@textrovert/wrapped':
+        specifier: workspace:*
+        version: link:../wrapped
       convex:
         specifier: ^1.50.0
         version: 1.50.0(react@19.3.1)
@@ -279,6 +282,15 @@ importers:
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^5.1.0
+        version: 5.1.0(@types/node@24.19.2)(vite@7.3.8(@types/node@24.19.2)(lightningcss@1.33.0)(terser@5.51.2)(tsx@4.23.15))
+
+  packages/wrapped:
+    devDependencies:
       typescript:
         specifier: ~6.0.3
         version: 6.0.3

@@ -14,7 +14,8 @@
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
-    "convex": "^1.50.0"
+    "convex": "^1.50.0",
+    "@textrovert/wrapped": "workspace:*"
   },
   "devDependencies": {
     "@beeper/desktop-api": "^6.0.0",
