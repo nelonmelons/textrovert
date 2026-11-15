@@ -1,0 +1,21 @@
+{
+  "name": "@textrovert/mac-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "textrovert-sync": "./src/sync.ts"
+  },
+  "scripts": {
+    "sync": "node src/sync.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@textrovert/ingest": "workspace:*",
+    "convex": "^1.50.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.0.0"
+  }
+}

@@ -17,6 +17,7 @@ export { renderTranscript, renderLine, computeStats } from "./transcript.ts";
 export { reassignSelf } from "./conversation.ts";
 export { ingestInstagramExport, parseInstagramThread, fixMojibake } from "./instagram.ts";
 export { rankConversations } from "./rank.ts";
+export { mergeConversations } from "./merge.ts";
 export type { ChatSummary } from "./rank.ts";
 
 export interface TextIngestOptions {

@@ -10,6 +10,7 @@
 
 import type * as imports from "../imports.js";
 import type * as ingest from "../ingest.js";
+import type * as sync from "../sync.js";
 
 import type {
   ApiFromModules,
@@ -20,6 +21,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   imports: typeof imports;
   ingest: typeof ingest;
+  sync: typeof sync;
 }>;
 
 /**
