@@ -5,7 +5,7 @@ import {
   type WrappedConversation, type WrappedDateRange, type WrappedFigure, type WrappedMessage, type WrappedParticipant,
   type WrappedPresentation, type WrappedQuantity, type WrappedRole, type WrappedSignal,
 } from "./models";
-import { characterCount, compareStrings, content, laughs, normalized, sensitivity, tokens, trimmed, wordCount, type WrappedSensitivity } from "./text";
+import { characterCount, compareStrings, content, fillerWords, laughs, normalized, sensitivity, tokens, trimmed, wordCount, type WrappedSensitivity } from "./text";
 import { dayDifference, safeTimeZone, startOfDay } from "./time";
 
 export interface WrappedClaim {
@@ -233,8 +233,10 @@ export class WrappedHeuristicProvider implements WrappedCandidateProviding {
     if (usable.length < 4) return [];
     const terms = new Map<string, WrappedEntry[]>();
     for (const e of usable) {
-      const found = new Set(e.content.filter((t) => characterCount(t) >= 4));
-      for (let i = 0; i + 1 < e.content.length; i++) found.add(e.content[i] + " " + e.content[i + 1]);
+      const found = new Set(e.content.filter((t) => characterCount(t) >= 4 && !fillerWords.has(t)));
+      for (let i = 0; i + 1 < e.content.length; i++) {
+        if (!fillerWords.has(e.content[i]) || !fillerWords.has(e.content[i + 1])) found.add(e.content[i] + " " + e.content[i + 1]);
+      }
       for (const t of found) {
         const occ = terms.get(t);
         if (occ) occ.push(e);

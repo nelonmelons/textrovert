@@ -8,6 +8,7 @@ import {
 } from "@textrovert/wrapped";
 
 import type { ConversationRef } from "./assistant/agent";
+import { isMetaActivityText } from "./parsers/meta";
 import type { StoredMessage } from "./store";
 import type { Platform } from "./types";
 
@@ -22,17 +23,19 @@ const serviceNames: Record<Platform, string> = {
 /**
  * Message ids are the store's row ids, so cached editions re-verify against the same rows. The owner's messages
  * (sender equal to the conversation's selfName) get WRAPPED_OWNER_ID. Rows that aren't text with text (media, calls,
- * system notices) become system messages, which Wrapped never quotes or counts. Rows must be in (ts, id) order.
+ * system notices) become system messages, which Wrapped never quotes or counts; so do Instagram and Messenger activity
+ * lines that were stored as text ("<name> sent an attachment."). Rows must be in (ts, id) order.
  */
 export function toWrappedConversation(ref: ConversationRef, rows: StoredMessage[], ownerID = WRAPPED_OWNER_ID): WrappedConversation {
   const idFor = (name: string) => (ref.selfName !== null && name === ref.selfName ? ownerID : name);
   const participants = [...new Set(ref.participants)].map((name) => ({ id: idFor(name), name }));
+  const meta = ref.platform === "instagram" || ref.platform === "messenger";
   const messages: WrappedMessage[] = rows.map((r) => ({
     id: String(r.id),
     senderID: r.sender ? idFor(r.sender) : null,
     text: r.text ?? "",
     sentAt: Number.isFinite(r.ts) ? r.ts : null,
-    kind: r.kind === "text" && r.text !== null ? "text" : "system",
+    kind: r.kind === "text" && r.text !== null && !(meta && isMetaActivityText(r.text)) ? "text" : "system",
   }));
   return { id: ref.id, service: serviceNames[ref.platform] ?? ref.platform, participants, messages };
 }

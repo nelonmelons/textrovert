@@ -56,6 +56,23 @@ export const stopwords: ReadonlySet<string> = new Set([
   "good", "time", "thing", "things", "pls", "please", "thanks", "thank", "sure", "well", "anyway", "which", "while", "again", "because",
 ]);
 
+/**
+ * Everyday chat words that recur in any conversation, so they never make a running joke on their own:
+ * fillers, slang, time words and generic verbs. Real chats were dominated by "wait", "today" and "aight" without it.
+ */
+export const fillerWords: ReadonlySet<string> = new Set([
+  "wait", "aight", "alright", "ight", "okay", "okayy", "yeah", "yeahh", "yess", "yesss", "nope", "yeap", "yup", "nahh", "sure", "fine",
+  "cool", "nice", "true", "down", "fr", "frfr", "deadass", "bruh", "bro", "bros", "dude", "guys", "man", "lmao", "lmfao", "haha", "hahaha", "hahah",
+  "lmaoo", "lmaooo", "omg", "idk", "lmk", "ngl", "tbh", "imma", "gotta", "wanna", "kinda", "sorta", "tho", "though", "literally", "actually",
+  "probably", "maybe", "definitely", "honestly", "basically", "pretty", "super", "damn", "shit", "fuck", "fucking", "type", "today", "tonight",
+  "tomorrow", "yesterday", "morning", "night", "week", "weekend", "later", "soon", "rn", "next", "last", "first", "every", "always", "never",
+  "already", "else", "right", "real", "really", "something", "anything", "nothing", "everything", "someone", "anyone", "everyone", "stuff",
+  "people", "place", "work", "home", "call", "text", "sent", "send", "come", "coming", "came", "goes", "went", "getting", "doing", "done",
+  "having", "saying", "trying", "looking", "thinking", "working", "tell", "told", "mean", "means", "feel", "look", "looks", "take", "give",
+  "keep", "find", "help", "show", "start", "stop", "talk", "watch", "play", "leave", "meet", "these", "those", "other", "another", "same",
+  "great", "better", "best", "little", "long", "love", "sorry", "didnt", "isnt", "wont", "thats", "whats", "theres", "youll", "hes", "shes",
+]);
+
 export function normalized(text: string): string {
   return text.toLowerCase().replaceAll("\u2019", "'");
 }
@@ -111,6 +128,8 @@ const conflictPhrases = [
   "stop texting", "fed up", "disappointed in", "hurt my feelings", "i hate you", "i hate this", "not talking to", "i'm sorry", "im sorry",
   "apolog", "blocked you", "break up", "breaking up", "breakup",
 ];
+// Texting shorthand for the phrases above, matched on whole tokens so "u" never matches inside a word.
+const conflictShorthand = ["i hate u", "mad at u", "upset with u", "disappointed in u", "u always", "u never", "wish u told", "wish u had told"];
 const conflictWords = new Set(["angry", "furious", "pissed", "livid", "resent", "argument", "fight", "fighting"]);
 const privatePhrases = ["social security", "credit card", "my address", "verification code", "passed away", "panic attack", "owe you", "i owe"];
 const privateWords = new Set([
@@ -125,9 +144,10 @@ export function sensitivity(text: string, fromOwner: boolean, friendFirstName: s
   const n = normalized(text);
   const t = new Set(tokens(text));
   const any = (words: Iterable<string>) => [...words].some((w) => t.has(w));
-  if (conflictPhrases.some((p) => n.includes(p)) || any(conflictWords)) return "conflict";
+  const joined = " " + tokens(text).join(" ") + " ";
+  if (conflictPhrases.some((p) => n.includes(p)) || conflictShorthand.some((p) => joined.includes(" " + p + " ")) || any(conflictWords)) return "conflict";
   if (privatePhrases.some((p) => n.includes(p)) || any(privateWords)) return "privateTopic";
-  const addressesFriend = any(["you", "your", "you're", "youre", friendFirstName.toLowerCase()]);
+  const addressesFriend = any(["you", "your", "you're", "youre", "u", "ur", friendFirstName.toLowerCase()]);
   if (fromOwner && addressesFriend && any(insultWords)) return "roastOfOther";
   return null;
 }

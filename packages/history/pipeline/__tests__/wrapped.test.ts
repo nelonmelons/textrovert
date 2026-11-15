@@ -50,6 +50,17 @@ describe("toWrappedConversation", () => {
     expect(c.messages[3], "system rows have no sender").toMatchObject({ kind: "system", senderID: null });
   });
 
+  it("treats Instagram activity lines stored as text as system messages", () => {
+    const lines = [
+      row(at(11, 9, 9, 0), "Ava Park", "ava.p sent an attachment."),
+      row(at(11, 9, 9, 1), "Alex", "You started an audio call"),
+      row(at(11, 9, 9, 2), "Ava Park", "Ava liked a message"),
+      row(at(11, 9, 9, 3), "Alex", "I sent an attachment to the wrong chat"),
+    ];
+    expect(toWrappedConversation(dm, lines).messages.map((m) => m.kind)).toEqual(["system", "system", "system", "text"]);
+    expect(toWrappedConversation({ ...dm, platform: "whatsapp" }, lines).messages.every((m) => m.kind === "text")).toBe(true);
+  });
+
   it("leaves the owner out when the export never named them, so Wrapped reports it unsupported", () => {
     const c = toWrappedConversation({ ...dm, selfName: null }, rows);
     expect(c.participants.some((p) => p.id === WRAPPED_OWNER_ID)).toBe(false);
