@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
+import { readdirSync, readFileSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { parseArgs } from "node:util";
 import {
   readRecording,
   framesToConversation,
   ingestText,
-  ingestWhatsAppZip,
+  ingestZip,
+  rankConversations,
   reassignSelf,
   renderTranscript,
   type Conversation,
@@ -24,12 +25,13 @@ const { values, positionals } = parseArgs({
     "recorded-at": { type: "string" },
     model: { type: "string" },
     frames: { type: "string" },
+    pick: { type: "string" },
   },
 });
 
 const input = positionals[0];
 if (!input && !values.frames) {
-  console.error("usage: textrovert-ingest <chat.txt|chat.zip|recording.mp4> [--self NAME] [--out DIR] [--fps 4] [--recorded-at ISO] [--frames frames.json]");
+  console.error("usage: textrovert-ingest <chat.txt|export.zip|imessage-export-dir|recording.mp4> [--pick 1,3] [--self NAME] [--out DIR] [--fps 6] [--recorded-at ISO] [--frames frames.json]");
   process.exit(1);
 }
 
@@ -48,11 +50,29 @@ async function frameAt(path: string, timeSec: number): Promise<string> {
   return `data:image/jpeg;base64,${stdout.toString("base64")}`;
 }
 
-async function run(): Promise<Conversation> {
+function safeName(s: string): string {
+  return s.replace(/[^\p{L}\p{N}._ -]+/gu, "_").slice(0, 60) || "chat";
+}
+
+async function run(): Promise<Conversation[]> {
   const name = input ? basename(input, extname(input)) : basename(values.frames!, ".frames.json");
   const ext = input ? extname(input).toLowerCase() : "";
   const recordedAt = values["recorded-at"] ? new Date(values["recorded-at"]) : input ? statSync(input).mtime : new Date();
   mkdirSync(values.out!, { recursive: true });
+  if (input && statSync(input).isDirectory()) {
+    return readdirSync(input)
+      .filter((f) => f.endsWith(".txt") && statSync(join(input, f)).size > 0)
+      .flatMap((f) => {
+        try {
+          const conv = ingestText(readFileSync(join(input, f), "utf8"), { selfName: values.self });
+          conv.sourceId = f;
+          conv.title ??= basename(f, ".txt");
+          return [conv];
+        } catch {
+          return [];
+        }
+      });
+  }
 
   if (values.frames || [".mp4", ".mov", ".m4v", ".webm"].includes(ext)) {
     let frames: FrameExtraction[];
@@ -71,16 +91,36 @@ async function run(): Promise<Conversation> {
       process.stderr.write("\n");
       writeFileSync(join(values.out!, `${name}.frames.json`), JSON.stringify(frames, null, 2));
     }
-    return framesToConversation(frames, { recordedAt });
+    return [framesToConversation(frames, { recordedAt })];
   }
-  if (ext === ".zip") return ingestWhatsAppZip(readFileSync(input), { selfName: values.self });
-  return ingestText(readFileSync(input, "utf8"), { selfName: values.self });
+  if (ext === ".zip") return ingestZip(readFileSync(input), { selfName: values.self });
+  return [ingestText(readFileSync(input, "utf8"), { selfName: values.self })];
 }
 
-let conv = await run();
-if (values.self && !conv.participants.some((p) => p.isSelf && p.name === values.self)) conv = reassignSelf(conv, values.self);
-const name = input ? basename(input, extname(input)) : basename(values.frames!, ".frames.json");
-writeFileSync(join(values.out!, `${name}.conversation.json`), JSON.stringify(conv, null, 2));
-const transcript = renderTranscript(conv);
-writeFileSync(join(values.out!, `${name}.transcript.txt`), transcript);
-process.stdout.write(transcript);
+const convs = await run();
+const write = (conv: Conversation, name: string) => {
+  const fixed = values.self && !conv.participants.some((p) => p.isSelf && p.name === values.self) ? reassignSelf(conv, values.self) : conv;
+  writeFileSync(join(values.out!, `${name}.conversation.json`), JSON.stringify(fixed, null, 2));
+  const transcript = renderTranscript(fixed);
+  writeFileSync(join(values.out!, `${name}.transcript.txt`), transcript);
+  return transcript;
+};
+
+const isBulk = !!input && (statSync(input).isDirectory() || convs.length > 1);
+if (!isBulk) {
+  process.stdout.write(write(convs[0], input ? basename(input, extname(input)) : basename(values.frames!, ".frames.json")));
+} else {
+  const ranked = rankConversations(convs);
+  const picks = values.pick?.split(",").map((n) => Number(n.trim())) ?? [];
+  for (const [rank, s] of ranked.entries()) {
+    const mark = picks.includes(rank + 1) ? "*" : " ";
+    console.log(`${mark}${String(rank + 1).padStart(3)}. ${s.title.slice(0, 32).padEnd(32)} ${s.isGroup ? "group" : "1:1  "} ${String(s.messageCount).padStart(6)} msgs  ${String(s.recentCount).padStart(4)} last 30d  last ${s.lastTs?.slice(0, 10) ?? "?"}  score ${s.score}`);
+  }
+  for (const n of picks) {
+    const s = ranked[n - 1];
+    if (!s) continue;
+    write(convs[s.index], safeName(s.title));
+    console.error(`wrote ${join(values.out!, safeName(s.title))}.transcript.txt`);
+  }
+  if (!picks.length) console.error("\nPick chats to export with --pick 1,3,5");
+}

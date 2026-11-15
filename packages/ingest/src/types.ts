@@ -33,6 +33,7 @@ export interface Message {
 
 export interface Conversation {
   source: Source;
+  sourceId?: string | null;
   title: string | null;
   isGroup: boolean;
   participants: Participant[];

@@ -26,10 +26,13 @@ function classify(lines: string[]): { kind: MessageKind; text: string } {
   if (/^This message was deleted from the conversation!/.test(text)) return { kind: "unsent", text };
   if (/unsent this message part/.test(text)) return { kind: "unsent", text: "[unsent message]" };
   if (/^(FaceTime|SharePlay Message)\n/.test(text)) return { kind: "call", text: text.replace("\n", ": ") };
-  const mediaLine = /^(\/|~\/|[A-Za-z]:\\|Attachment missing).*$|^.*\.(heic|jpe?g|png|gif|mov|mp4|caf|m4a|pdf|webp)$/i;
-  if (lines.length && lines.every((l) => !l.trim() || mediaLine.test(l.trim()))) {
-    const names = lines.filter((l) => l.trim()).map((l) => l.trim().split(/[\\/]/).pop());
-    return { kind: "media", text: `[attachment: ${names.join(", ")}]` };
+  const mediaLine = /^((\/|~\/|[A-Za-z]:\\)\S.*|Attachment missing.*|\S+\.(heic|jpe?g|png|gif|mov|mp4|caf|m4a|pdf|webp|docx?|pages))$/i;
+  const isMedia = (l: string) => mediaLine.test(l.trim());
+  if (lines.some(isMedia)) {
+    const names = lines.filter(isMedia).map((l) => l.trim().split(/[\\/]/).pop());
+    const rest = lines.filter((l) => !isMedia(l)).join("\n").trim();
+    const tag = `[attachment: ${names.join(", ")}]`;
+    return rest ? { kind: "text", text: `${tag} ${rest}` } : { kind: "media", text: tag };
   }
   if (/^https?:\/\/\S+$/.test(text)) return { kind: "link", text };
   return { kind: "text", text };
