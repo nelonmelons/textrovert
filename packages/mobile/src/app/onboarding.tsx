@@ -225,6 +225,11 @@ export default function Onboarding() {
                     Choose the screen recording from your Gallery or Files app.
                   </Txt>
                 ) : null}
+                {app === 'instagram' ? (
+                  <Txt variant="callout" tone="secondary" shadow>
+                    In Instagram, go to your profile → ☰ → Accounts Center → Your information and permissions → Export your information → Create export → Export to device. Tap Customize information and pick only Messages, set Date range to All time (JSON or HTML both work), then Start export. When Instagram emails you that it's ready, download the .zip and choose it here from the Files app.
+                  </Txt>
+                ) : null}
                 <FormCard>
                   <PressScale onPress={pick} accessibilityLabel={file ? `Change file, ${file.name}` : 'Choose a file'} scale={0.98}>
                     <View style={{ minHeight: 76, borderRadius: 16, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, gap: 4 }}>

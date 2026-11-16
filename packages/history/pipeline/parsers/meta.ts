@@ -1,13 +1,13 @@
-import { readHead, readJson } from "../archive";
+import { readHead, readJson, readText } from "../archive";
 import { streamJsonArray } from "../jsonStream";
 import { fixMojibake } from "../text";
 import type { ArchiveEntry, MessageInput, MessageMeta, Parser, ParserIO, Platform } from "../types";
 
-// .../messages/<inbox|archived_threads|message_requests|...>/<thread_folder>/message_N.json, with or without a
-// your_instagram_activity / your_facebook_activity prefix.
-const THREAD_RE = /(^|\/)messages\/[^/]+\/[^/]+\/message_\d+\.json$/;
+// .../messages/<inbox|archived_threads|message_requests|...>/<thread_folder>/message_N.json (or .html, the format
+// "Download your information" picks by default), with or without a your_instagram_activity / your_facebook_activity prefix.
+const THREAD_RE = /(^|\/)messages\/[^/]+\/[^/]+\/message_\d+\.(?:json|html)$/;
 const MESSAGES_DIR_RE = /(?:^|\/)((?:your_(?:instagram|facebook)_activity\/)?messages\/)/;
-const IG_PROFILE_RE = /(^|\/)personal_information\/(?:personal_information\/)?personal_information\.json$/;
+const IG_PROFILE_RE = /(^|\/)personal_information\/(?:personal_information\/)?personal_information\.(?:json|html)$/;
 const FB_PROFILE_RE = /(^|\/)profile_information\/profile_information\.json$/;
 const IG_ACTIVITY_RE = /(^|\/)your_instagram_activity\//;
 const FB_ACTIVITY_RE = /(^|\/)your_facebook_activity\//;
@@ -45,7 +45,7 @@ function metaParser(platform: "instagram" | "messenger"): Parser {
         if (THREAD_RE.test(entry.path)) {
           if ((await platformOf(entry, entries, peek, prefixPlatform)) === platform) claimed.push(entry);
         } else if (isInstagram && IG_PROFILE_RE.test(entry.path)) {
-          if ((await peek(entry)).includes("profile_user")) claimed.push(entry);
+          if (/profile_user|Username/.test(await peek(entry))) claimed.push(entry);
         } else if (!isInstagram && FB_PROFILE_RE.test(entry.path)) {
           claimed.push(entry);
         } else if (!isInstagram && /\.json$/i.test(entry.path) && entry.size > 0 && (await isE2ee(entry, peek))) {
@@ -61,7 +61,7 @@ function metaParser(platform: "instagram" | "messenger"): Parser {
           const folder = entry.path.slice(0, entry.path.lastIndexOf("/"));
           threads.set(folder, [...(threads.get(folder) ?? []), entry]);
         } else if (IG_PROFILE_RE.test(entry.path)) {
-          await readProfile(entry, io, instagramNames);
+          await readProfile(entry, io, entry.path.endsWith(".html") ? instagramHtmlNames : instagramNames);
         } else if (FB_PROFILE_RE.test(entry.path)) {
           await readProfile(entry, io, facebookNames);
         } else {
@@ -71,14 +71,18 @@ function metaParser(platform: "instagram" | "messenger"): Parser {
       for (const [folder, files] of threads) {
         // message_1.json is the newest chunk, so the highest number goes first to keep the stream chronological.
         files.sort((a, b) => chunkNumber(b.path) - chunkNumber(a.path));
-        for (const file of files) await parseThreadFile(file, folder.slice(folder.lastIndexOf("/") + 1), io);
+        const externalId = folder.slice(folder.lastIndexOf("/") + 1);
+        for (const file of files) {
+          if (file.path.endsWith(".html")) await parseHtmlThreadFile(file, externalId, io);
+          else await parseThreadFile(file, externalId, io);
+        }
       }
     },
   };
 }
 
 function chunkNumber(path: string): number {
-  return Number(/message_(\d+)\.json$/.exec(path)?.[1] ?? 0);
+  return Number(/message_(\d+)\.(?:json|html)$/.exec(path)?.[1] ?? 0);
 }
 
 async function platformOf(
@@ -132,9 +136,16 @@ function facebookNames(json: any): string[] {
   return [clean(name?.full_name), composed].filter(Boolean);
 }
 
-async function readProfile(entry: ArchiveEntry, io: ParserIO, namesOf: (json: any) => string[]) {
+// The HTML profile is a table of rows like <td>Username<div><div>maya.okafor</div></div></td>.
+function instagramHtmlNames(html: string): string[] {
+  const names: Record<string, string> = {};
+  for (const m of html.matchAll(/>\s*(Name|Username)\s*(?:<[^>]+>\s*)+([^<]+)</g)) names[m[1]] ??= clean(decodeEntities(m[2]));
+  return [names.Name, names.Username].filter(Boolean);
+}
+
+async function readProfile(entry: ArchiveEntry, io: ParserIO, namesOf: (content: any) => string[]) {
   try {
-    const names = [...new Set(namesOf(await readJson(entry)))];
+    const names = [...new Set(namesOf(entry.path.endsWith(".html") ? await readText(entry) : await readJson(entry)))];
     if (names.length) io.selfHint(names);
   } catch (error) {
     io.warn(entry.path + ": could not read profile (" + (error as Error).message + ")");
@@ -184,6 +195,108 @@ async function parseThreadFile(entry: ArchiveEntry, externalId: string, io: Pars
   for (let i = 0; i < messages.length; i += 1000) await io.messages(externalId, messages.slice(i, i + 1000));
 }
 
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+// "Sep 1, 2026 10:00 am", "Sep 01, 2026, 10:00:15 PM", "2026-09-01 22:00": the HTML export's local wall-clock dates.
+const HTML_DATE_RE = /^([a-z]{3})[a-z]*\.? (\d{1,2}),? (\d{4}),? (\d{1,2}):(\d{2})(?::(\d{2}))? ?([ap])\.?m\.?$/i;
+const HTML_ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi, (_, e: string) => {
+    const lower = e.toLowerCase();
+    if (lower.startsWith("#x")) return String.fromCodePoint(parseInt(lower.slice(2), 16));
+    if (lower.startsWith("#")) return String.fromCodePoint(Number(lower.slice(1)));
+    return { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " }[lower] ?? "";
+  });
+}
+
+/** Text segments between tags, decoded and cleaned, empty ones dropped. */
+function htmlSegments(html: string): string[] {
+  return html
+    .split(/<[^>]*>/)
+    .map((s) => clean(decodeEntities(s)))
+    .filter(Boolean);
+}
+
+function htmlDate(text: string, io: ParserIO): number | null {
+  const m = HTML_DATE_RE.exec(text);
+  if (m) {
+    const month = MONTHS.indexOf(m[1].toLowerCase());
+    if (month < 0) return null;
+    const hour = (Number(m[4]) % 12) + (m[7].toLowerCase() === "p" ? 12 : 0);
+    return io.fromLocal(Number(m[3]), month + 1, Number(m[2]), hour, Number(m[5]), Number(m[6] ?? 0));
+  }
+  const iso = HTML_ISO_DATE_RE.exec(text);
+  return iso ? io.fromLocal(Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4]), Number(iso[5]), Number(iso[6] ?? 0)) : null;
+}
+
+/**
+ * One message_N.html page: each message is an <h2> with the sender, a block with the text, media, links and a <ul> of
+ * reactions, then a <div> with the date. Each block is rebuilt into the JSON export's message shape and converted
+ * the same way, so both formats store identical messages.
+ */
+async function parseHtmlThreadFile(entry: ArchiveEntry, externalId: string, io: ParserIO) {
+  let html: string;
+  try {
+    html = await readText(entry);
+  } catch (error) {
+    io.warn(entry.path + ": skipped, could not read thread (" + (error as Error).message + ")");
+    return;
+  }
+  const title = clean(decodeEntities(/<title>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? ""));
+  const participants = new Set<string>();
+  const listed = /Participants:\s*([^<]+)</i.exec(html)?.[1];
+  for (const name of listed ? decodeEntities(listed).split(/,\s*|\s+and\s+/) : []) if (clean(name)) participants.add(clean(name));
+  const main = html.indexOf('role="main"');
+  const body = main >= 0 ? html.slice(main) : html;
+  const heads = [...body.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>/gi)];
+  const messages: MessageInput[] = [];
+  let undated = 0;
+  heads.forEach((head, i) => {
+    const block = body.slice(head.index! + head[0].length, heads[i + 1]?.index ?? body.length);
+    const sender = htmlSegments(head[1]).join(" ");
+    const reactions = [...block.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/gi)].flatMap((li) => {
+      const m = /^([^\p{L}\p{N}]+?)\s*([\p{L}\p{N}].*?)(?:\s*\([^)]*\))?$/u.exec(htmlSegments(li[1]).join(" "));
+      return m ? [{ reaction: m[1].trim(), actor: m[2] }] : [];
+    });
+    const rest = block.replace(/<ul[\s\S]*?<\/ul>/gi, "");
+    const uris = [...rest.matchAll(/<(?:img|video|audio|source)\b[^>]*\bsrc="([^"]+)"/gi)].map((m) => decodeEntities(m[1]));
+    const links = [...rest.matchAll(/<a\b[^>]*\bhref="(https?:[^"]+)"[^>]*>[\s\S]*?<\/a>/gi)].map((m) => decodeEntities(m[1]));
+    const withoutMedia = rest
+      .replace(/<(video|audio)\b[\s\S]*?<\/\1>/gi, "")
+      .replace(/<a\b[^>]*\bhref="(?!https?:)[^"]*"[^>]*>[\s\S]*?<\/a>/gi, "")
+      .replace(/<a\b[^>]*\bhref="https?:[^"]*"[^>]*>[\s\S]*?<\/a>/gi, "<hr>");
+    const segments = htmlSegments(withoutMedia);
+    let ts: number | null = null;
+    for (let j = segments.length - 1; j >= 0 && ts === null; j--) {
+      ts = htmlDate(segments[j], io);
+      if (ts !== null) segments.splice(j, 1);
+    }
+    if (ts === null) {
+      undated++;
+      return;
+    }
+    // A shared post or reel is a link; anything after it is the post's own caption, not something the sender typed.
+    const linkAt = withoutMedia.indexOf("<hr>");
+    const typed = linkAt >= 0 ? htmlSegments(withoutMedia.slice(0, linkAt)) : segments;
+    const raw: Record<string, unknown> = { sender_name: sender, timestamp_ms: ts, content: typed.join("\n") || undefined };
+    for (const uri of uris) {
+      const kind = mediaFromUri(uri);
+      const key = kind === "photo" ? "photos" : kind === "video" ? "videos" : kind === "gif" ? "gifs" : kind === "audio" ? "audio_files" : "files";
+      raw[key] = [...((raw[key] as unknown[]) ?? []), { uri }];
+    }
+    if (links.length) raw.share = { link: links[0] };
+    if (reactions.length) raw.reactions = reactions;
+    const message = convert(raw);
+    if (!message) return;
+    if (message.sender) participants.add(message.sender);
+    messages.push(message);
+  });
+  if (undated) io.warn(entry.path + ": skipped " + undated + " messages with a date that couldn't be read");
+  messages.sort((a, b) => a.ts - b.ts);
+  io.conversation({ externalId, title, kind: participants.size > 2 ? "group" : "dm", participants: [...participants] });
+  for (let i = 0; i < messages.length; i += 1000) await io.messages(externalId, messages.slice(i, i + 1000));
+}
+
 /**
  * A Meta activity line stored as text because its actor isn't the sender's display name (a first name or username):
  * "<actor> sent an attachment.", "<actor> started an audio call", "<actor> liked a message". Tries actors of 1–3 words.
@@ -203,6 +316,18 @@ function stripActor(content: string, sender: string): string | null {
   const lower = content.toLowerCase();
   if (sender && lower.startsWith(sender.toLowerCase() + " ")) return content.slice(sender.length + 1);
   if (lower.startsWith("you ")) return content.slice(4);
+  return null;
+}
+
+// The line after its actor, matched against re. Instagram names the actor by first name or username ("Maya sent an
+// attachment."), not the sender's display name, so actors of 1–3 words are tried when the sender's name isn't there.
+function activity(content: string, stripped: string | null, re: RegExp): RegExpExecArray | null {
+  if (stripped !== null) return re.exec(stripped);
+  const words = content.split(/\s+/);
+  for (let k = 1; k <= 3 && k < words.length; k++) {
+    const match = re.exec(words.slice(k).join(" "));
+    if (match) return match;
+  }
   return null;
 }
 
@@ -251,7 +376,7 @@ function convert(m: any): MessageInput | null {
   }
 
   // "You sent an attachment." stands in for an attachment Meta no longer has: still a media message.
-  const attachmentLine = stripped !== null ? ATTACHMENT_LINE_RE.exec(stripped) : null;
+  const attachmentLine = activity(content, stripped, ATTACHMENT_LINE_RE);
   if (attachmentLine && !media.length) {
     const what = attachmentLine[1].toLowerCase();
     media.push(
