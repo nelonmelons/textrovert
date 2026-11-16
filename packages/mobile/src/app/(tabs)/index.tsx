@@ -23,9 +23,6 @@ const openSource = (friend: Friend, message: string) => router.push({ pathname: 
 
 type Mode = 'idle' | 'live' | 'final';
 
-/** The content section's deep blue (the frontpage's duotone sections), and the grain it carries. */
-const SECTION_TOP = '#1B4384';
-const grain = require('../../../assets/ditto/noise.png');
 
 const today = () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
@@ -202,18 +199,15 @@ export default function Today() {
           <Txt variant="display" style={styles.heroTitle}>
             {greeting().toLowerCase()}
           </Txt>
-          <Txt variant="script" style={{ fontSize: 40, lineHeight: 44, marginTop: -6 }}>
-            @emma
+          <Txt variant="display" style={styles.heroTitle}>
+            emma
           </Txt>
           <Txt variant="callout" shadow style={{ textAlign: 'center', marginTop: 10, opacity: 0.92 }}>
             {replies.length ? `${replies.length} ${replies.length === 1 ? 'person is' : 'people are'} waiting on you.` : 'Here’s who and what matters today.'}
           </Txt>
         </View>
 
-        <Scallop color={SECTION_TOP} />
         <View style={[styles.section, { paddingBottom: dock + 96 }]}>
-          <LinearGradient pointerEvents="none" colors={[SECTION_TOP, '#0F2B60', '#0B1A33']} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
-          <Image source={grain} resizeMode="repeat" pointerEvents="none" style={[fill, { opacity: 0.45 }]} />
 
         {people.status === 'loading' ? (
           <Txt variant="subhead" tone="secondary" shadow style={{ paddingHorizontal: 4 }}>
@@ -339,7 +333,7 @@ export default function Today() {
             {photoError}
           </Txt>
         ) : null}
-        <Glass tone="navy" radius={999} style={{ boxShadow: '0px 12px 30px rgba(12, 34, 80, 0.28)' }}>
+        <Glass tone="light" radius={999}>
           <View style={styles.field}>
             <Pressable onPress={startSearch} accessibilityRole="search" accessibilityLabel="Search or ask me anything" style={styles.fieldTap}>
               <Icon name="magnifyingglass" size={17} color={c.textSecondary} />
@@ -442,7 +436,7 @@ const styles = StyleSheet.create({
   count: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: '#F748B1', alignItems: 'center', justifyContent: 'center', boxShadow: '0px 2px 8px rgba(8, 16, 34, 0.3)' },
   hero: { alignItems: 'center', gap: 2, paddingTop: 56, paddingBottom: 72, paddingHorizontal: 16 },
   heroTitle: { textAlign: 'center', fontSize: 58, lineHeight: 56 },
-  section: { backgroundColor: '#0F2B60', paddingHorizontal: 16, paddingTop: 30, gap: 26 },
+  section: { paddingHorizontal: 16, paddingTop: 8, gap: 26 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   dock: { position: 'absolute', left: 16, right: 16, gap: 8 },
   field: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingLeft: 18, paddingRight: 8, borderRadius: 999 },

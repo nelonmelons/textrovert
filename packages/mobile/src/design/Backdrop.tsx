@@ -56,45 +56,40 @@ export function SceneView({ scene = 'sky', scrim, children, style }: { scene?: S
 
 type GlassTone = 'light' | 'dark' | 'navy';
 
-/** Per-edge rims that stand in for the frontpage's masked gradient rings (bright where the light catches). */
-const rims: Record<GlassTone, ViewStyle> = {
-  /** Form glass: the Enroll card's white ring, bright top-left, a weaker return streak bottom-right. */
-  light: { borderTopColor: 'rgba(255, 255, 255, 0.8)', borderLeftColor: 'rgba(255, 255, 255, 0.45)', borderRightColor: 'rgba(255, 255, 255, 0.14)', borderBottomColor: 'rgba(255, 255, 255, 0.3)' },
-  /** House glass: the FAQ card's slate ring. */
-  dark: { borderTopColor: 'rgba(83, 105, 121, 1)', borderLeftColor: 'rgba(83, 105, 121, 0.7)', borderRightColor: 'rgba(83, 105, 121, 0.3)', borderBottomColor: 'rgba(83, 105, 121, 0.2)' },
-  navy: { borderTopColor: 'rgba(83, 105, 121, 1)', borderLeftColor: 'rgba(83, 105, 121, 0.7)', borderRightColor: 'rgba(83, 105, 121, 0.3)', borderBottomColor: 'rgba(83, 105, 121, 0.2)' },
-};
-const fills: Record<GlassTone, string> = { light: 'rgba(255, 255, 255, 0.1)', dark: 'rgba(1, 30, 44, 0.4)', navy: 'rgba(1, 30, 44, 0.9)' };
-const blurs: Record<GlassTone, number> = { light: 10, dark: 24, navy: 24 };
+/** The liquid glass's rim: bright where the light catches at the top left, a weaker return at the bottom right. */
+const liquidRim: ViewStyle = { borderTopColor: 'rgba(255, 255, 255, 0.8)', borderLeftColor: 'rgba(255, 255, 255, 0.45)', borderRightColor: 'rgba(255, 255, 255, 0.14)', borderBottomColor: 'rgba(255, 255, 255, 0.3)' };
+const navyRim: ViewStyle = { borderTopColor: 'rgba(83, 105, 121, 1)', borderLeftColor: 'rgba(83, 105, 121, 0.7)', borderRightColor: 'rgba(83, 105, 121, 0.3)', borderBottomColor: 'rgba(83, 105, 121, 0.2)' };
 
 /**
- * The frontpage's two glasses. dark is the FAQ card's house glass (#011E2C at 40%, blur 24, slate rim) for lists and
- * cards of white copy; light is the Enroll card's form glass (white/10, blur 10, an inner top light, a white rim) for
- * forms, fields' cards, pills and bars; navy is the house glass near-opaque, for sheets.
+ * The liquid rounded glass every table, card, form, pill and bar uses: a navy tint (so white text holds on bright
+ * scenes) over a 14px backdrop blur, an inner top light, and a white rim (the frontpage's Enroll card). light and dark are the same glass; navy is the one
+ * near-opaque variant, for sheets that must hide what is under them.
  */
 export function Glass({ tone = 'dark', radius = radii.xl, blur = true, style, children, pointerEvents }: { tone?: GlassTone; radius?: number; blur?: boolean; style?: StyleProp<ViewStyle>; children?: ReactNode; pointerEvents?: 'box-none' | 'none' | 'box-only' | 'auto' }) {
+  const navy = tone === 'navy';
+  const corner = { borderRadius: radius, borderCurve: 'continuous' as const };
   return (
     <View
       pointerEvents={pointerEvents}
       style={[
+        corner,
         {
-          borderRadius: radius,
-          borderCurve: 'continuous',
           overflow: 'hidden',
-          backgroundColor: fills[tone],
-          boxShadow: tone === 'light' ? shadows.light.inset : shadows.light.card,
+          backgroundColor: navy ? 'rgba(1, 30, 44, 0.9)' : 'rgba(8, 23, 33, 0.34)',
+          boxShadow: navy ? shadows.light.card : shadows.light.inset,
         },
         style,
       ]}>
       {blur ? (
         Platform.OS === 'web' ? (
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backdropFilter: `blur(${blurs[tone]}px)`, WebkitBackdropFilter: `blur(${blurs[tone]}px)` } as object]} />
+          // Rounded itself: a backdrop filter is not clipped by its parent's rounded corners in every browser.
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, corner, { backdropFilter: `blur(${navy ? 24 : 14}px)`, WebkitBackdropFilter: `blur(${navy ? 24 : 14}px)` } as object]} />
         ) : (
-          <BlurView pointerEvents="none" intensity={tone === 'light' ? 16 : 30} tint={tone === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+          <BlurView pointerEvents="none" intensity={navy ? 30 : 16} tint={navy ? 'dark' : 'light'} style={[StyleSheet.absoluteFill, corner]} />
         )
       ) : null}
       {children}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderCurve: 'continuous', borderWidth: 1 }, rims[tone]]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, corner, { borderWidth: 1 }, navy ? navyRim : liquidRim]} />
     </View>
   );
 }
@@ -124,17 +119,16 @@ export function Scallop({ color = ditto.teal, height = 10, period = 16 }: { colo
 }
 
 /**
- * The frontpage's section label: a black sticker with white Spencer and one word in Ditto pink ("How It works", "Real
- * Dates Delivered"). accent picks the pink word; by default it is the last one.
+ * The frontpage's section label: a black sticker with white Spencer ("How It works", "Real Dates Delivered"), all in
+ * white. accent is kept for callers.
  */
-export function Sticker({ text, accent, size = 22, style }: { text: string; accent?: string; size?: number; style?: StyleProp<ViewStyle> }) {
+export function Sticker({ text, size = 22, style }: { text: string; accent?: string; size?: number; style?: StyleProp<ViewStyle> }) {
   const words = text.split(' ');
-  const pink = accent ?? (words.length > 1 ? words[words.length - 1] : '');
   return (
     <View style={[{ alignSelf: 'flex-start', backgroundColor: '#000000', paddingHorizontal: Math.round(size * 0.32), paddingTop: Math.round(size * 0.1), paddingBottom: Math.round(size * 0.04), boxShadow: '0px 3px 10px rgba(8, 16, 34, 0.35)' }, style]}>
       <Text style={{ fontFamily: fonts.serif, fontSize: size, lineHeight: Math.round(size * 1.15), color: '#FFFFFF' }}>
         {words.map((w, i) => (
-          <Text key={i} style={w === pink ? { color: ditto.primary } : undefined}>
+          <Text key={i}>
             {i ? ' ' : ''}
             {w}
           </Text>

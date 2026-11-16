@@ -14,7 +14,7 @@ export const Theme = {
   tertiaryFill: 'rgba(255, 255, 255, 0.1)',
   secondaryBackground: 'rgba(255, 255, 255, 0.1)',
   /** Cards and panels: the frontpage's house glass (#011E2C at 40%). */
-  background: 'rgba(1, 30, 44, 0.4)',
+  background: 'rgba(8, 23, 33, 0.34)',
   /** Page canvas: transparent, so the screen's scene shows. */
   paper: 'rgba(8, 23, 33, 0)',
   panel: 'rgba(1, 30, 44, 0.9)',

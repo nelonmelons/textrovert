@@ -66,7 +66,7 @@ const frontpage = {
   background: ditto.navy,
   grouped: ditto.navy,
   /** House glass: lists and cards of white copy. */
-  surface: 'rgba(1, 30, 44, 0.4)',
+  surface: 'rgba(8, 23, 33, 0.34)',
   /** Form glass: forms, controls, pills. */
   surfaceMuted: 'rgba(255, 255, 255, 0.1)',
   fill: 'rgba(255, 255, 255, 0.1)',
@@ -95,7 +95,7 @@ const frontpage = {
   bubbleName: 'rgba(0, 0, 0, 0.5)',
   bubbleTime: 'rgba(0, 0, 0, 0.4)',
   bubbleMineTime: 'rgba(255, 255, 255, 0.7)',
-  darkCard: 'rgba(1, 30, 44, 0.4)',
+  darkCard: 'rgba(8, 23, 33, 0.34)',
   darkCell: 'rgba(255, 255, 255, 0.06)',
   darkCellEdge: 'rgba(255, 255, 255, 0.1)',
   onDark: '#FFFFFF',
