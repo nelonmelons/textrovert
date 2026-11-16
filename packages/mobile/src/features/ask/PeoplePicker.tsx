@@ -1,67 +1,60 @@
-import { ReactNode, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, TextInput, View } from 'react-native';
 
-import { Face, HedgehogAvatar, Symbol } from '@/components/Paper';
-import { initials, personLine, usePeople } from '@/api/people';
+import { EmojiAvatar, geist, ListRow, ListSection, PillButton, radii, space, Txt, useDesign } from '@/design';
+import { personLine, usePeople } from '@/api/people';
 import type { Person } from '@/api/client';
-import { radius, Theme, Type } from '@/theme';
+import { askHedgehog } from './hedgehog';
 
 /** Choose who Ask is about: everyone, or one friend (their DM and the groups you share). */
 export function PeoplePicker({ current, onPick }: { current: string | null; onPick: (person: Person | null) => void }) {
+  const { c } = useDesign();
   const people = usePeople();
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
+  const matches = people.status === 'ready' ? people.people.filter((p) => !q || p.name.toLowerCase().includes(q)).slice(0, 60) : [];
+  const tick = (selected: boolean) =>
+    selected ? (
+      <Txt variant="headline" tone="accent" accessibilityLabel="Selected">
+        ✓
+      </Txt>
+    ) : null;
   return (
     <>
       <TextInput
         value={query}
         onChangeText={setQuery}
-        placeholder="Search friends"
-        placeholderTextColor={Theme.secondary}
+        placeholder="🔍  Search friends"
+        placeholderTextColor={c.textTertiary}
         aria-label="Search friends"
-        style={[Type.body, styles.search, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+        style={[{ height: 44, paddingHorizontal: space.lg, borderRadius: radii.pill, backgroundColor: c.fill, color: c.text, fontFamily: geist['400'], fontSize: 17 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
       />
-      <Row selected={current === null} onPress={() => onPick(null)} title="All your chats" detail="Ask across every conversation" leading={<HedgehogAvatar />} />
-      {people.status === 'loading' ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>Loading friends…</Text> : null}
+      <ListSection inset={64}>
+        <ListRow title="All your chats" subtitle="Ask across every conversation" leading={<EmojiAvatar {...askHedgehog} size={36} />} trailing={tick(current === null)} onPress={() => onPick(null)} chevron={false} />
+      </ListSection>
+      {people.status === 'loading' ? (
+        <Txt variant="subhead" tone="secondary">
+          Loading friends…
+        </Txt>
+      ) : null}
       {people.status === 'error' ? (
-        <View style={{ gap: 6 }}>
-          <Text style={[Type.subheadline, { color: Theme.ink }]}>Couldn’t load your friends. {people.message}</Text>
-          <Pressable accessibilityRole="button" onPress={people.retry}>
-            <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Try again</Text>
-          </Pressable>
+        <View style={{ gap: space.sm, alignItems: 'flex-start' }}>
+          <Txt variant="subhead">Couldn’t load your friends. {people.message}</Txt>
+          <PillButton title="Try again" emoji="🔁" kind="secondary" small onPress={people.retry} />
         </View>
       ) : null}
-      {people.status === 'ready'
-        ? people.people
-            .filter((p) => !q || p.name.toLowerCase().includes(q))
-            .slice(0, 60)
-            .map((p) => <Row key={p.name} selected={current === p.name} onPress={() => onPick(p)} title={p.name} detail={personLine(p)} leading={<Face initials={initials(p.name)} />} />)
-        : null}
+      {people.status === 'ready' && !matches.length ? (
+        <Txt variant="subhead" tone="secondary">
+          No friends match “{query.trim()}”.
+        </Txt>
+      ) : null}
+      {people.status === 'ready' && matches.length ? (
+        <ListSection header="Friends">
+          {matches.map((p) => (
+              <ListRow key={p.name} title={p.name} subtitle={personLine(p)} leading={<EmojiAvatar name={p.name} size={36} />} trailing={tick(current === p.name)} onPress={() => onPick(p)} chevron={false} />
+            ))}
+        </ListSection>
+      ) : null}
     </>
   );
 }
-
-function Row({ title, detail, leading, selected, onPress }: { title: string; detail: string; leading: ReactNode; selected: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      aria-selected={selected}
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, { backgroundColor: selected ? Theme.accentTone.fill : pressed ? Theme.tertiaryFill : 'transparent' }]}
-    >
-      {leading}
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={1} style={[Type.headline, { color: Theme.ink }]}>
-          {title}
-        </Text>
-        <Text style={[Type.footnote, { color: Theme.secondary }]}>{detail}</Text>
-      </View>
-      {selected ? <Symbol name="checkmark" size={15} color={Theme.accent} weight="bold" /> : null}
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  search: { borderRadius: radius.tile, paddingHorizontal: 14, paddingVertical: 10, color: Theme.ink, backgroundColor: Theme.tertiaryFill },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 8, borderRadius: radius.tile, marginVertical: -6 },
-});
