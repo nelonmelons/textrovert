@@ -19,17 +19,17 @@ const words = (text: string) =>
     .filter(Boolean)
     .map((w) => aliases[w] ?? w);
 
-export function friendMatches(query: string) {
+export function friendMatches(query: string, list: Friend[] = friends) {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return friends.filter((f) => f.name.toLowerCase().includes(q) || f.handle.toLowerCase().includes(q)).map((friend) => ({ friend, reason: 'Name or handle matches' }));
+  return list.filter((f) => f.name.toLowerCase().includes(q) || f.handle.toLowerCase().includes(q)).map((friend) => ({ friend, reason: 'Name or handle matches' }));
 }
 
-export function activityMatches(query: string, together: (friend: Friend) => Note[]): ActivityMatch[] {
+export function activityMatches(query: string, together: (friend: Friend) => Note[], list: Friend[] = friends): ActivityMatch[] {
   const terms = words(query).filter((w) => !ignored.has(w) && w.length >= 2);
   if (terms.length === 0) return [];
   const found: ActivityMatch[] = [];
-  for (const friend of friends) {
+  for (const friend of list) {
     for (const item of together(friend)) {
       const titleWords = words(item.title);
       const exact = terms.find((t) => titleWords.some((w) => w === t || (w.startsWith(t) && t.length >= 3)));

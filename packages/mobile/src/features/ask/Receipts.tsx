@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FadeIn } from '@/components/FadeIn';
-import { senderLabel, type Citation } from '@/api/client';
+import { chatLabel, senderLabel, type ApiMessage, type Citation } from '@/api/client';
 import { formatSent } from '@/lib/answer';
 import { radius, Theme, Type, withAlpha } from '@/theme';
 
@@ -44,18 +44,35 @@ function Receipt({ citation: c, focused }: { citation: Citation; focused: boolea
             <Text style={[Type.caption, { color: Theme.secondary, fontWeight: '400' }]}>{'  ' + formatSent(c.sentAt)}</Text>
           </Text>
           <Text numberOfLines={1} style={[Type.caption, { color: Theme.secondary }]}>
-            in {c.chat}
+            {c.isDm ? 'Your DM' : 'in ' + chatLabel(c)}
           </Text>
         </View>
       </View>
+      <Context messages={c.before} />
       <View style={[styles.quote, { borderLeftColor: Theme.accentTone.ink }]}>
         <Excerpt text={c.text} quote={c.quote} full={full || !long} />
       </View>
+      <Context messages={c.after} />
       {long ? (
         <Pressable accessibilityRole="button" onPress={() => setFull((f) => !f)} hitSlop={8} style={styles.toggle}>
           <Text style={[Type.footnote, { color: Theme.accentTone.ink, fontWeight: '600' }]}>{full ? 'Show less' : 'Show full message'}</Text>
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+/** The messages around a cited one, muted, so the receipt reads in context. */
+function Context({ messages }: { messages?: ApiMessage[] }) {
+  if (!messages?.length) return null;
+  return (
+    <View style={styles.context}>
+      {messages.map((m, i) => (
+        <Text key={i} numberOfLines={2} style={[Type.footnote, { color: Theme.secondary }]}>
+          <Text style={{ fontWeight: '600' }}>{senderLabel(m)}: </Text>
+          {m.text}
+        </Text>
+      ))}
     </View>
   );
 }
@@ -99,4 +116,5 @@ const styles = StyleSheet.create({
   quote: { borderLeftWidth: 3, paddingLeft: 11 },
   message: { fontSize: 15, lineHeight: 21 },
   toggle: { alignSelf: 'flex-start' },
+  context: { gap: 4, paddingLeft: 14, opacity: 0.85 },
 });

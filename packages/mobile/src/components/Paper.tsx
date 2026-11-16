@@ -62,6 +62,15 @@ export function SectionCard({ tone, fillOpacity = 0.5, children, style }: { tone
   );
 }
 
+/** Marks a card that shows Emma's sample data while the rest of the app reads your real chats. */
+export function DemoPill({ tone = Theme.celebrateTone }: { tone?: Tone }) {
+  return (
+    <View style={[styles.demo, { borderColor: tone.ink }]} accessibilityLabel="Sample data">
+      <Text style={[Type.caption, { fontWeight: '700', color: tone.ink }]}>Sample</Text>
+    </View>
+  );
+}
+
 export function RowChevron() {
   return <Symbol name="chevron.right" size={12} color={Theme.secondary} weight="bold" />;
 }
@@ -192,6 +201,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   bubbleMine: { backgroundColor: Theme.accent, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 },
+  demo: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1 },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

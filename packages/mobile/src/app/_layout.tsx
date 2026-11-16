@@ -44,6 +44,8 @@ export default function RootLayout() {
                   <Stack.Screen name="analysis" options={{ headerShown: true }} />
                   <Stack.Screen name="conversation" options={{ headerShown: true, presentation: 'modal' }} />
                   <Stack.Screen name="wrapped/[conversationId]" options={{ headerShown: true }} />
+                  <Stack.Screen name="stats" options={{ headerShown: true }} />
+                  <Stack.Screen name="portrait" options={{ headerShown: true }} />
                 </Stack>
               </SheetProvider>
             </NotesProvider>

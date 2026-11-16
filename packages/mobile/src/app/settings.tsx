@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
-import { friends } from '../fixtures';
+import { useDataMode } from '../api/mode';
+import { useFriends } from '../api/people';
 import { useNotes } from '../store';
 import { Rounded, Theme, Type } from '../theme';
 import { Divider, Face, SectionCard, Symbol, ToneTab } from '../components/Paper';
@@ -33,6 +34,8 @@ const deniedMessage = 'Allow Contacts in Settings to import your people.';
 
 export default function Settings() {
   const notes = useNotes();
+  const { friends } = useFriends();
+  const mode = useDataMode();
   const [states, setStates] = useState(fixtureStates);
   const [contacts, setContacts] = useState<string[]>();
   const [contactsMessage, setContactsMessage] = useState<string>();
@@ -162,6 +165,40 @@ export default function Settings() {
               );
             })}
             <Text style={[Type.footnote, { color: Theme.secondary }]}>These are pretend connections for the demo. No real accounts are linked and nothing leaves this phone.</Text>
+          </View>
+        </SectionCard>
+
+        <SectionCard tone={Theme.activitiesTone}>
+          <View style={{ gap: 12 }}>
+            <ToneTab title="Your data" symbol="externaldrive.fill" tone={Theme.activitiesTone} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={[Type.headline, { color: Theme.ink }]}>Demo data</Text>
+                <Text style={[Type.subheadline, { color: Theme.secondary }]}>
+                  {!mode.apiUrl
+                    ? 'This build has no API set up, so the app shows sample friends. Build with EXPO_PUBLIC_API_URL to use your own chats.'
+                    : mode.live
+                      ? 'Off: friends, Ask and profiles come from your chats.'
+                      : 'On: the app shows sample friends instead of your chats.'}
+                </Text>
+              </View>
+              <Switch
+                value={!mode.live}
+                disabled={!mode.apiUrl}
+                onValueChange={(on) => mode.setDemo(on)}
+                trackColor={{ true: Theme.activitiesTone.ink }}
+                accessibilityLabel="Demo data"
+              />
+            </View>
+            {mode.apiUrl ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Symbol name={mode.live ? 'checkmark.circle.fill' : 'circle.dashed'} size={13} color={mode.live ? Theme.activitiesTone.ink : Theme.secondary} weight="semibold" />
+                <Text style={[Type.footnote, { color: Theme.secondary, flex: 1 }]} numberOfLines={1}>
+                  {mode.live ? 'Connected to ' : 'Not using '}
+                  {mode.apiUrl.replace(/^https?:\/\//, '')}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </SectionCard>
 

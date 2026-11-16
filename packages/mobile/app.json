@@ -14,7 +14,32 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
-        }
+        },
+        "CFBundleDocumentTypes": [
+          {
+            "CFBundleTypeName": "Textrovert Messages",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Owner",
+            "LSItemContentTypes": [
+              "com.textrovert.messages"
+            ]
+          }
+        ],
+        "LSSupportsOpeningDocumentsInPlace": false,
+        "UTExportedTypeDeclarations": [
+          {
+            "UTTypeConformsTo": [
+              "public.data"
+            ],
+            "UTTypeDescription": "Textrovert Messages",
+            "UTTypeIdentifier": "com.textrovert.messages",
+            "UTTypeTagSpecification": {
+              "public.filename-extension": [
+                "textrovert"
+              ]
+            }
+          }
+        ]
       }
     },
     "android": {

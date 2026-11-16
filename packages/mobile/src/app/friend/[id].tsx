@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolViewProps } from 'expo-symbols';
-import { Friend, firstName, friendById, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../fixtures';
+import { Friend, firstName, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../fixtures';
+import { useFriend } from '../../api/people';
+import { LiveProfile, useFriendProfile } from '../../features/friend/LiveProfile';
+import { haptics } from '../../lib/haptics';
 import { Note, useNotes } from '../../store';
 import { Rounded, sectionTone, Theme, Type, withAlpha } from '../../theme';
 import { art, DeadlineBadge, Divider, Face, RowChevron, SectionCard, ServiceIcon, Symbol, ToneTab } from '../../components/Paper';
@@ -49,9 +52,10 @@ function Provenance({ symbol, text }: { symbol: SymbolViewProps['name']; text: s
   );
 }
 
-function SectionBlock({ friend, section }: { friend: Friend; section: NoteSection }) {
+function SectionBlock({ friend, section, hideEmpty }: { friend: Friend; section: NoteSection; hideEmpty?: boolean }) {
   const { items } = useNotes();
   const list = items(friend, section);
+  if (hideEmpty && list.length === 0) return null;
   const info = sectionInfo[section];
   const tone = sectionTone(section);
   return (
@@ -118,10 +122,52 @@ function Notepad({ friend }: { friend: Friend }) {
   );
 }
 
+/** Opens this friend's Wrapped (src/features/wrapped/, being added on nelson/app-wrapped). */
+function WrappedButton({ conversationId, first }: { conversationId: string | null | undefined; first: string }) {
+  const ready = !!conversationId;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={!ready}
+      onPress={() => {
+        haptics.impact('light');
+        router.push({ pathname: '/wrapped/[conversationId]', params: { conversationId: conversationId ?? '' } });
+      }}
+      style={({ pressed }) => [styles.wrapped, !ready && { opacity: 0.5 }, pressed && { opacity: 0.8 }]}
+    >
+      <Image source={art.dance} style={{ width: 52, height: 44 }} resizeMode="contain" />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Your Wrapped with {first}</Text>
+        <Text style={[Type.subheadline, { color: withAlpha('rgba(255, 255, 255, 1)', 0.85) }]}>
+          {conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
+        </Text>
+      </View>
+      <Symbol name="chevron.right" size={14} color="#FFFFFF" weight="bold" />
+    </Pressable>
+  );
+}
+
+function LiveSections({ friend }: { friend: Friend }) {
+  const { state, retry } = useFriendProfile(friend.name);
+  const first = firstName(friend);
+  return (
+    <>
+      <WrappedButton conversationId={state.status === 'ready' ? state.profile.dmConversationId : state.status === 'error' ? null : undefined} first={first} />
+      <LiveProfile name={friend.name} first={first} state={state} retry={retry} />
+    </>
+  );
+}
+
 export default function FriendProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const friend = friendById(id);
-  if (!friend) return null;
+  const { friend, status } = useFriend(id);
+  if (!friend)
+    return (
+      <PaperScroll contentContainerStyle={{ padding: 24 }}>
+        {status === 'loading' ? <ActivityIndicator color={Theme.accent} /> : <Text style={[Type.body, { color: Theme.secondary }]}>No one by that name in your chats.</Text>}
+      </PaperScroll>
+    );
+  const live = !!friend.person;
   const milestones = upcomingMilestones().filter((m) => m.friend.id === friend.id);
   return (
     <PaperScroll contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 18 }} keyboardDismissMode="interactive">
@@ -140,8 +186,9 @@ export default function FriendProfile() {
         </Pressable>
       ))}
       <AskBox friend={friend} ask={(q) => router.push({ pathname: '/chat', params: { friend: friend.id, q } })} />
+      {live ? <LiveSections friend={friend} /> : <WrappedButton conversationId={`demo-${friend.id}`} first={firstName(friend)} />}
       {sectionOrder.map((section) => (
-        <SectionBlock key={section} friend={friend} section={section} />
+        <SectionBlock key={section} friend={friend} section={section} hideEmpty={live} />
       ))}
       <Notepad friend={friend} />
     </PaperScroll>
@@ -152,6 +199,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   add: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, minWidth: 44, justifyContent: 'center' },
   noteBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  wrapped: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: Theme.accent },
   pencil: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: withAlpha(Theme.accentTone.fill, 0.6), opacity: 0.75, borderRadius: 12 },
   notepad: {

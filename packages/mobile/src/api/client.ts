@@ -1,7 +1,7 @@
 /**
- * Typed client for the Textrovert API: local (packages/history/scripts/ask-server.ts) or hosted
- * (packages/history/convex/http.ts). Screens don't call it directly when they can show fixtures instead; they go
- * through useDataMode() and the hooks in ./people, so the app still works with no backend.
+ * The one place the Textrovert API is configured: base URL, key, timeouts and errors. Routes live in ./ask (via this
+ * file) and ./friend; both servers (packages/history/scripts/ask-server.ts locally, convex/http.ts hosted) answer
+ * them alike. Screens choose between it and Emma's fixtures with useDataMode(), so the app works with no backend.
  */
 
 /** Unset means no backend: the app runs on Emma's fixtures. Inlined when the bundle is built. */
@@ -9,23 +9,74 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\
 /** Sent as x-api-key; the hosted API requires it. It ships inside the app bundle, so it gates casual use, not a determined one. */
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
 
-/** A message something was read from, with the chat it is in. */
-export interface Source {
-  messageId: number;
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status = 0,
+  ) {
+    super(message);
+  }
+}
+
+/** One request with the key, a timeout and readable errors; resolves to the raw response, already checked for 2xx. */
+export async function call(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  if (!API_URL) throw new ApiError('No API is set up. Set EXPO_PUBLIC_API_URL to use your own chats.');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(API_URL + path, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string> | undefined), ...(API_KEY ? { 'x-api-key': API_KEY } : {}) },
+      signal: controller.signal,
+    });
+  } catch {
+    throw new ApiError(
+      controller.signal.aborted ? 'That took longer than ' + Math.round(timeoutMs / 1000) + 's, so I stopped waiting.' : "Can't reach the server at " + API_URL + '. Is it running?',
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(body?.error || 'The server answered ' + res.status + '.', res.status);
+  }
+  return res;
+}
+
+export const READ_TIMEOUT_MS = 20_000;
+/** Answers and memoirs routinely take 15-30s while the assistant reads; give them room. */
+export const SLOW_TIMEOUT_MS = 120_000;
+
+export const getJson = async <T>(path: string, timeoutMs = READ_TIMEOUT_MS) => (await (await call(path, { method: 'GET' }, timeoutMs)).json()) as T;
+export const postJson = async <T>(path: string, body: unknown, timeoutMs = READ_TIMEOUT_MS) =>
+  (await (await call(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, timeoutMs)).json()) as T;
+
+export interface ApiMessage {
   sender: string;
   fromMe: boolean;
-  chat: string;
-  chatId: string;
   /** ISO 8601. */
   sentAt: string;
-  /** The whole original message. */
+  /** Attachments without text read "[photo]", "[video]" and so on. */
   text: string;
+}
+
+/** The message something was read from: open it to show the receipt. */
+export interface Source extends ApiMessage {
+  messageId: number;
+  chat: string;
+  chatId: string;
+  /** The user's one-to-one DM with someone (label it "Your DM"). Missing from older servers. */
+  isDm?: boolean;
 }
 
 export interface Citation extends Source {
   n: number;
-  /** The exact span of text the answer relies on. */
+  /** The exact span of text the answer relies on; text is the whole message. */
   quote: string;
+  /** Up to two messages right before and after the cited one, oldest first. Missing from older servers. */
+  before?: ApiMessage[];
+  after?: ApiMessage[];
 }
 
 export interface AskResult {
@@ -49,87 +100,12 @@ export interface Turn {
   content: string;
 }
 
-/**
- * GET /friend?name= (being added on nelson/app-friends; this mirrors its ApiFriend, check it when that lands).
- * TODO(app-friends): fill the profile's "From your chats" card (LiveSections in app/friend/[id].tsx) from this.
- */
-export interface FriendProfile {
-  person: Person;
-  chats: { id: string; title: string; platform: string; isDm: boolean; messageCount: number; lastAt: string }[];
-  /** The DM's conversation id, for /wrapped/<conversationId>; null without a DM. */
-  dmConversationId: string | null;
-  facts: { predicate: string; object: string; quote: string; messageId: number; validFrom: string; validTo: string | null; source: Source }[];
-  plans: { what: string; date: string | null; when: string; who: string[]; episodeId: number; source: Source }[];
-  episodes: { id: number; title: string; summary: string; mood: string; start: string; end: string; source: Source }[];
-  topics: { topic: string; count: number }[];
-  story: Story | null;
-}
-
-/** A friend's memoir from GET /story?name=, footnoted with message ids that key into sources. */
-export interface Story {
-  headline: string;
-  chapters: { title: string; period: string; sentences: { n: number; text: string; refs: number[] }[] }[];
-  sources: Record<string, Source>;
-  writtenAt: string;
-}
-
-/** Answers routinely take 15-30s while the assistant searches and reads; give it room. */
-const ASK_TIMEOUT_MS = 120_000;
-const READ_TIMEOUT_MS = 15_000;
-
-export class ApiError extends Error {}
-
-async function request<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
-  if (!API_URL) throw new ApiError('No API is set up. Set EXPO_PUBLIC_API_URL to use your own chats.');
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let res: Response;
-  try {
-    res = await fetch(API_URL + path, {
-      ...init,
-      headers: { ...(init.headers as Record<string, string> | undefined), ...(API_KEY ? { 'x-api-key': API_KEY } : {}) },
-      signal: controller.signal,
-    });
-  } catch {
-    throw new ApiError(
-      controller.signal.aborted
-        ? 'That took longer than ' + Math.round(timeoutMs / 1000) + 's, so I stopped waiting. Try a narrower question.'
-        : "Can't reach the Ask server at " + API_URL + '. Is it running?',
-    );
-  } finally {
-    clearTimeout(timer);
-  }
-  const body = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
-  if (!res.ok || !body) throw new ApiError(body?.error || 'The Ask server answered ' + res.status + '.');
-  return body;
-}
-
-const get = <T>(path: string) => request<T>(path, { method: 'GET' }, READ_TIMEOUT_MS);
-const post = <T>(path: string, body: unknown, timeoutMs = READ_TIMEOUT_MS) =>
-  request<T>(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, timeoutMs);
-
 /** POST /ask: an answer from your chats, scoped to one person or all of them, with numbered citations. */
-export const ask = (question: string, person: string | null, history: Turn[]) =>
-  post<AskResult>('/ask', { question, person: person ?? undefined, history }, ASK_TIMEOUT_MS);
+export const ask = (question: string, person: string | null, history: Turn[]) => postJson<AskResult>('/ask', { question, person: person ?? undefined, history }, SLOW_TIMEOUT_MS);
 
 /** GET /people: everyone you text, most-messaged DMs first. */
-export const fetchPeople = () => get<{ people: Person[] }>('/people').then((r) => r.people);
+export const fetchPeople = () => getJson<{ people: Person[] }>('/people').then((r) => r.people);
 
-/** GET /friend?name=. TODO(app-friends): not on main yet; 404s until nelson/app-friends lands. */
-export const fetchFriend = (name: string) => get<FriendProfile>('/friend?name=' + encodeURIComponent(name));
-
-/** GET /story?name=. TODO(app-friends): the memoir for the profile's story section. */
-export const fetchStory = (name: string, refresh = false) =>
-  get<{ story: Story | null }>('/story?name=' + encodeURIComponent(name) + (refresh ? '&refresh=1' : '')).then((r) => r.story);
-
-/** GET /portrait: packages/portrait's data. TODO(app-friends): typed once the portrait types move into a shared package. */
-export const fetchPortrait = () => get<unknown>('/portrait');
-
-/**
- * POST /wrapped {conversationId, from?, through?}: one Wrapped edition for a DM (packages/wrapped's WrappedOutcome).
- * TODO(app-wrapped): src/features/wrapped/ owns the response type and the screen behind /wrapped/[conversationId].
- */
-export const fetchWrapped = (body: { conversationId: string; from?: string; through?: string }) =>
-  post<unknown>('/wrapped', body, ASK_TIMEOUT_MS);
-
-export const senderLabel = (c: Pick<Citation, 'fromMe' | 'sender'>) => (c.fromMe ? 'You' : c.sender || 'Someone');
+export const senderLabel = (c: Pick<ApiMessage, 'fromMe' | 'sender'>) => (c.fromMe ? 'You' : c.sender || 'Someone');
+/** "Your DM" for the one-to-one chat, else the chat's name. */
+export const chatLabel = (s: Pick<Source, 'chat' | 'isDm'>) => (s.isDm ? 'Your DM' : s.chat);

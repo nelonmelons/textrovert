@@ -4,14 +4,16 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Rounded, Theme, Type } from '../theme';
 import { Friend, firstName, friends, upcomingMilestones } from '../fixtures';
-import { art, DeadlineBadge, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../components/Paper';
+import { art, DeadlineBadge, DemoPill, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../components/Paper';
+import { useDataMode } from '../api/mode';
+import { useFriends } from '../api/people';
 import { MilestoneRow } from '../components/MilestoneRow';
 import { useNotes } from '../store';
 import { SearchResults } from '../components/SearchResults';
 import { looksLikeQuestion } from '../chat';
 import { useFirstRun } from '../firstRun';
 
-const openProfile = (friend: Friend) => router.push(`/friend/${friend.id}`);
+const openProfile = (friend: Friend) => router.push({ pathname: '/friend/[id]', params: { id: friend.id } });
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
 
 function Row({ friend, source, children }: { friend: Friend; source: string; children: React.ReactNode }) {
@@ -51,6 +53,9 @@ export default function Today() {
   const { items } = useNotes();
   const milestones = upcomingMilestones();
   const firstRun = useFirstRun();
+  const { live } = useDataMode();
+  const people = useFriends();
+  const recent = [...people.friends].sort((a, b) => (b.person?.lastAt ?? '').localeCompare(a.person?.lastAt ?? '')).slice(0, 4);
   const sarah = friends[1];
   const mia = friends[0];
 
@@ -89,7 +94,10 @@ export default function Today() {
 
             <SectionCard tone={Theme.repliesTone}>
               <View style={{ gap: 14 }}>
-                <ToneTab title="Waiting on your reply" symbol="arrowshape.turn.up.left.fill" tone={Theme.repliesTone} />
+                <View style={styles.header}>
+                  <ToneTab title="Waiting on your reply" symbol="arrowshape.turn.up.left.fill" tone={Theme.repliesTone} />
+                  {live ? <DemoPill tone={Theme.repliesTone} /> : null}
+                </View>
                 {friends.flatMap((friend) =>
                   items(friend, 'reply').map((item) => (
                     <Row key={friend.id + item.id} friend={friend} source={item.sourceID ?? friend.messages[0].id}>
@@ -108,7 +116,10 @@ export default function Today() {
               <SectionCard tone={Theme.celebrateTone} fillOpacity={0.55}>
                 <View style={{ gap: 14 }}>
                   <View style={[styles.header, { alignItems: 'flex-start' }]}>
-                    <ToneTab title="Coming up" symbol="sparkles" tone={Theme.celebrateTone} />
+                    <View style={{ gap: 6 }}>
+                      <ToneTab title="Coming up" symbol="sparkles" tone={Theme.celebrateTone} />
+                      {live ? <DemoPill /> : null}
+                    </View>
                     <Image source={art.toast} style={{ height: 44, width: 88 }} resizeMode="contain" />
                   </View>
                   {milestones.map((milestone, index) => (
@@ -125,7 +136,10 @@ export default function Today() {
 
             <SectionCard tone={Theme.plansTone}>
               <View style={{ gap: 14 }}>
-                <ToneTab title="Upcoming plans" symbol="calendar" tone={Theme.plansTone} />
+                <View style={styles.header}>
+                  <ToneTab title="Upcoming plans" symbol="calendar" tone={Theme.plansTone} />
+                  {live ? <DemoPill tone={Theme.plansTone} /> : null}
+                </View>
                 <Row friend={mia} source={mia.messages[0].id}>
                   <Text style={[Type.headline, styles.ink]}>Shopping with Mia · Thursday, 4 PM</Text>
                   <Text style={[Type.subheadline, styles.secondary, { marginTop: -2 }]}>Bookstore</Text>
@@ -137,6 +151,61 @@ export default function Today() {
                 </Row>
               </View>
             </SectionCard>
+
+            <SectionCard tone={Theme.accentTone}>
+              <View style={{ gap: 14 }}>
+                <View style={styles.header}>
+                  <ToneTab title="Your people" symbol="person.2.fill" tone={Theme.accentTone} />
+                  <Pressable onPress={() => router.push('/friends')} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
+                    <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>See all</Text>
+                  </Pressable>
+                </View>
+                {people.status === 'loading' ? <Text style={[Type.subheadline, styles.secondary]}>Loading your people…</Text> : null}
+                {people.status === 'error' ? (
+                  <Pressable onPress={people.retry}>
+                    <Text style={[Type.subheadline, styles.secondary]}>Couldn’t load your people. {people.message} Tap to try again.</Text>
+                  </Pressable>
+                ) : null}
+                {recent.map((friend, index) => (
+                  <View key={friend.id} style={{ gap: 14 }}>
+                    {index > 0 ? <Divider /> : null}
+                    <Pressable onPress={() => openProfile(friend)} style={({ pressed }) => [styles.rowBody, pressed && styles.pressed]}>
+                      <Face initials={friend.initials} />
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={[Type.headline, styles.ink]} numberOfLines={1}>{friend.name}</Text>
+                        <Text style={[Type.subheadline, styles.secondary]} numberOfLines={1}>{friend.handle}</Text>
+                      </View>
+                      <RowChevron />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            </SectionCard>
+
+            {live ? (
+              <Pressable onPress={() => router.push('/portrait')} style={({ pressed }) => [styles.portrait, pressed && { opacity: 0.85 }]}>
+                <View style={styles.portraitIcon}>
+                  <Symbol name="circle.hexagongrid.fill" size={22} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Your portrait</Text>
+                  <Text style={[Type.subheadline, { color: 'rgba(255,255,255,0.75)' }]}>Everyone you text, drawn as an orbit</Text>
+                </View>
+                <Symbol name="chevron.right" size={13} color="#FFFFFF" weight="bold" />
+              </Pressable>
+            ) : null}
+
+            <Pressable onPress={() => router.push('/stats')} style={({ pressed }) => pressed && { opacity: 0.8 }}>
+              <SectionCard tone={Theme.celebrateTone} fillOpacity={0.4}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <ToneTab title="Your iMessage stats" symbol="chart.bar.fill" tone={Theme.celebrateTone} />
+                    <Text style={[Type.subheadline, styles.ink]}>Import the file from Textrovert on your Mac to see your texting stats.</Text>
+                  </View>
+                  <RowChevron />
+                </View>
+              </SectionCard>
+            </Pressable>
           </View>
           )}
         </View>
@@ -240,5 +309,7 @@ const styles = StyleSheet.create({
   },
   searchIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
+  portrait: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, backgroundColor: '#0b0810' },
+  portraitIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 22, backgroundColor: Theme.accentTone.fill },
 });

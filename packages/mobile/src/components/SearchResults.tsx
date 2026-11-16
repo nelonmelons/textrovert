@@ -1,12 +1,13 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useNotes } from '../store';
+import { useFriends } from '../api/people';
 import { activityMatches, ActivityMatch, friendMatches } from '../search';
 import { looksLikeQuestion } from '../chat';
 import { Rounded, Theme, Type, withAlpha } from '../theme';
 import { art, Divider, Face, HedgehogAvatar, SectionCard, ServiceIcon, Symbol, ToneTab } from './Paper';
 
-const openProfile = (id: string) => router.push(`/friend/${id}`);
+const openProfile = (id: string) => router.push({ pathname: '/friend/[id]', params: { id } });
 
 function ActivityRow({ match }: { match: ActivityMatch }) {
   const source = match.friend.messages.find((m) => m.id === match.item.sourceID);
@@ -49,9 +50,10 @@ function ActivityRow({ match }: { match: ActivityMatch }) {
 
 export function SearchResults({ query, onBack }: { query: string; onBack: () => void }) {
   const { items } = useNotes();
-  const people = friendMatches(query);
+  const { friends } = useFriends();
+  const people = friendMatches(query, friends).slice(0, 20);
   const question = looksLikeQuestion(query);
-  const activities = activityMatches(query, (friend) => items(friend, 'together'));
+  const activities = activityMatches(query, (friend) => items(friend, 'together'), friends);
   const groups = Object.entries(
     activities.reduce<Record<string, ActivityMatch[]>>((acc, match) => {
       const key = match.item.title.toLowerCase();
