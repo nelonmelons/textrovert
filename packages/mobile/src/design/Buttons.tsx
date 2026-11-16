@@ -34,11 +34,11 @@ export function BigButton({ title, onPress, kind = 'primary', emoji, trailing = 
 }
 
 /** A compact capsule key for toolbars and inline actions. */
-export function PillButton({ title, onPress, kind = 'primary', emoji, icon, small }: { title: string; onPress?: () => void; kind?: Kind; emoji?: string; icon?: ReactNode; small?: boolean }) {
+export function PillButton({ title, onPress, kind = 'primary', emoji, icon, small, disabled, accessibilityLabel }: { title: string; onPress?: () => void; kind?: Kind; emoji?: string; icon?: ReactNode; small?: boolean; disabled?: boolean; accessibilityLabel?: string }) {
   const k = useKind(kind);
   return (
     <View>
-      <Tactile face={k.face} edge={k.edge} radius={radii.pill} lip={lip.pill} ring={kind === 'secondary' ? 1.5 : 2} onPress={onPress} accessibilityLabel={title} faceStyle={{ height: small ? 32 : 38, paddingHorizontal: small ? 12 : 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Tactile face={k.face} edge={k.edge} radius={radii.pill} lip={lip.pill} ring={kind === 'secondary' ? 1.5 : 2} onPress={onPress} disabled={disabled} accessibilityLabel={accessibilityLabel ?? title} faceStyle={{ height: small ? 32 : 38, paddingHorizontal: small ? 12 : 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         {emoji ? <Txt style={{ fontSize: small ? 14 : 16 }}>{emoji}</Txt> : null}
         {icon}
         <Txt variant="subhead" color={k.ink} style={{ fontWeight: '600', fontSize: small ? 14 : 15 }}>
