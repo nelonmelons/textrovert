@@ -32,8 +32,6 @@ export default function RootLayout() {
             <Stack.Screen name="note" options={{ headerShown: true, presentation: 'modal' }} />
             <Stack.Screen name="chat" options={{ headerShown: true }} />
             <Stack.Screen name="settings" options={{ headerShown: true }} />
-            <Stack.Screen name="analysis" options={{ headerShown: true }} />
-            <Stack.Screen name="conversation" options={{ headerShown: true, presentation: 'modal' }} />
           </Stack>
         </NotesProvider>
       </FirstRunProvider>

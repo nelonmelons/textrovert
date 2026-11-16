@@ -9,6 +9,7 @@ import { art, DeadlineBadge, Divider, Face, RowChevron, SectionCard, ServiceIcon
 import { MilestoneRow } from '../../components/MilestoneRow';
 import { PaperScroll } from '../../components/PaperScroll';
 import { AskBox } from '../../components/AskBox';
+import { WrappedEntry } from '../../components/WrappedEntry';
 
 const openSource = (friend: Friend, messageID: string) => router.push({ pathname: '/source', params: { friend: friend.id, message: messageID } });
 const openEditor = (friend: Friend, section: NoteSection, id?: string) => router.push({ pathname: '/note', params: { friend: friend.id, section, ...(id ? { id } : {}) } });
@@ -140,6 +141,7 @@ export default function FriendProfile() {
         </Pressable>
       ))}
       <AskBox friend={friend} ask={(q) => router.push({ pathname: '/chat', params: { friend: friend.id, q } })} />
+      <WrappedEntry friend={friend} />
       {sectionOrder.map((section) => (
         <SectionBlock key={section} friend={friend} section={section} />
       ))}

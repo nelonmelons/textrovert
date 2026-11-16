@@ -1,15 +1,15 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Friend, firstName, friendById } from '../fixtures';
-import { reply, subjectOf, turn, Turn } from '../chat';
-import { Theme, Type, withAlpha } from '../theme';
+import { firstName, friendById } from '../fixtures';
+import { turn, Turn, unavailableReply } from '../chat';
+import { Theme, Type } from '../theme';
 import { GridPaper, HedgehogAvatar, Symbol } from '../components/Paper';
 
 export default function Chat() {
-  const params = useLocalSearchParams<{ friend?: string; q?: string }>();
+  const params = useLocalSearchParams<{ friend?: string; q?: string; image?: string }>();
   const friend = friendById(params.friend);
   const insets = useSafeAreaInsets();
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -19,41 +19,22 @@ export default function Chat() {
   const [draft, setDraft] = useState('');
   const [useHistory, setUseHistory] = useState(true);
   const [photo, setPhoto] = useState<string>();
-  const [pending, setPending] = useState<{ question: string; image: string; subject: Friend }>();
   const [pickError, setPickError] = useState<string>();
   const started = useRef(false);
 
   const send = (raw: string, image?: string) => {
     const question = raw.trim();
     if (!question && !image) return;
-    const next = [turn({ fromMe: true, text: question, image })];
     setDraft('');
     setPhoto(undefined);
-    const subject = subjectOf(question, friend);
-    if (image && useHistory && subject) {
-      setPending({ question, image, subject });
-      next.push(turn({ fromMe: false, kind: 'clarify', about: firstName(subject), text: `Should I look at just your photo, or your photo and your chats with ${firstName(subject)} together?` }));
-    } else {
-      next.push(reply(question, { friend, image, includeHistory: !image && useHistory, subject }));
-    }
-    setTurns((t) => [...t, ...next]);
-  };
-
-  const answerPending = (includeHistory: boolean) => {
-    if (!pending) return;
-    setPending(undefined);
-    setTurns((t) => [
-      ...t,
-      turn({ fromMe: true, text: includeHistory ? `Photo + chats with ${firstName(pending.subject)}` : 'Just the photo' }),
-      reply(pending.question, { friend, image: pending.image, includeHistory, subject: pending.subject }),
-    ]);
+    setTurns((t) => [...t, turn({ fromMe: true, text: question, image }), unavailableReply(image)]);
   };
 
   useEffect(() => {
-    if (started.current || !params.q) return;
+    if (started.current || (!params.q && !params.image)) return;
     started.current = true;
-    send(params.q);
-  }, [params.q]);
+    send(params.q ?? '', params.image);
+  }, [params.q, params.image]);
 
   const pick = async () => {
     setPickError(undefined);
@@ -88,22 +69,6 @@ export default function Chat() {
               <View style={styles.theirs}>
                 <Text style={[Type.body, { color: Theme.ink }]}>{t.text}</Text>
                 {t.detail ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>{t.detail}</Text> : null}
-                {t.kind === 'analysis' ? (
-                  <Pressable onPress={() => router.push('/analysis')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Symbol name="text.bubble" size={14} color={Theme.accent} weight="semibold" />
-                    <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>See why I think that</Text>
-                  </Pressable>
-                ) : null}
-                {t.kind === 'clarify' ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, opacity: pending ? 1 : 0.4 }}>
-                    <Pressable disabled={!pending} onPress={() => answerPending(false)} style={styles.choice}>
-                      <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Just the photo</Text>
-                    </Pressable>
-                    <Pressable disabled={!pending} onPress={() => answerPending(true)} style={styles.choice}>
-                      <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Photo + chats with {t.about}</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
               </View>
             </View>
           ),
@@ -150,7 +115,6 @@ export default function Chat() {
 const styles = StyleSheet.create({
   mine: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: Theme.accent, borderRadius: 18, borderBottomRightRadius: 4 },
   theirs: { flexShrink: 1, gap: 8, padding: 14, backgroundColor: Theme.panel, borderRadius: 18, borderTopLeftRadius: 4 },
-  choice: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: withAlpha(Theme.accentTone.fill, 0.8) },
   composer: {
     gap: 10,
     paddingHorizontal: 16,

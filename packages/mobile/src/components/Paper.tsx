@@ -106,14 +106,13 @@ export function SourceHeader({ friend }: { friend: Friend }) {
   );
 }
 
-export function Bubble({ text, meta, service, fromMe, cited }: { text: string; meta: string; service?: string; fromMe?: boolean; cited?: boolean }) {
+export function Bubble({ text, meta, service }: { text: string; meta: string; service?: string }) {
   return (
-    <View style={{ alignItems: fromMe ? 'flex-end' : 'flex-start', gap: 6, paddingRight: fromMe ? 0 : 40, paddingLeft: fromMe ? 40 : 0 }}>
-      <View style={[styles.bubble, fromMe && styles.bubbleMine, cited && { borderWidth: 2, borderColor: Theme.accent }]}>
-        <Text style={[Type.body, { color: fromMe ? '#FFFFFF' : Theme.ink }]}>{text}</Text>
+    <View style={{ alignItems: 'flex-start', gap: 6, paddingRight: 40 }}>
+      <View style={styles.bubble}>
+        <Text style={[Type.body, { color: Theme.ink }]}>{text}</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {cited ? <Text style={[Type.caption, { color: Theme.accent, fontWeight: '600' }]}>❝ Used in the reading ·</Text> : null}
         {service ? <ServiceIcon service={service} /> : null}
         <Text style={[Type.caption, { color: Theme.secondary }]}>{meta}</Text>
       </View>
@@ -191,7 +190,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 1 },
   },
-  bubbleMine: { backgroundColor: Theme.accent, borderBottomLeftRadius: 18, borderBottomRightRadius: 4 },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',

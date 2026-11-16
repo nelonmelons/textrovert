@@ -1,6 +1,7 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Rounded, Theme, Type } from '../theme';
 import { Friend, firstName, friends, upcomingMilestones } from '../fixtures';
@@ -44,6 +45,8 @@ export default function Today() {
     if (q !== undefined) setQuery(q);
   }, [q]);
   const [focused, setFocused] = useState(false);
+  const [photo, setPhoto] = useState<string>();
+  const [photoError, setPhotoError] = useState<string>();
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   const searching = query.trim().length > 0;
   const [panelHeight, setPanelHeight] = useState(140);
@@ -55,6 +58,24 @@ export default function Today() {
   const mia = friends[0];
 
   if (!firstRun.done) return <Redirect href="/setup" />;
+
+  const pickPhoto = async () => {
+    setPhotoError(undefined);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+      if (!result.canceled) setPhoto(result.assets[0].uri);
+    } catch {
+      setPhotoError('That photo couldn’t be loaded. Try another one.');
+    }
+  };
+
+  const askWithPhoto = () => {
+    if (!photo) return;
+    input.current?.blur();
+    router.push({ pathname: '/chat', params: { q: query.trim(), image: photo } });
+    setPhoto(undefined);
+    setQuery('');
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: Theme.paper }}>
@@ -144,6 +165,16 @@ export default function Today() {
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: Theme.paper }} />
 
       <View style={[styles.panel, { paddingBottom: insets.bottom + 6 }]} onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)}>
+        {photo ? (
+          <View style={styles.photoChip}>
+            <Image source={{ uri: photo }} style={{ width: 32, height: 32, borderRadius: 8 }} accessibilityLabel="Attached photo" />
+            <Text style={[Type.subheadline, { flex: 1, color: Theme.ink, fontWeight: '600' }]}>1 photo · ask me about it</Text>
+            <Pressable onPress={() => setPhoto(undefined)} accessibilityLabel="Remove photo" hitSlop={10}>
+              <Symbol name="xmark.circle.fill" size={18} color={Theme.secondary} />
+            </Pressable>
+          </View>
+        ) : null}
+        {photoError ? <Text style={[Type.caption, { color: Theme.deadline, paddingHorizontal: 4 }]}>{photoError}</Text> : null}
         <View style={styles.inlineWide}>
           <View
             style={[
@@ -160,22 +191,32 @@ export default function Today() {
               onChangeText={setQuery}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="Search or ask me anything"
+              placeholder={photo ? 'Ask about this photo' : 'Search or ask me anything'}
               placeholderTextColor={Theme.secondary}
               autoCapitalize="none"
               autoCorrect={false}
-              returnKeyType="search"
+              returnKeyType={photo ? 'send' : 'search'}
               onSubmitEditing={() => {
+                if (photo) return askWithPhoto();
                 input.current?.blur();
                 if (looksLikeQuestion(query)) router.push({ pathname: '/chat', params: { q: query.trim() } });
               }}
               style={[Type.body, { flex: 1, color: Theme.ink }]}
             />
-            {query.length > 0 ? (
+            {query.length > 0 && !photo ? (
               <Pressable onPress={() => { setQuery(''); input.current?.blur(); }} accessibilityLabel="Clear search" hitSlop={12}>
                 <Symbol name="xmark.circle.fill" size={17} color={Theme.secondary} />
               </Pressable>
             ) : null}
+            {photo ? (
+              <Pressable onPress={askWithPhoto} accessibilityLabel="Ask about this photo" style={styles.send}>
+                <Symbol name="arrow.up" size={15} color="#FFFFFF" weight="bold" />
+              </Pressable>
+            ) : (
+              <Pressable onPress={pickPhoto} accessibilityLabel="Add a photo" hitSlop={8} style={styles.photoButton}>
+                <Symbol name="photo.badge.plus" size={19} color={Theme.accent} />
+              </Pressable>
+            )}
           </View>
           {focused ? (
             <Pressable onPress={() => input.current?.blur()} style={{ minHeight: 44, justifyContent: 'center' }}>
@@ -228,7 +269,7 @@ const styles = StyleSheet.create({
     gap: 12,
     minHeight: 54,
     paddingLeft: 12,
-    paddingRight: 18,
+    paddingRight: 8,
     borderRadius: 27,
     borderWidth: 1.5,
     borderColor: Theme.accent,
@@ -239,6 +280,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
   },
   searchIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  photoButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accentTone.fill },
+  send: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accent },
+  photoChip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: 12, paddingVertical: 4, borderRadius: 14, backgroundColor: Theme.plansTone.fill },
   chips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 22, backgroundColor: Theme.accentTone.fill },
 });
