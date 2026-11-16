@@ -67,7 +67,7 @@ export default function Today() {
     Animated.timing(reveal, { toValue: searching ? 1 : 0, duration: 220, useNativeDriver: nativeDriver }).start();
   }, [searching, reveal]);
 
-  if (!firstRun.done) return <Redirect href="/setup" />;
+  if (!firstRun.done) return <Redirect href="/onboarding" />;
 
   const startSearch = () => setMode('live');
 
