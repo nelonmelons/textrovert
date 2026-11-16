@@ -708,13 +708,14 @@ struct NoteEditor: View {
 
 struct WrappedHost: View {
     let fixture: WrappedFixture
+    var ownerID = WrappedFixtures.owner.id
     let close: () -> Void
     @State private var share: SharePayload?
 
     var body: some View {
         WrappedView(
             conversation: fixture.conversation,
-            ownerID: WrappedFixtures.owner.id,
+            ownerID: ownerID,
             range: fixture.range,
             onClose: close,
             onShare: { text in

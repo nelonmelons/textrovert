@@ -253,6 +253,7 @@ struct TodayView: View {
     private var summary: some View {
         VStack(alignment: .leading, spacing: 22) {
             Text("Today").font(.system(.largeTitle, design: .rounded, weight: .bold))
+            ImportedMessagesCard()
             VStack(alignment: .leading, spacing: 14) {
                 ToneTab(title: "Waiting on your reply", symbol: "arrowshape.turn.up.left.fill", tone: Theme.repliesTone)
                 ForEach(Friend.fixtures) { friend in

@@ -11,6 +11,8 @@
 		000000000000000000000023 /* TextrovertUITests/FlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000007 /* TextrovertUITests/FlowTests.swift */; };
 		000000000000000000000053 /* Textrovert/FriendNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000050 /* Textrovert/FriendNotes.swift */; };
 		000000000000000000000054 /* Textrovert/Paper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000051 /* Textrovert/Paper.swift */; };
+		00000000000000000000F104 /* Textrovert/ImportedMessagesCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000F103 /* Textrovert/ImportedMessagesCard.swift */; };
+		00000000000000000000F102 /* Textrovert/ImportedMessages.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000F101 /* Textrovert/ImportedMessages.swift */; };
 		000000000000000000000055 /* Textrovert/Today.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000052 /* Textrovert/Today.swift */; };
 		000000000000000000000057 /* Textrovert/ImageAttachment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000056 /* Textrovert/ImageAttachment.swift */; };
 		000000000000000000000070 /* Textrovert/Wrapped/WrappedModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000060 /* Textrovert/Wrapped/WrappedModels.swift */; };
@@ -48,6 +50,9 @@
 		000000000000000000000009 /* TextrovertUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = TextrovertUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000050 /* Textrovert/FriendNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/FriendNotes.swift; sourceTree = "<group>"; };
 		000000000000000000000051 /* Textrovert/Paper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/Paper.swift; sourceTree = "<group>"; };
+		00000000000000000000F105 /* Textrovert/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Textrovert/Info.plist; sourceTree = "<group>"; };
+		00000000000000000000F103 /* Textrovert/ImportedMessagesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/ImportedMessagesCard.swift; sourceTree = "<group>"; };
+		00000000000000000000F101 /* Textrovert/ImportedMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/ImportedMessages.swift; sourceTree = "<group>"; };
 		000000000000000000000052 /* Textrovert/Today.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/Today.swift; sourceTree = "<group>"; };
 		000000000000000000000056 /* Textrovert/ImageAttachment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/ImageAttachment.swift; sourceTree = "<group>"; };
 		000000000000000000000060 /* Textrovert/Wrapped/WrappedModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Textrovert/Wrapped/WrappedModels.swift; sourceTree = "<group>"; };
@@ -91,6 +96,9 @@
 				000000000000000000000066 /* Textrovert/Wrapped/WrappedView.swift */,
 				000000000000000000000050 /* Textrovert/FriendNotes.swift */,
 				000000000000000000000051 /* Textrovert/Paper.swift */,
+				00000000000000000000F105 /* Textrovert/Info.plist */,
+				00000000000000000000F103 /* Textrovert/ImportedMessagesCard.swift */,
+				00000000000000000000F101 /* Textrovert/ImportedMessages.swift */,
 				000000000000000000000052 /* Textrovert/Today.swift */,
 				000000000000000000000056 /* Textrovert/ImageAttachment.swift */,
 				000000000000000000000007 /* TextrovertUITests/FlowTests.swift */,
@@ -209,6 +217,8 @@
 				000000000000000000000022 /* Textrovert/TextrovertApp.swift in Sources */,
 				000000000000000000000053 /* Textrovert/FriendNotes.swift in Sources */,
 				000000000000000000000054 /* Textrovert/Paper.swift in Sources */,
+				00000000000000000000F104 /* Textrovert/ImportedMessagesCard.swift in Sources */,
+				00000000000000000000F102 /* Textrovert/ImportedMessages.swift in Sources */,
 				000000000000000000000055 /* Textrovert/Today.swift in Sources */,
 				000000000000000000000057 /* Textrovert/ImageAttachment.swift in Sources */,
 			);
@@ -264,6 +274,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = 5JNRPFZ6M6;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Textrovert/Info.plist;
 				INFOPLIST_KEY_NSContactsUsageDescription = "Textrovert uses your contacts only when you choose to find friends to add.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -283,6 +294,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5JNRPFZ6M6;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Textrovert/Info.plist;
 				INFOPLIST_KEY_NSContactsUsageDescription = "Textrovert uses your contacts only when you choose to find friends to add.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

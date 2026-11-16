@@ -52,6 +52,7 @@ struct RootView: View {
     @State private var showIntro = true
     @StateObject private var store = NotesStore()
     @StateObject private var session = DemoSession()
+    @StateObject private var imported = ImportedMessages()
 
     var body: some View {
         ZStack {
@@ -64,8 +65,13 @@ struct RootView: View {
         }
         .environmentObject(store)
         .environmentObject(session)
+        .environmentObject(imported)
         .foregroundStyle(Theme.ink)
         .onChange(of: session.generation) { showIntro = true }
+        .onOpenURL { url in
+            showIntro = false
+            imported.open(url)
+        }
     }
 }
 
