@@ -51,6 +51,10 @@ lockfile with `npm install --package-lock-only` in a copy outside the workspace 
 - `src/features/ask/`: the Ask screen, light-markdown answers with `[n]` pills, sources grouped by chat, the receipts
   sheet, the friend picker, starters and the shared Ask scope.
 - `src/features/friends/`: the Friends list.
+- `src/features/wrapped/`: Wrapped for one DM (Emma's SwiftUI scenes ported to Reanimated and SVG), driven by
+  `@textrovert/wrapped`'s `WrappedController` with editions from `POST /wrapped`, cached in AsyncStorage. Route:
+  `/wrapped/<conversationId>?from=YYYY-MM-DD&through=YYYY-MM-DD` (both optional), presented full screen. Metro and
+  TypeScript read the engine from `../wrapped/src` (see `metro.config.js`), so this package needs the repo checkout.
 - `src/lib/motion.ts` and `src/lib/haptics.ts`: Reduce Motion and device haptics (no-op on web).
 - `src/lib/api.ts`: the Ask API client (2-minute timeout on `/ask`; answers usually take 10-30s).
 

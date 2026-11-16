@@ -13,7 +13,9 @@ export default function RootLayout() {
       <PhoneFrame>
         <SheetProvider>
           <StatusBar style="auto" />
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="wrapped/[conversationId]" options={{ presentation: 'fullScreenModal' }} />
+          </Stack>
         </SheetProvider>
       </PhoneFrame>
     </SafeAreaProvider>

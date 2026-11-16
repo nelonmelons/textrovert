@@ -43,7 +43,7 @@ const ASK_TIMEOUT_MS = 120_000;
 
 export class ApiError extends Error {}
 
-async function request<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
+export async function request<T>(path: string, init: RequestInit, timeoutMs: number, timeoutMessage?: string): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
@@ -56,7 +56,7 @@ async function request<T>(path: string, init: RequestInit, timeoutMs: number): P
   } catch (error) {
     throw new ApiError(
       controller.signal.aborted
-        ? 'That took longer than ' + Math.round(timeoutMs / 1000) + 's, so I stopped waiting. Try a narrower question.'
+        ? (timeoutMessage ?? 'That took longer than ' + Math.round(timeoutMs / 1000) + 's, so I stopped waiting. Try a narrower question.')
         : "Can't reach the Ask server at " + API_URL + '. Is it running?',
     );
   } finally {
