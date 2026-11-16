@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Image, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import { Rounded, Theme, Tone, Type, withAlpha } from '../theme';
-import { deadlineText, Friend } from '../fixtures';
+import { deadlineText, Friend } from '../people';
 
 const CELL = 22;
 

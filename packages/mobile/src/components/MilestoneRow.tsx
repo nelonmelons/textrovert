@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Milestone, milestoneDateLine, milestoneHeadline } from '../fixtures';
+import { Milestone, milestoneDateLine, milestoneHeadline } from '../people';
 import { useNotes } from '../store';
 import { Theme, Type } from '../theme';
 import { Face, RowChevron, ServiceIcon, Symbol } from './Paper';

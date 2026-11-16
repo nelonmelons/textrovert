@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Friend, firstName } from '../fixtures';
+import { Friend, firstName } from '../people';
 import { Theme, Type, withAlpha } from '../theme';
 import { HedgehogAvatar, Symbol } from './Paper';
 
