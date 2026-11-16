@@ -8,6 +8,7 @@ import { art, DeadlineBadge, Divider, Face, GridPaper, HedgehogMark, RowChevron,
 import { MilestoneRow } from '../components/MilestoneRow';
 import { useNotes } from '../store';
 import { SearchResults } from '../components/SearchResults';
+import { looksLikeQuestion } from '../chat';
 
 const openProfile = (friend: Friend) => router.push(`/friend/${friend.id}`);
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
@@ -160,7 +161,10 @@ export default function Today() {
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="search"
-              onSubmitEditing={() => input.current?.blur()}
+              onSubmitEditing={() => {
+                input.current?.blur();
+                if (looksLikeQuestion(query)) router.push({ pathname: '/chat', params: { q: query.trim() } });
+              }}
               style={[Type.body, { flex: 1, color: Theme.ink }]}
             />
             {query.length > 0 ? (

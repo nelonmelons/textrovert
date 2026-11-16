@@ -2,8 +2,9 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useNotes } from '../store';
 import { activityMatches, ActivityMatch, friendMatches } from '../search';
+import { looksLikeQuestion } from '../chat';
 import { Rounded, Theme, Type, withAlpha } from '../theme';
-import { art, Divider, Face, SectionCard, ServiceIcon, Symbol, ToneTab } from './Paper';
+import { art, Divider, Face, HedgehogAvatar, SectionCard, ServiceIcon, Symbol, ToneTab } from './Paper';
 
 const openProfile = (id: string) => router.push(`/friend/${id}`);
 
@@ -49,6 +50,7 @@ function ActivityRow({ match }: { match: ActivityMatch }) {
 export function SearchResults({ query, onBack }: { query: string; onBack: () => void }) {
   const { items } = useNotes();
   const people = friendMatches(query);
+  const question = looksLikeQuestion(query);
   const activities = activityMatches(query, (friend) => items(friend, 'together'));
   const groups = Object.entries(
     activities.reduce<Record<string, ActivityMatch[]>>((acc, match) => {
@@ -72,6 +74,19 @@ export function SearchResults({ query, onBack }: { query: string; onBack: () => 
         <Text style={[Type.largeTitle, { fontFamily: Rounded.bold, color: Theme.ink }]}>Search</Text>
         <Text style={[Type.body, { color: Theme.secondary }]}>Results for “{query}”</Text>
       </View>
+      <Pressable
+        onPress={() => router.push({ pathname: '/chat', params: { q: query.trim() } })}
+        style={({ pressed }) => [styles.ask, question && styles.askStrong, pressed && { opacity: 0.75 }]}
+      >
+        <HedgehogAvatar />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={[Type.headline, { color: question ? '#FFFFFF' : Theme.ink }]}>Ask me</Text>
+          <Text style={[Type.subheadline, { color: question ? '#FFFFFF' : Theme.secondary }]} numberOfLines={2}>
+            “{query.trim()}”
+          </Text>
+        </View>
+        <Symbol name="arrow.up.circle.fill" size={24} color={question ? '#FFFFFF' : Theme.accent} />
+      </Pressable>
       {people.length === 0 && activities.length === 0 ? (
         <View style={{ gap: 12, paddingVertical: 24 }}>
           <Image source={art.bird} style={{ width: 260, height: 180, alignSelf: 'center' }} resizeMode="contain" />
@@ -121,6 +136,8 @@ export function SearchResults({ query, onBack }: { query: string; onBack: () => 
 }
 
 const styles = StyleSheet.create({
+  ask: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: Theme.panel, borderWidth: 1.5, borderColor: withAlpha(Theme.accent, 0.5) },
+  askStrong: { backgroundColor: Theme.accent, borderColor: Theme.accent },
   back: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, alignSelf: 'flex-start' },
   activityBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6 },
