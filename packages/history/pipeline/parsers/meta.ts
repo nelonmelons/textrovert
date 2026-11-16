@@ -29,7 +29,7 @@ const GROUP_EVENT_RE =
 const CONNECTED_RE = /^(?:You are now connected on Messenger|Say hi to your new (?:Facebook|Instagram) friend)/i;
 const ATTACHMENT_LINE_RE =
   /^sent (an attachment|a link|a photo|\d+ photos|a video|a sticker|a GIF|a voice message|a file)\.?$/i;
-const CALL_LINE_RE = /^(?:started a (?:video|audio) (?:chat|call)|ended the (?:video|audio) (?:chat|call))\.?$/i;
+const CALL_LINE_RE = /^(?:started an? (?:video|audio) (?:chat|call)|ended the (?:video|audio) (?:chat|call))\.?$/i;
 
 export const instagramParser: Parser = metaParser("instagram");
 export const messengerParser: Parser = metaParser("messenger");
@@ -182,6 +182,20 @@ async function parseThreadFile(entry: ArchiveEntry, externalId: string, io: Pars
     participants: [...participants],
   });
   for (let i = 0; i < messages.length; i += 1000) await io.messages(externalId, messages.slice(i, i + 1000));
+}
+
+/**
+ * A Meta activity line stored as text because its actor isn't the sender's display name (a first name or username):
+ * "<actor> sent an attachment.", "<actor> started an audio call", "<actor> liked a message". Tries actors of 1–3 words.
+ */
+export function isMetaActivityText(text: string): boolean {
+  if (UNSENT_RE.test(text)) return true;
+  const words = text.trim().split(/\s+/);
+  for (let k = 1; k <= 3 && k < words.length; k++) {
+    const rest = words.slice(k).join(" ");
+    if (REACTION_RE.test(rest) || CALL_LINE_RE.test(rest) || ATTACHMENT_LINE_RE.test(rest)) return true;
+  }
+  return false;
 }
 
 // "Alice reacted ..." / "You sent an attachment.": the text after the actor, or null when no actor starts the line.

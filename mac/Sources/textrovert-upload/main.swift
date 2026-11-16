@@ -5,7 +5,7 @@ import TextrovertCore
 // same code as Textrovert.app, which makes it the way to test or script the app's export.
 //
 //   textrovert-upload --backend https://<deployment>.convex.cloud (--owner-key <key> | --new)
-//                     [--exporter <path>] [--db <chat.db>] [--contacts <contacts database>]
+//                     [--exporter <path>] [--db <chat.db>] [--contacts <contacts database>] [--search <query>]
 
 func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data((message + "\n").utf8))
@@ -26,7 +26,7 @@ while let argument = rest.next() {
 }
 
 guard let backend = options["backend"].flatMap(URL.init(string:)) else {
-    fail("usage: textrovert-upload --backend https://<deployment>.convex.cloud (--owner-key <key> | --new) [--exporter <path>] [--db <chat.db>] [--contacts <path>]")
+    fail("usage: textrovert-upload --backend https://<deployment>.convex.cloud (--owner-key <key> | --new) [--exporter <path>] [--db <chat.db>] [--contacts <path>] [--search <query>]")
 }
 let here = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
 let exporter = Exporter(binary: options["exporter"].map { URL(fileURLWithPath: $0) } ?? here.appending(path: "Textrovert.app/Contents/MacOS/imessage-exporter"))
@@ -47,6 +47,8 @@ do {
         guard createAccount else { fail("Pass --owner-key <key>, or --new to create an account.") }
         ownerKey = try await convex.action("owners:create", [:])
         print("Created an account. Its key is the only way back into this data:\n  " + ownerKey)
+    } else if try await !convex.accountExists(ownerKey: ownerKey) {
+        fail("There's no account with that key on " + backend.absoluteString + ".")
     }
     print("Exporting messages with imessage-exporter…")
     let export = try await exporter.exportZip(arguments: exporterArguments)
@@ -67,6 +69,13 @@ do {
     try? FileManager.default.removeItem(at: export.folder)
     upload.warnings.forEach { print("Note: " + $0) }
     if upload.status == "failed" { exit(1) }
+    if let text = options["search"] {
+        let hits = try await convex.search(ownerKey: ownerKey, text: text)
+        print("Search \"\(text)\": \(hits.count) result(s)")
+        for hit in hits {
+            print("  " + hit.conversation.title + " | " + (hit.fromMe ? "You" : hit.sender) + ": " + hit.snippet)
+        }
+    }
 } catch {
     fail(error.localizedDescription)
 }

@@ -3,6 +3,7 @@
 import { ConvexError, v } from "convex/values";
 
 import { ask as askAgent, openAiComplete, type AssistantAnswer } from "../pipeline/assistant/agent";
+import { answerRequest, ApiError, type ApiAnswer } from "../pipeline/assistant/api";
 import { describeEpisode, openAiFacets, segmentEpisodes, type Episode } from "../pipeline/assistant/episodes";
 import { extractFacts, openAiFactExtractor, openAiFactResolver, type Fact } from "../pipeline/assistant/facts";
 import { chunkMessages, openAiEmbedder } from "../pipeline/assistant/memory";
@@ -55,6 +56,49 @@ export const ask = action({
       timeZone: safeTimeZone(profile.timeZone),
       now: Date.now(),
     });
+  },
+});
+
+/**
+ * The hosted Ask API's POST /ask (convex/http.ts): the same assistant and citation mapping as scripts/ask-server.ts,
+ * over one owner's chats. Returns the HTTP status with the body so the route can answer 404s without a 500.
+ */
+export const answerApi = internalAction({
+  args: {
+    ownerKey: v.string(),
+    question: v.string(),
+    person: v.optional(v.string()),
+    history: v.optional(v.array(v.object({ role: v.union(v.literal("user"), v.literal("assistant")), content: v.string() }))),
+  },
+  handler: async (ctx, { ownerKey, ...request }): Promise<{ status: number; body: ApiAnswer | { error: string } }> => {
+    const profile = await ctx.runQuery(internal.ingestData.profile, { ownerKey });
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!profile || !apiKey) return { status: 503, body: { error: "The Ask API isn't configured" } };
+    const [conversations, store, memory, episodes, facts] = await Promise.all([
+      ctx.runQuery(internal.conversations.directory, { ownerKey }),
+      getMessageStore(),
+      getMemoryIndex(),
+      getEpisodeIndex(),
+      getFactIndex(),
+    ]);
+    try {
+      const body = await answerRequest(request, {
+        conversations,
+        owner: storeOwner(ownerKey),
+        store,
+        memory,
+        episodes,
+        facts,
+        embed: openAiEmbedder(apiKey),
+        complete: openAiComplete(apiKey, process.env.ASSISTANT_MODEL || undefined),
+        timeZone: safeTimeZone(profile.timeZone),
+        now: Date.now(),
+      });
+      return { status: 200, body };
+    } catch (error) {
+      if (error instanceof ApiError) return { status: error.status, body: { error: error.message } };
+      throw error;
+    }
   },
 });
 
