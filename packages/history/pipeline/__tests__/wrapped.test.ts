@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { WrappedStubModelSource, dateRangeFromDays, isModelSuggestion, quotesFor, type WrappedModelSource } from "@textrovert/wrapped";
+import { WrappedAnalysisContext, WrappedHeuristicProvider, WrappedStubModelSource, dateRangeFromDays, isModelSuggestion, quotesFor, type WrappedModelSource } from "@textrovert/wrapped";
 
 import type { ConversationRef } from "../assistant/agent";
 import type { StoredMessage } from "../store";
 import { LocalTime } from "../time";
 import { WRAPPED_OWNER_ID, runWrapped, toWrappedConversation } from "../wrapped";
+import { ApiError } from "../assistant/api";
+import { parseWrappedRequest, wrappedRequest } from "../assistant/wrappedApi";
 
 const la = new LocalTime("America/Los_Angeles");
 const at = (month: number, day: number, hour: number, minute: number) => la.fromLocal(2026, month, day, hour, minute, 0);
@@ -82,8 +84,9 @@ describe("runWrapped", () => {
         expect(q.quote.speakerName).toBe(source.sender);
       }
     }
-    const joke = run.outcome.edition.highlights.find((h) => h.signal === "runningJoke");
-    expect(joke?.headline).toBe("“cornelius” keeps coming back");
+    // The joke is found from the rows; under RUNNING_JOKE_SCORE_CAP higher cards sharing its messages can take edition 1.
+    const ctx = WrappedAnalysisContext.create(toWrappedConversation(dm, rows), WRAPPED_OWNER_ID, range)!;
+    expect(new WrappedHeuristicProvider().runningJokes(ctx)[0]?.headline).toBe("“cornelius” keeps coming back");
     expect(run.outcome.edition.ownerID).toBe(WRAPPED_OWNER_ID);
   });
 
@@ -120,5 +123,46 @@ describe("runWrapped", () => {
     const rulesOnly = await runWrapped({ ref: dm, rows, range, now: 0 });
     expect(failed.outcome).toEqual(rulesOnly.outcome);
     expect(late.outcome).toEqual(rulesOnly.outcome);
+  });
+});
+
+describe("POST /wrapped (shared handler)", () => {
+  const options = { conversations: [dm, group], loadRows: async () => rows, timeZone: "America/Los_Angeles", modelSource: null };
+
+  it("validates the body", () => {
+    expect(() => parseWrappedRequest([])).toThrow(ApiError);
+    expect(() => parseWrappedRequest({})).toThrow("conversationId is required");
+    expect(() => parseWrappedRequest({ conversationId: "x", from: "2026-11-01" })).toThrow("from and through must both be YYYY-MM-DD dates");
+    expect(parseWrappedRequest({ conversationId: "x", avoiding: ["1", 2], number: 2.7, model: false })).toMatchObject({
+      conversationId: "x", avoiding: ["1"], number: 2, model: false,
+    });
+    expect(parseWrappedRequest({ conversationId: "x" })).not.toHaveProperty("from");
+  });
+
+  it("answers an edition with the conversation shell, range and wider range", async () => {
+    const res = await wrappedRequest(parseWrappedRequest({ conversationId: "conv-ava", from: "2026-11-03", through: "2026-11-08", model: false }), options);
+    expect(res.conversation).toEqual({
+      id: "conv-ava", service: "Instagram", title: "Ava Park", kind: "dm", ownerID: WRAPPED_OWNER_ID,
+      participants: [{ id: "Ava Park", name: "Ava Park" }, { id: WRAPPED_OWNER_ID, name: "Alex" }],
+    });
+    expect(res.conversation).not.toHaveProperty("messages");
+    expect(res.range).toEqual(dateRangeFromDays("2026-11-03", "2026-11-08", "America/Los_Angeles"));
+    expect(res.wider).toEqual(dateRangeFromDays("2026-11-02", "2026-11-10", "America/Los_Angeles"));
+    expect(res.model.status).toBe("off");
+  });
+
+  it("defaults to the 30 days ending on the last message", async () => {
+    const res = await wrappedRequest(parseWrappedRequest({ conversationId: "conv-ava", model: false }), options);
+    expect(res.range).toEqual(dateRangeFromDays("2026-10-12", "2026-11-10", "America/Los_Angeles"));
+    expect(res.outcome.kind).toBe("edition");
+    expect(res.wider).toBeNull();
+  });
+
+  it("404s unknown chats and leaves groups unsupported without loading rows", async () => {
+    await expect(wrappedRequest(parseWrappedRequest({ conversationId: "nope" }), options)).rejects.toMatchObject({ status: 404 });
+    let loaded = false;
+    const res = await wrappedRequest(parseWrappedRequest({ conversationId: "conv-trip" }), { ...options, loadRows: async () => ((loaded = true), rows) });
+    expect(loaded).toBe(false);
+    expect(res.outcome).toEqual({ kind: "empty", reason: { kind: "unsupportedConversation" }, widerRange: null });
   });
 });

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { EMBEDDED, portraitFromHost, toHost } from "./bridge";
 import { buildModel, haptic, type Model } from "./model";
 import type { Portrait } from "./types";
 import { Atlas } from "./views/Atlas";
@@ -15,6 +16,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ];
 
 async function loadPortrait(): Promise<Portrait> {
+  if (EMBEDDED) return portraitFromHost();
   if (!new URLSearchParams(location.search).has("demo")) {
     try {
       const res = await fetch("/portrait.json", { cache: "no-store" });
@@ -26,11 +28,12 @@ async function loadPortrait(): Promise<Portrait> {
   return (await import("../fixtures/demo-portrait.json")).default as unknown as Portrait;
 }
 
-function parseHash(): { tab: Tab; person: string | null } {
+function parseHash(): { tab: Tab; person: string | null; topic: string | null } {
   const [, tab, kind, id] = location.hash.split("/");
   return {
     tab: TABS.some((t) => t.id === tab) ? (tab as Tab) : "orbit",
     person: kind === "p" && id ? decodeURIComponent(id) : null,
+    topic: kind === "t" && id ? decodeURIComponent(id) : null,
   };
 }
 
@@ -52,7 +55,9 @@ export function App() {
   };
   const openPerson = (id: string) => {
     haptic("medium");
-    go(route.tab, id);
+    const person = model?.person.get(id);
+    if (EMBEDDED && person) toHost({ type: "textrovert:open-person", personId: id, name: person.name });
+    else go(route.tab, id);
   };
 
   if (!model) {
@@ -65,11 +70,11 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={"app" + (EMBEDDED ? " embedded" : "")}>
       <main className="stage" key={route.tab}>
         {route.tab === "orbit" && <Constellation model={model} onOpen={openPerson} paused={route.person !== null} />}
         {route.tab === "rivers" && <Rivers model={model} onOpen={openPerson} />}
-        {route.tab === "atlas" && <Atlas model={model} onOpen={openPerson} />}
+        {route.tab === "atlas" && <Atlas model={model} onOpen={openPerson} initialTopic={route.topic} />}
       </main>
       {route.person && model.person.has(route.person) && (
         <StoryView key={route.person} model={model} personId={route.person} onOpen={openPerson} onClose={() => history.length > 1 ? history.back() : go(route.tab)} />

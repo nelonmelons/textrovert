@@ -294,6 +294,12 @@ export class MessageStore {
     });
   }
 
+  /** The newest stored row id for an owner (0 when there is none), which changes whenever messages are added. */
+  async latestId(owner: string): Promise<number> {
+    const result = await this.db.execute({ sql: "SELECT max(id) AS id FROM messages WHERE owner = ?", args: [owner] });
+    return Number(result.rows[0]?.id ?? 0);
+  }
+
   async count(owner: string, conversation?: string): Promise<number> {
     const result = await this.db.execute(
       conversation

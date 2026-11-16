@@ -27,6 +27,8 @@ export interface WrappedSession {
   editions: WrappedEdition[];
   currentIndex: number;
   carriedSeen: string[];
+  /** The next wider range, as the remote source last reported it; local hosts compute it from the messages. */
+  wider?: WrappedDateRange | null;
 }
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));

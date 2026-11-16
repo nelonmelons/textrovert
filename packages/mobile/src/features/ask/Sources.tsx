@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { senderLabel, type Citation } from '@/lib/api';
+import { senderLabel, type Citation } from '@/api/client';
 import { firstName } from '@/lib/answer';
-import { radius, type, useTheme } from '@/theme';
+import { radius, Theme, Type } from '@/theme';
 
 const MAX_CHATS = 2;
 const PHONE_MAX = 430;
@@ -26,7 +26,6 @@ export function groupByChat(citations: Citation[]) {
 
 /** The sources under an answer: up to two chats, one row of chips each, with "+N" for the rest. */
 export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: (focus?: number) => void }) {
-  const theme = useTheme();
   const { width } = useWindowDimensions();
   const room = Math.min(width, PHONE_MAX) - BUBBLE_CHROME;
   const groups = groupByChat(citations);
@@ -35,12 +34,12 @@ export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: 
   const otherMessages = groups.slice(MAX_CHATS).reduce((n, g) => n + g.citations.length, 0);
 
   return (
-    <View style={[styles.wrap, { borderTopColor: theme.gridMajor }]}>
+    <View style={[styles.wrap, { borderTopColor: Theme.gridMajor }]}>
       <Pressable accessibilityRole="button" onPress={() => onOpen()} style={styles.header} hitSlop={6}>
-        <Text style={[type.caption, styles.label, { color: theme.secondary }]}>
+        <Text style={[Type.caption, styles.label, { color: Theme.secondary }]}>
           {citations.length} {citations.length === 1 ? 'SOURCE' : 'SOURCES'}
         </Text>
-        <Text style={[type.caption, { color: theme.ask.ink, fontWeight: '600' }]}>See all ›</Text>
+        <Text style={[Type.caption, { color: Theme.accentTone.ink, fontWeight: '600' }]}>See all ›</Text>
       </Pressable>
       {shown.map((g) => {
         let used = 0;
@@ -52,7 +51,7 @@ export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: 
         const more = g.citations.length - fits.length;
         return (
           <View key={g.chat + g.citations[0].n} style={styles.group}>
-            <Text numberOfLines={1} style={[type.footnote, { color: theme.ink, fontWeight: '600' }]}>
+            <Text numberOfLines={1} style={[Type.footnote, { color: Theme.ink, fontWeight: '600' }]}>
               {g.chat}
             </Text>
             <View style={styles.row}>
@@ -62,9 +61,9 @@ export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: 
                   accessibilityRole="button"
                   aria-label={'Source ' + c.n + ': ' + senderLabel(c) + ' in ' + c.chat}
                   onPress={() => onOpen(c.n)}
-                  style={({ pressed }) => [styles.chip, { backgroundColor: pressed ? theme.ask.ink : theme.ask.fill }]}>
+                  style={({ pressed }) => [styles.chip, { backgroundColor: pressed ? Theme.accentTone.ink : Theme.accentTone.fill }]}>
                   {({ pressed }) => (
-                    <Text numberOfLines={1} style={[type.caption, { color: pressed ? theme.panel : theme.ask.ink }]}>
+                    <Text numberOfLines={1} style={[Type.caption, { color: pressed ? Theme.panel : Theme.accentTone.ink }]}>
                       <Text style={styles.n}>{c.n}</Text>
                       {'  ' + firstName(senderLabel(c))}
                     </Text>
@@ -72,8 +71,8 @@ export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: 
                 </Pressable>
               ))}
               {more > 0 ? (
-                <Pressable accessibilityRole="button" aria-label={more + ' more sources'} onPress={() => onOpen(g.citations[fits.length].n)} style={[styles.chip, { backgroundColor: theme.fillTertiary }]}>
-                  <Text style={[type.caption, { color: theme.secondary, fontWeight: '600' }]}>+{more}</Text>
+                <Pressable accessibilityRole="button" aria-label={more + ' more sources'} onPress={() => onOpen(g.citations[fits.length].n)} style={[styles.chip, { backgroundColor: Theme.tertiaryFill }]}>
+                  <Text style={[Type.caption, { color: Theme.secondary, fontWeight: '600' }]}>+{more}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -82,7 +81,7 @@ export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: 
       })}
       {otherChats > 0 ? (
         <Pressable accessibilityRole="button" onPress={() => onOpen()} hitSlop={6}>
-          <Text style={[type.caption, { color: theme.secondary }]}>
+          <Text style={[Type.caption, { color: Theme.secondary }]}>
             +{otherMessages} more in {otherChats} other {otherChats === 1 ? 'chat' : 'chats'}
           </Text>
         </Pressable>

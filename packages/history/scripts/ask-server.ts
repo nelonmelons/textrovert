@@ -11,23 +11,31 @@
  *
  * POST /ask {question, person?, history?} → {answer, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}
  * GET /people → {people: [{name, dm, chats, messages, lastAt}]}, most-messaged DMs first; dates are ISO 8601 strings
- * POST /wrapped {conversationId, from, through, model?, ...} → one Wrapped edition for a DM (see README)
+ * POST /wrapped {conversationId, from?, through?, model?, ...} → one Wrapped edition for a DM (see README)
+ * GET /friend, GET /story, GET /portrait, GET /stats, GET|POST /reel → see pipeline/assistant/api.ts friendRoute; GET /reels/<id>.mp4 serves a rendered reel
+ *
+ *   ASK_CACHE_DB       optional writable libSQL file for cached memoirs and the portrait
+ *                      (defaults to packages/history/.data/ask-cache.db; ASK_DB itself is never written)
+ *   ASK_REELS          set to 0 to turn reel rendering off
  */
-import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { createReadStream, existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClient } from "@libsql/client";
-import { dateRangeFromDays } from "@textrovert/wrapped";
 import { openAIModelSource } from "@textrovert/wrapped/openai";
 
 import { openAiComplete, type ConversationRef } from "../pipeline/assistant/agent";
-import { answerRequest, ApiError, listPeople, parseAskRequest } from "../pipeline/assistant/api";
+import { answerRequest, ApiError, friendRoute, listPeople, parseAskRequest, RawJson, type ApiReel, type FriendContext, type ReelRenderer } from "../pipeline/assistant/api";
 import { EpisodeIndex } from "../pipeline/assistant/episodes";
+import { parseWrappedRequest, wrappedRequest } from "../pipeline/assistant/wrappedApi";
 import { FactIndex } from "../pipeline/assistant/facts";
 import { MemoryIndex, openAiEmbedder } from "../pipeline/assistant/memory";
+import { openAiStoryWriter } from "../pipeline/portrait/build";
+import { PortraitCache } from "../pipeline/portrait/cache";
 import { MessageStore } from "../pipeline/store";
 import { safeTimeZone } from "../pipeline/time";
-import { runWrapped } from "../pipeline/wrapped";
 
 const fail = (message: string): never => {
   console.error("ask-server: " + message);
@@ -69,34 +77,87 @@ const wrappedModel = openAIModelSource({ apiKey, model: process.env.WRAPPED_MODE
 
 const people = listPeople(conversations);
 
-const isDay = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+const historyRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const cachePath = resolve(process.env.ASK_CACHE_DB?.trim() || join(historyRoot, ".data/ask-cache.db"));
+mkdirSync(dirname(cachePath), { recursive: true });
+const cache = new PortraitCache(createClient({ url: "file:" + cachePath }));
+await cache.migrate();
+const friendContext: FriendContext = { conversations, owner, store, episodes, facts, cache, timeZone, writeStory: openAiStoryWriter(apiKey) };
 
-async function wrapped(input: unknown) {
-  if (!input || typeof input !== "object" || Array.isArray(input)) throw new ApiError(400, "Body must be a JSON object");
-  const body = input as Record<string, unknown>;
-  const id = typeof body.conversationId === "string" ? body.conversationId : "";
-  const ref = conversations.find((c) => c.id === id);
-  if (!ref) throw new ApiError(404, "No conversation " + JSON.stringify(id));
-  if (!isDay(body.from) || !isDay(body.through)) throw new ApiError(400, "from and through must be YYYY-MM-DD dates");
-  const range = dateRangeFromDays(body.from, body.through, timeZone);
-  if (range.end <= range.start) throw new ApiError(400, "through must not be before from");
-  const rows = [];
-  if (ref.kind === "dm") for await (const page of store.scan(owner, [ref.key])) rows.push(...page.messages);
-  const avoiding = Array.isArray(body.avoiding) ? body.avoiding.filter((x): x is string => typeof x === "string") : [];
-  const run = await runWrapped({
-    ref,
-    rows,
-    range,
-    avoiding,
-    number: typeof body.number === "number" && body.number >= 1 ? Math.floor(body.number) : 1,
-    modelSource: body.model === false ? null : wrappedModel,
-    modelOptions: { includeWarmMoments: body.includeWarmMoments === true, allowAffectionateTeasing: body.allowAffectionateTeasing === true },
-    timeoutMs: typeof body.timeoutMs === "number" && body.timeoutMs > 0 ? Math.min(body.timeoutMs, 120_000) : undefined,
-    debug: body.debug === true,
+/**
+ * Renders reels with packages/reels: episode-props picks the messages, render writes <id>.mp4. One render at a time;
+ * finished videos are reused across restarts.
+ */
+const reelsRoot = resolve(historyRoot, "../reels");
+const reelsOut = join(reelsRoot, ".data/app");
+const reelJobs = new Map<number, ApiReel>();
+let reelQueue = Promise.resolve();
+const run = (args: string[]) =>
+  new Promise<void>((done, failed) => {
+    const child = spawn("pnpm", ["exec", "tsx", ...args], { cwd: reelsRoot, env: { ...process.env, OPENAI_API_KEY: apiKey }, stdio: ["ignore", "ignore", "pipe"] });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => (stderr = (stderr + chunk).slice(-2000)));
+    child.on("error", failed);
+    child.on("close", (code) => (code === 0 ? done() : failed(new Error(stderr.trim().split("\n").pop() || "exit " + code))));
   });
-  const { messages: _, ...conversation } = run.conversation;
-  return { conversation: { ...conversation, title: ref.title, kind: ref.kind, ownerID: "owner" }, range, outcome: run.outcome, model: run.model };
+const reels: ReelRenderer | null =
+  process.env.ASK_REELS === "0" || !existsSync(join(reelsRoot, "scripts/render.ts"))
+    ? null
+    : {
+        status(episodeId) {
+          if (existsSync(join(reelsOut, episodeId + ".mp4")) && reelJobs.get(episodeId)?.status !== "rendering") return { status: "ready", episodeId, url: "/reels/" + episodeId + ".mp4" };
+          return reelJobs.get(episodeId) ?? { status: "none", episodeId };
+        },
+        start(episodeId) {
+          const now = this.status(episodeId);
+          if (now.status === "ready" || now.status === "rendering") return now;
+          const job: ApiReel = { status: "rendering", episodeId };
+          reelJobs.set(episodeId, job);
+          const props = join(reelsOut, episodeId + ".json");
+          reelQueue = reelQueue.then(async () => {
+            const started = Date.now();
+            try {
+              mkdirSync(reelsOut, { recursive: true });
+              await run(["scripts/episode-props.ts", String(episodeId), "--db", dbPath, "--refs", conversationsPath, "--owner", owner, "--tz", timeZone, "--out", props]);
+              await run(["scripts/render.ts", props, "--out", reelsOut]);
+              reelJobs.set(episodeId, { status: "ready", episodeId, url: "/reels/" + episodeId + ".mp4" });
+              console.log(`reel ${episodeId}: rendered in ${Date.now() - started}ms`);
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              reelJobs.set(episodeId, { status: "failed", episodeId, error: message });
+              console.error(`reel ${episodeId}: failed:`, message);
+            }
+          });
+          return job;
+        },
+      };
+
+/** Streams a rendered reel with byte-range support, which AVPlayer needs to play it. */
+function sendReel(req: IncomingMessage, res: ServerResponse, name: string) {
+  const file = join(reelsOut, name);
+  if (!/^\d+\.mp4$/.test(name) || !existsSync(file)) return send(res, 404, { error: "No such reel" });
+  const size = statSync(file).size;
+  const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? "");
+  const headers = { "content-type": "video/mp4", "accept-ranges": "bytes", "access-control-allow-origin": "*" };
+  if (!range) {
+    res.writeHead(200, { ...headers, "content-length": size });
+    return createReadStream(file).pipe(res);
+  }
+  const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+  const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+  if (start >= size || start > end) {
+    res.writeHead(416, { ...headers, "content-range": `bytes */${size}` });
+    return res.end();
+  }
+  res.writeHead(206, { ...headers, "content-length": end - start + 1, "content-range": `bytes ${start}-${end}/${size}` });
+  createReadStream(file, { start, end }).pipe(res);
 }
+
+const loadRows = async (ref: ConversationRef) => {
+  const rows = [];
+  for await (const page of store.scan(owner, [ref.key])) rows.push(...page.messages);
+  return rows;
+};
 
 const send = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, {
@@ -122,7 +183,8 @@ const readJson = async (req: IncomingMessage): Promise<unknown> => {
 };
 
 const server = createServer(async (req, res) => {
-  const path = new URL(req.url ?? "/", "http://localhost").pathname;
+  const url = new URL(req.url ?? "/", "http://localhost");
+  const path = url.pathname;
   const started = Date.now();
   try {
     if (req.method === "OPTIONS") return send(res, 204, null);
@@ -135,10 +197,17 @@ const server = createServer(async (req, res) => {
       return send(res, 200, result);
     }
     if (req.method === "POST" && path === "/wrapped") {
-      const result = await wrapped(await readJson(req));
+      const result = await wrappedRequest(parseWrappedRequest(await readJson(req)), { conversations, loadRows, timeZone, modelSource: wrappedModel });
       const highlights = result.outcome.kind === "edition" ? result.outcome.edition.highlights.length : 0;
       console.log(`wrapped: ${result.outcome.kind}, ${highlights} highlights, model ${result.model.status} in ${Date.now() - started}ms`);
       return send(res, 200, result);
+    }
+    if (req.method === "GET" && path.startsWith("/reels/")) return sendReel(req, res, path.slice("/reels/".length));
+    const result = await friendRoute(req.method ?? "GET", path, url.searchParams, req.method === "POST" ? await readJson(req) : null, friendContext, reels);
+    if (result !== null) {
+      if (!(result instanceof RawJson)) return send(res, 200, result);
+      res.writeHead(200, { "content-type": "application/json; charset=utf-8", "access-control-allow-origin": "*" });
+      return res.end(result.text);
     }
     throw new ApiError(404, "Not found");
   } catch (error) {

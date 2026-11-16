@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   MemoryStorage, WrappedAnalysisContext, WrappedEditionStore, WrappedEngine, WrappedFixtures, WrappedHeuristicProvider,
-  buildShareText, editionSourceIDs, lateCount, longestGap, participant, quotesFor, rangeContains, rangeDayCount, rangeLabel, seenSourceIDs, sensitivity,
+  RUNNING_JOKE_SCORE_CAP, buildShareText, editionSourceIDs, lateCount, longestGap, participant, quotesFor, rangeContains, rangeDayCount, rangeLabel, seenSourceIDs, sensitivity,
   type WrappedCandidate, type WrappedConversation, type WrappedDateRange, type WrappedEdition, type WrappedMessage,
 } from "../src";
 
@@ -151,8 +151,10 @@ describe("WrappedEngine", () => {
   it("two conversations produce different editions", () => {
     const a = editions(F.mia)[0], b = editions(F.sarah)[0];
     expect(a.highlights.map((h) => h.signal)).not.toEqual(b.highlights.map((h) => h.signal));
-    expect(a.highlights.map((h) => h.signal)).toEqual(["quotableLine", "replyGaps", "runningJoke"]);
-    expect(b.highlights.map((h) => h.signal)).toEqual(["runningJoke", "topicChange", "lastLineTwist"]);
+    // Changed from Swift: with RUNNING_JOKE_SCORE_CAP, Mia's "define" joke moves to edition 2 behind her dated plan,
+    // and Sarah keeps the same three cards with her capped joke sorted last.
+    expect(a.highlights.map((h) => h.signal)).toEqual(["quotableLine", "replyGaps", "datedInvitation"]);
+    expect(b.highlights.map((h) => h.signal)).toEqual(["topicChange", "lastLineTwist", "runningJoke"]);
     expect([...editionSourceIDs(a)].every((id) => id.startsWith("mia-"))).toBe(true);
     expect([...editionSourceIDs(b)].every((id) => id.startsWith("sarah-"))).toBe(true);
     expect(a.highlights.map((h) => h.headline)).not.toEqual(b.highlights.map((h) => h.headline));
@@ -201,13 +203,21 @@ describe("WrappedEngine", () => {
   // Evidence-backed quantities
 
   it("running joke counts and timeline come from the messages", () => {
-    const joke = editions(F.mia)[0].highlights.find((h) => h.signal === "runningJoke")!;
+    const joke = editions(F.mia)[1].highlights.find((h) => h.signal === "runningJoke")!;
     expect(joke.headline).toBe("“define” keeps coming back");
     expect(joke.quantity?.value).toBe("4");
     expect(new Set(joke.sourceMessageIDs)).toEqual(new Set(["mia-13", "mia-23", "mia-34", "mia-40"]));
     if (joke.figure.kind !== "occurrences") throw new Error("expected an occurrences figure");
     expect(joke.figure.dates).toEqual(["mia-13", "mia-23", "mia-34", "mia-40"].map((id) => F.mia.messages.find((m) => m.id === id)!.sentAt));
     expect(joke.quantity?.detail).toBe("over 11 days");
+  });
+
+  it("word frequency alone can't push a running joke past the cap, and jokes keep their order under it", () => {
+    const ctx = WrappedAnalysisContext.create(F.mia, "emma", range, en)!;
+    const jokes = new WrappedHeuristicProvider().runningJokes(ctx);
+    expect(jokes.length).toBeGreaterThan(0);
+    expect(jokes.every((j) => j.score <= RUNNING_JOKE_SCORE_CAP)).toBe(true);
+    expect(jokes.map((j) => j.score)).toEqual([...jokes.map((j) => j.score)].sort((a, b) => b - a));
   });
 
   it("the busiest day is counted from timestamps", () => {
@@ -305,8 +315,8 @@ describe("WrappedEngine", () => {
     const text = buildShareText(e, defaults, F.owner, friend, en);
     expect(text.startsWith("Wrapped: Emma & Mia · Nov 1 – 14\n\nWho said it?\n“I have located my shoes.” — Emma, Nov 6")).toBe(true);
     expect(text).toContain("“lmao a legend. Take a victory lap.” — Mia Chen, Nov 6");
-    expect(text).toContain("“Define 'on my way.' I'm at the door and you're clearly not.” — Mia Chen");
-    expect(text).toContain("“Define 'mostly.'” — Emma");
+    expect(text).toContain("Mia made a plan\n“Need a +1 for volleyball tomorrow at 10. Come? Bring water and low expectations.” — Mia Chen");
+    expect(text).toContain("“Yes. I will bring neither.” — Emma");
     expect(text.includes("ghost"), "the reply-gap card stays private until selected").toBe(false);
     expect(text).not.toContain("Dinner tonight");
     const withGhost = buildShareText(e, new Set(e.highlights.map((h) => h.id)), F.owner, friend, en);

@@ -209,22 +209,61 @@ It exits with a message naming the missing variable or file. Endpoints (all date
   `answer` carries inline `[n]` markers; each citation's `text` is the full original message and `quote` the exact
   span the answer relies on. `person` scopes the assistant to the chats that person is in (their DM and shared groups).
   Errors are `{"error"}` with a 4xx/5xx status.
-- `POST /wrapped` with `{"conversationId", "from": "YYYY-MM-DD", "through": "YYYY-MM-DD", "model"?: true,
+- `POST /wrapped` with `{"conversationId", "from"?: "YYYY-MM-DD", "through"?: "YYYY-MM-DD", "model"?: true,
   "avoiding"?: [messageId], "number"?, "includeWarmMoments"?, "allowAffectionateTeasing"?, "timeoutMs"?, "debug"?}` →
-  `{"conversation", "range", "outcome", "model"}`: one Wrapped edition (`@textrovert/wrapped`) for a DM over whole days in
-  `ASK_TZ`. Message ids are the store's ids and the owner's messages carry participant id `owner`. `outcome` is the
-  package's `WrappedOutcome` as JSON (instants in epoch ms), with every quote already resolved against the rows; groups
-  get `{"kind": "empty", "reason": {"kind": "unsupportedConversation"}}`. With `model` (default on) the eligible
-  messages go to OpenAI (`WRAPPED_MODEL`, default gpt-5-mini) and its picks pass the same gate; `"model": false` is
-  rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
+  `{"conversation", "range", "outcome", "wider", "model"}`: one Wrapped edition (`@textrovert/wrapped`) for a DM over whole
+  days in `ASK_TZ`. Without `from`/`through` the range is the 30 days ending on the chat's last message. `conversation`
+  is the chat's id, service, participants, title and kind (no messages). Message ids are the store's ids and the owner's
+  messages carry participant id `owner`. `outcome` is the package's `WrappedOutcome` as JSON (instants in epoch ms), with
+  every quote already resolved against the rows; groups get `{"kind": "empty", "reason": {"kind": "unsupportedConversation"}}`.
+  `wider` is the next wider range around `range`, clamped to the chat (null when there's nothing outside it). With `model`
+  (default on) the eligible messages go to OpenAI (`WRAPPED_MODEL`, default gpt-5-mini) and its picks pass the same gate;
+  `"model": false` is rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
 - `GET /health` → `{"ok": true, "chats"}`.
 
-The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, shared with
-the hosted API below, so both servers answer identically.
+Every /ask citation also carries `isDm` (the chat is the user's one-to-one DM) and `before`/`after`: up to two
+messages on each side of it in the same chat, `[{"sender", "fromMe", "sentAt", "text"}]`, oldest first.
+
+Friends, memoirs, the portrait and reels (`friendRoute` in `pipeline/assistant/api.ts`; both servers). A *source* is
+`{"messageId", "sender", "fromMe", "sentAt", "text", "chat", "chatId", "isDm"}`:
+
+- `GET /friend?name=` → `{"person", "chats": [{"id", "title", "platform", "isDm", "messageCount", "lastAt"}],
+  "dmConversationId", "facts": [{"predicate", "object", "quote", "messageId", "validFrom", "validTo", "source"}],
+  "plans": [{"what", "date", "when", "who", "episodeId", "source"}], "episodes": [{"id", "title", "summary", "mood",
+  "kind", "topics", "chatId", "chat", "isDm", "start", "end", "messageCount", "source"}], "topics": [{"topic",
+  "count"}], "story", "stats"}`. Facts come from the person's own chats (health facts are never returned), plans from their
+  DM or naming them in a group, episodes and topics from their DM and the group episodes they're in. `story` is the
+  cached memoir or null. `stats` is `{"person", "dm"}` from `pipeline/analyze.ts` over just their chats: `person` is
+  their merged `Person` (messages each way, who starts conversations, reply medians, closeness) and `dm` the DM's
+  breakdown (hourly, weekday, monthly, streak, top words and emoji, reply medians, initiations), or null without a
+  DM. 404 for an unknown name.
+- `GET /story?name=&refresh=1` → `{"story": {"headline", "chapters": [{"title", "period", "sentences": [{"n", "text",
+  "refs", "episodes": [{"id", "title", "summary"}]}]}], "sources": {"<messageId>": source}, "writtenAt"} | null}`.
+  Written on first request (about 10 seconds) by the portrait's memoir writer with its footnote check (every ref is a
+  message in a chat with that person; sentences without one are dropped), then cached in the `portrait_cache` table.
+  `n` numbers the footnotes through the memoir. 503 without an OpenAI key.
+- `GET /portrait` → the portrait (`pipeline/portrait/types.ts`, what `packages/portrait` renders) with every cached
+  memoir, cached until a new message, episode or memoir arrives.
+- `GET /stats` → `{"insights", "people"}`: `buildInsights` and `buildPeople` (`pipeline/insights.ts`) over every chat,
+  the same numbers Convex stores per profile (totals, heatmap, monthly, reply times, habits, top emoji and words,
+  archetypes), plus the 30 closest people. Times are milliseconds. Computed on first request and kept until a new
+  message arrives.
+- `POST /reel {"episodeId"}` and `GET /reel?episodeId=` → `{"status": "none" | "rendering" | "ready" | "failed" |
+  "unavailable", "episodeId", "url"?, "error"?, "message"?}`. The local server renders with `packages/reels`
+  (episode-props, then render; about a minute, one at a time) into `packages/reels/.data/app/` and serves
+  `GET /reels/<id>.mp4` with byte ranges. The hosted API always answers `unavailable` ("Reels render on the desktop
+  app"). `ASK_REELS=0` turns rendering off locally.
+
+The local server never writes to `ASK_DB`: memoirs and the portrait are cached in `ASK_CACHE_DB` (default
+`.data/ask-cache.db`).
+
+The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, and the
+`/wrapped` handler in `pipeline/assistant/wrappedApi.ts`, both shared with the hosted API below, so both servers answer
+identically.
 
 ## Hosted Ask API
 
-`convex/http.ts` serves the same `POST /ask`, `GET /people` and `GET /health` from the deployment's site URL
+`convex/http.ts` serves the same `POST /ask`, `POST /wrapped`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait`, `GET /stats` and `/reel` from the deployment's site URL
 (`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
 chats and is off until both of these are set on the deployment:
 
@@ -233,7 +272,7 @@ npx convex env set ASK_OWNER_KEY <owner key whose chats it serves>
 npx convex env set ASK_API_KEY "$(openssl rand -hex 24)"
 ```
 
-`/ask` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
+`/ask`, `/wrapped` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
 `/health` is open and returns `{"ok", "chats"}`. The app sends the header from `EXPO_PUBLIC_API_KEY`.
 
 Trade-off: the key is inlined into the app bundle, so anyone with the build can extract it. It keeps the URL from

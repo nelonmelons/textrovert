@@ -3,7 +3,7 @@ import { Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleS
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { nativeDriver, useReducedMotion } from '@/lib/motion';
-import { radius, type, useTheme } from '@/theme';
+import { radius, Theme, Type } from '@/theme';
 
 interface SheetApi {
   open: (sheet: { title: string; content: ReactNode }) => void;
@@ -48,7 +48,6 @@ export function SheetProvider({ children }: { children: ReactNode }) {
 }
 
 function SheetView({ title, progress, reduced, onClose, children }: { title: string; progress: Animated.Value; reduced: boolean; onClose: () => void; children: ReactNode }) {
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const translateY = progress.interpolate({ inputRange: [0, 1], outputRange: [reduced ? 0 : 600, 0], extrapolateRight: 'clamp' });
   const opacity = reduced ? progress : 1;
@@ -58,14 +57,14 @@ function SheetView({ title, progress, reduced, onClose, children }: { title: str
         <Pressable accessibilityRole="button" aria-label="Close" style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
       <KeyboardAvoidingView pointerEvents="box-none" behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.dock}>
-      <Animated.View aria-modal role="dialog" style={[styles.sheet, { backgroundColor: theme.panel, paddingBottom: insets.bottom + 12, opacity, transform: [{ translateY }] }]}>
-        <View style={[styles.grabber, { backgroundColor: theme.fillTertiary }]} />
+      <Animated.View aria-modal role="dialog" style={[styles.sheet, { backgroundColor: Theme.panel, paddingBottom: insets.bottom + 12, opacity, transform: [{ translateY }] }]}>
+        <View style={[styles.grabber, { backgroundColor: Theme.tertiaryFill }]} />
         <View style={styles.header}>
-          <Text accessibilityRole="header" style={[type.title3, { color: theme.ink, flex: 1 }]}>
+          <Text accessibilityRole="header" style={[Type.title3, { color: Theme.ink, flex: 1 }]}>
             {title}
           </Text>
           <Pressable accessibilityRole="button" aria-label="Done" onPress={onClose} hitSlop={10}>
-            <Text style={[type.headline, { color: theme.ask.ink }]}>Done</Text>
+            <Text style={[Type.headline, { color: Theme.accentTone.ink }]}>Done</Text>
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">

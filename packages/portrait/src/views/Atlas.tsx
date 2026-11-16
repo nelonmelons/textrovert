@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { haptic, meaningfulTopics, moodColor, NEBULA_COLORS, type Model } from "../model";
 import type { Person } from "../types";
@@ -17,7 +17,8 @@ interface Territory {
   seed: number;
 }
 
-export function Atlas({ model, onOpen }: { model: Model; onOpen: (id: string) => void }) {
+/** initialTopic (from #/atlas/t/<topic>) opens with that land focused when it is one of the territories. */
+export function Atlas({ model, onOpen, initialTopic = null }: { model: Model; onOpen: (id: string) => void; initialTopic?: string | null }) {
   const [focus, setFocus] = useState<string | null>(null);
 
   const territories = useMemo(() => {
@@ -60,6 +61,10 @@ export function Atlas({ model, onOpen }: { model: Model; onOpen: (id: string) =>
     }
     return list;
   }, [model]);
+
+  useEffect(() => {
+    if (initialTopic) setFocus(territories.find((t) => t.topic.toLowerCase() === initialTopic.toLowerCase())?.topic ?? null);
+  }, [initialTopic, territories]);
 
   const pad = 20;
   const minX = Math.min(...territories.map((t) => t.x - t.r)) - pad;

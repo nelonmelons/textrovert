@@ -5,6 +5,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@textrovert/wrapped": [
+        "./vendor/wrapped/index.ts"
       ]
     }
   },
