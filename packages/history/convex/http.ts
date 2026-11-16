@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 
 /**
- * The hosted Ask API: the same /ask, /people and /health as scripts/ask-server.ts, for an app that can't reach a laptop.
+ * The hosted Ask API: the same /ask, /people, /health, /friend, /story, /portrait and /reel as scripts/ask-server.ts, for an app that can't reach a laptop.
  * It serves exactly one owner's chats, named by the deployment's ASK_OWNER_KEY, and every route but /health needs the
  * x-api-key header to equal ASK_API_KEY. With either unset the API answers 503, so a deployment never serves by accident.
  */
@@ -38,7 +38,7 @@ function gate(request: Request): { ownerKey: string } | Response {
 }
 
 const preflight = httpAction(async () => new Response(null, { status: 204, headers: CORS }));
-for (const path of ["/ask", "/people", "/health"]) http.route({ path, method: "OPTIONS", handler: preflight });
+for (const path of ["/ask", "/people", "/health", "/friend", "/story", "/portrait", "/reel"]) http.route({ path, method: "OPTIONS", handler: preflight });
 
 http.route({
   path: "/health",
@@ -85,5 +85,24 @@ http.route({
     return json(result.status, result.body);
   }),
 });
+
+/** /friend, /story, /portrait and /reel: pipeline/assistant/api.ts friendRoute, the same as the local ask-server. */
+const friendHandler = httpAction(async (ctx, request) => {
+  const allowed = gate(request);
+  if (allowed instanceof Response) return allowed;
+  const url = new URL(request.url);
+  const body = request.method === "POST" ? await request.text() : undefined;
+  if (body && body.length > 100_000) return json(413, { error: "Request too large" });
+  const result = await ctx.runAction(internal.assistant.friendApi, {
+    ownerKey: allowed.ownerKey,
+    method: request.method,
+    path: url.pathname,
+    query: url.search,
+    ...(body ? { body } : {}),
+  });
+  return new Response(result.text, { status: result.status, headers: { ...CORS, "content-type": "application/json; charset=utf-8" } });
+});
+for (const path of ["/friend", "/story", "/portrait", "/reel"]) http.route({ path, method: "GET", handler: friendHandler });
+http.route({ path: "/reel", method: "POST", handler: friendHandler });
 
 export default http;

@@ -3,14 +3,15 @@
 import { ConvexError, v } from "convex/values";
 
 import { ask as askAgent, openAiComplete, type AssistantAnswer } from "../pipeline/assistant/agent";
-import { answerRequest, ApiError, type ApiAnswer } from "../pipeline/assistant/api";
+import { answerRequest, ApiError, friendRoute, RawJson, type ApiAnswer } from "../pipeline/assistant/api";
 import { describeEpisode, openAiFacets, segmentEpisodes, type Episode } from "../pipeline/assistant/episodes";
 import { extractFacts, openAiFactExtractor, openAiFactResolver, type Fact } from "../pipeline/assistant/facts";
 import { chunkMessages, openAiEmbedder } from "../pipeline/assistant/memory";
+import { openAiStoryWriter } from "../pipeline/portrait/build";
 import { safeTimeZone } from "../pipeline/time";
 import { internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
-import { getEpisodeIndex, getFactIndex, getMemoryIndex, getMessageStore, storeOwner } from "./messageStore";
+import { getEpisodeIndex, getFactIndex, getMemoryIndex, getMessageStore, getPortraitCache, storeOwner } from "./messageStore";
 
 const INDEX_BUDGET_MS = 7 * 60_000;
 const FACET_CONCURRENCY = 16;
@@ -97,6 +98,38 @@ export const answerApi = internalAction({
       return { status: 200, body };
     } catch (error) {
       if (error instanceof ApiError) return { status: error.status, body: { error: error.message } };
+      throw error;
+    }
+  },
+});
+
+/**
+ * The hosted GET /friend, GET /story, GET /portrait and GET|POST /reel (convex/http.ts): the same friendRoute as
+ * scripts/ask-server.ts over one owner's chats. Reels have no renderer here, so they answer "unavailable". The body
+ * comes back serialized, since the portrait can be several megabytes.
+ */
+export const friendApi = internalAction({
+  args: { ownerKey: v.string(), method: v.string(), path: v.string(), query: v.string(), body: v.optional(v.string()) },
+  handler: async (ctx, { ownerKey, method, path, query, body }): Promise<{ status: number; text: string }> => {
+    const profile = await ctx.runQuery(internal.ingestData.profile, { ownerKey });
+    if (!profile) return { status: 503, text: JSON.stringify({ error: "The Ask API isn't configured" }) };
+    const apiKey = process.env.OPENAI_API_KEY;
+    const [conversations, store, episodes, facts, cache] = await Promise.all([
+      ctx.runQuery(internal.conversations.directory, { ownerKey }),
+      getMessageStore(),
+      getEpisodeIndex(),
+      getFactIndex(),
+      getPortraitCache(),
+    ]);
+    try {
+      const parsed = body ? (JSON.parse(body) as unknown) : null;
+      const context = { conversations, owner: storeOwner(ownerKey), store, episodes, facts, cache, timeZone: safeTimeZone(profile.timeZone), writeStory: apiKey ? openAiStoryWriter(apiKey) : null };
+      const result = await friendRoute(method, path, new URLSearchParams(query), parsed, context, null);
+      if (result === null) return { status: 404, text: JSON.stringify({ error: "Not found" }) };
+      return { status: 200, text: result instanceof RawJson ? result.text : JSON.stringify(result) };
+    } catch (error) {
+      if (error instanceof ApiError) return { status: error.status, text: JSON.stringify({ error: error.message }) };
+      if (error instanceof SyntaxError) return { status: 400, text: JSON.stringify({ error: "Body must be a JSON object" }) };
       throw error;
     }
   },

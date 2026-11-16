@@ -4,6 +4,7 @@ import { EpisodeIndex } from "../pipeline/assistant/episodes";
 import { FactIndex } from "../pipeline/assistant/facts";
 import { MemoryIndex } from "../pipeline/assistant/memory";
 import { stableId } from "../pipeline/hash";
+import { PortraitCache } from "../pipeline/portrait/cache";
 import { MessageStore } from "../pipeline/store";
 
 let client: Client | null = null;
@@ -11,6 +12,7 @@ let store: Promise<MessageStore> | null = null;
 let memory: Promise<MemoryIndex> | null = null;
 let episodes: Promise<EpisodeIndex> | null = null;
 let facts: Promise<FactIndex> | null = null;
+let portraits: Promise<PortraitCache> | null = null;
 
 function tursoClient(): Client {
   if (!client) {
@@ -83,6 +85,21 @@ export function getFactIndex(): Promise<FactIndex> {
     });
   }
   return facts;
+}
+
+/** Cached memoirs and the built portrait, so the friend and portrait routes don't rebuild them per request. */
+export function getPortraitCache(): Promise<PortraitCache> {
+  if (!portraits) {
+    portraits = (async () => {
+      const cache = new PortraitCache(tursoClient());
+      await cache.migrate();
+      return cache;
+    })();
+    portraits.catch(() => {
+      portraits = null;
+    });
+  }
+  return portraits;
 }
 
 /**

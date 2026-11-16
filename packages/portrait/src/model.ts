@@ -1,3 +1,4 @@
+import { EMBEDDED, toHost } from "./bridge";
 import type { Group, Person, Portrait } from "./types";
 
 export const MOOD_COLORS: Record<string, string> = {
@@ -13,13 +14,7 @@ export const MOOD_COLORS: Record<string, string> = {
 
 export const NEBULA_COLORS = ["#7b5cff", "#ff6f91", "#3fb8af", "#f0a04b", "#c45cff", "#5c8dff", "#ff9a5c", "#55d68f"];
 
-/** Topic tags that describe the medium rather than the friendship. */
-export const GENERIC_TOPICS = new Set([
-  "media", "media sharing", "social media", "instagram", "logistics", "plans", "planning", "meetup", "meetups", "memes", "meme", "reels", "reel",
-  "banter", "small talk", "jokes", "joke", "humor", "chat", "group chat", "greetings", "links", "link sharing", "photos", "photo", "video", "videos",
-  "messages", "messaging", "attachments", "attachment", "reaction", "reactions", "schedule", "timing", "texting", "scheduling", "coordination", "hangout", "hangouts", "friends", "friendship", "conversation", "inside joke",
-]);
-export const meaningfulTopics = <T extends [string, number]>(topics: T[]) => topics.filter(([t]) => !GENERIC_TOPICS.has(t.toLowerCase()));
+export { GENERIC_TOPICS, meaningfulTopics } from "../../history/pipeline/portrait/topics";
 
 export const moodColor = (mood: string | null | undefined) => MOOD_COLORS[mood ?? ""] ?? "#e9dccb";
 
@@ -93,6 +88,7 @@ export const initials = (name: string) =>
 /** A light tap: forwards to the native shell when embedded, vibrates where the browser supports it. */
 export function haptic(style: "light" | "medium" = "light") {
   const w = window as unknown as { webkit?: { messageHandlers?: { haptic?: { postMessage: (s: string) => void } } } };
+  if (EMBEDDED) toHost({ type: "textrovert:haptic", style });
   w.webkit?.messageHandlers?.haptic?.postMessage(style);
   navigator.vibrate?.(style === "light" ? 6 : 12);
 }
