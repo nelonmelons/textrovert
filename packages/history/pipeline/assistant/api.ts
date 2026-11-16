@@ -9,6 +9,9 @@ import type { MessageStore, StoredMessage } from "../store";
 import { normalizeName } from "../text";
 import { LocalTime } from "../time";
 import { ask, type ChatTurn, type ConversationRef } from "./agent";
+import { ApiError, listPeople, type ApiPerson, type AskRequest } from "./requests";
+
+export { ApiError, listPeople, parseAskRequest, type ApiPerson, type AskRequest } from "./requests";
 import type { EpisodeIndex, StoredEpisode } from "./episodes";
 import type { FactIndex, Predicate } from "./facts";
 
@@ -48,68 +51,10 @@ export interface ApiAnswer {
   citations: ApiCitation[];
 }
 
-export interface ApiPerson {
-  name: string;
-  dm: boolean;
-  chats: number;
-  messages: number;
-  /** ISO 8601. */
-  lastAt: string;
-}
 
-export interface AskRequest {
-  question: string;
-  person?: string;
-  history?: ChatTurn[];
-}
 
-export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 
-/** Validates a POST /ask body: a non-empty question, an optional person, and the earlier turns of the chat. */
-export function parseAskRequest(body: unknown): AskRequest {
-  if (!body || typeof body !== "object" || Array.isArray(body)) throw new ApiError(400, "Body must be a JSON object");
-  const b = body as Record<string, unknown>;
-  const question = typeof b.question === "string" ? b.question.trim().slice(0, 2000) : "";
-  if (!question) throw new ApiError(400, "Ask a question");
-  const person = typeof b.person === "string" && b.person.trim() ? b.person.trim().slice(0, 200) : undefined;
-  const history = Array.isArray(b.history)
-    ? b.history
-        .filter((t): t is ChatTurn => !!t && (t.role === "user" || t.role === "assistant") && typeof t.content === "string")
-        .slice(-20)
-        .map((t) => ({ role: t.role, content: t.content.slice(0, 4000) }))
-    : undefined;
-  return { question, person, history };
-}
 
-/** Everyone in the chats except the user, people with a DM first by DM volume, then by messages in shared chats. */
-export function listPeople(conversations: ConversationRef[]): ApiPerson[] {
-  const selfNames = new Set(conversations.map((c) => c.selfName).filter((s): s is string => !!s));
-  const byName = new Map<string, Omit<ApiPerson, "lastAt"> & { lastAt: number; dmMessages: number }>();
-  for (const c of conversations) {
-    for (const name of c.participants) {
-      if (selfNames.has(name) || name === "Instagram User") continue;
-      const p = byName.get(name) ?? { name, dm: false, chats: 0, messages: 0, lastAt: 0, dmMessages: 0 };
-      p.chats++;
-      p.messages += c.messageCount;
-      p.lastAt = Math.max(p.lastAt, c.lastAt);
-      if (c.kind === "dm") {
-        p.dm = true;
-        p.dmMessages += c.messageCount;
-      }
-      byName.set(name, p);
-    }
-  }
-  return [...byName.values()]
-    .sort((a, b) => b.dmMessages - a.dmMessages || b.messages - a.messages)
-    .map(({ dmMessages: _, ...p }) => ({ ...p, lastAt: new Date(p.lastAt).toISOString() }));
-}
 
 /** The chats a person is in (their DM and shared groups), matched case-insensitively by display name. */
 export function chatsWith(conversations: ConversationRef[], person: string): ConversationRef[] {

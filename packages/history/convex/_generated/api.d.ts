@@ -14,6 +14,7 @@ import type * as commonGround from "../commonGround.js";
 import type * as conversations from "../conversations.js";
 import type * as health from "../health.js";
 import type * as http from "../http.js";
+import type * as indexing from "../indexing.js";
 import type * as ingest from "../ingest.js";
 import type * as ingestData from "../ingestData.js";
 import type * as insights from "../insights.js";
@@ -41,6 +42,7 @@ declare const fullApi: ApiFromModules<{
   conversations: typeof conversations;
   health: typeof health;
   http: typeof http;
+  indexing: typeof indexing;
   ingest: typeof ingest;
   ingestData: typeof ingestData;
   insights: typeof insights;
