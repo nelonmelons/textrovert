@@ -59,3 +59,23 @@ export interface UploadStatus {
 
 /** GET /status: how far each stage has got for the upload (the latest one when no id is given). */
 export const fetchStatus = (uploadId?: string) => getJson<UploadStatus>('/status' + (uploadId ? '?uploadId=' + encodeURIComponent(uploadId) : ''));
+
+export interface OnboardingAnswers {
+  chatType?: string;
+  app?: string;
+  method?: string;
+  selfName?: string;
+  /** "Anything else Textrovert should know?" */
+  notes?: string;
+  email?: string;
+  uploadId?: string;
+  fileName?: string;
+  skippedUpload: boolean;
+}
+
+/** POST /onboarding: saves the onboarding answers on this device's account (creating it if needed). */
+export async function saveOnboarding(answers: OnboardingAnswers): Promise<void> {
+  if (!API_URL) return;
+  await ensureAccount();
+  await postJson<{ ok: true }>('/onboarding', answers);
+}

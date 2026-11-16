@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 
 import { API_URL } from '../api/client';
-import { uploadExport } from '../api/upload';
+import { ensureAccount, saveOnboarding, uploadExport } from '../api/upload';
 import { useFirstRun } from '../firstRun';
 import { Tactile } from '../design/Tactile';
 
@@ -86,6 +86,8 @@ export default function Onboarding() {
   const [index, setIndex] = useState(0);
   const [finishing, setFinishing] = useState(false);
   const [uploadError, setUploadError] = useState<string>();
+  // Kept across retries so a failed save of the answers doesn't upload the file twice.
+  const uploadedId = useRef<string | undefined>(undefined);
 
   const steps: StepId[] = ['type', 'app', ...(app === 'imessage' ? (['method'] as const) : []), 'upload', 'self', 'extra', 'email'];
   const step = steps[Math.min(index, steps.length - 1)];
@@ -121,14 +123,31 @@ export default function Onboarding() {
     } catch {
       // Keeping the answers is a nice-to-have; never block the app on it.
     }
-    let uploadId: string | undefined;
-    if (!skipped && upload && file && API_URL) {
+    let uploadId = uploadedId.current;
+    if (API_URL) {
       try {
-        uploadId = await uploadExport(file, selfName);
+        await ensureAccount();
+        if (!uploadId && !skipped && upload && file) {
+          uploadId = await uploadExport(file, selfName);
+          uploadedId.current = uploadId;
+        }
+        await saveOnboarding({
+          chatType,
+          app,
+          method,
+          selfName,
+          notes: extra,
+          email,
+          uploadId,
+          fileName: file?.name,
+          skippedUpload: !uploadId,
+        });
       } catch (e) {
-        setUploadError(e instanceof Error ? e.message : "Couldn't upload your chat. Try again?");
-        setFinishing(false);
-        return;
+        if (!skipped) {
+          setUploadError(e instanceof Error ? e.message : "Couldn't save your answers. Try again?");
+          setFinishing(false);
+          return;
+        }
       }
     }
     await firstRun.finish({ messagesExport: file ? { name: file.name, size: file.size } : undefined, contactsOptIn: false });
