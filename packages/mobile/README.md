@@ -1,64 +1,60 @@
 # @textrovert/mobile
 
-Textrovert's phone app: Expo (SDK 58, expo-router, TypeScript), for iOS, Android and web. The Ask tab works today: it
-talks to the assistant through the local Ask API in `packages/history`. Friends lists the people from `GET /people`
-and opens Ask scoped to one of them. Stats imports the file the Mac app saves with Save for iPhone (`mac/README.md`)
-and shows fun numbers from the whole iMessage history, computed on the phone. Today is a placeholder until the SwiftUI
-screen is ported.
+Textrovert's phone app: Expo (SDK 58, expo-router, TypeScript) for iOS, Android and web. Screens, layout and visual
+design follow Emma's SwiftUI app (fe/textrovert-app); data comes from the Textrovert API when one is set up, and from
+Emma's sample friends otherwise, so the app runs with no backend.
 
-## Run it on web (localhost)
+## Navigation
 
-1. Start the Ask API (see `packages/history/README.md`, "Local Ask API"). It listens on http://127.0.0.1:8787.
-2. Start the app:
+Four tabs (`src/app/(tabs)/`), with everything else pushed over them from the root stack (`src/app/_layout.tsx`):
 
-   ```sh
-   pnpm install            # from the repo root
-   pnpm --filter @textrovert/mobile web    # expo start --web --port 8081
-   ```
+- **Today**: replies waiting, coming up, plans (sample data, marked "Sample" when live), your people, search or ask,
+  and a card into your stats.
+- **Ask**: Emma's chat. Live, it answers from `POST /ask` with citations, grouped sources, a receipts sheet with the
+  messages around each cited one, a friend scope picker, starters, typing status and retry. Photos keep her fixture
+  replies.
+- **People**: everyone you text (`GET /people`), or the **Network** graph (the portrait's orbit, groups and edges,
+  replay). A person opens their profile.
+- **You**: **Stats** (`GET /stats`: totals, sent vs received, reply times, who starts, busiest hours and days, months,
+  closest people, style) with Kevin's `.textrovert` file import (`/stats`) as a second source, and **Topics** (the
+  portrait's atlas).
 
-   Open http://localhost:8081. On a wide window the app sits in a centered 390×844 phone frame.
+Pushed screens: `friend/[id]` (Emma's profile; live adds per-friend stats, facts, plans, moments with "Make a reel",
+topics that open the atlas at `/portrait?view=atlas/t/<topic>`, the Story of us, and Wrapped), `chat`, `source`,
+`note`, `settings` (with the Demo data switch), `setup` (first run), `analysis`, `conversation`, `stats`,
+`portrait` and `wrapped/[conversationId]` (full screen).
 
-The API base comes from `EXPO_PUBLIC_API_URL` (default `http://127.0.0.1:8787`). It is inlined when the JS bundle
-is built, so set it before `expo start` or a native build: `EXPO_PUBLIC_API_URL=https://ask.example.dev pnpm web`.
-A phone or simulator can't reach your laptop's 127.0.0.1, so native builds need a reachable URL: the hosted Ask API
-(`packages/history`, "Hosted Ask API") at `https://<deployment>.convex.site`. It requires an API key, which the app
-sends as `x-api-key` from `EXPO_PUBLIC_API_KEY` (also inlined at build time):
-`EXPO_PUBLIC_API_URL=https://<deployment>.convex.site EXPO_PUBLIC_API_KEY=<key> npm run build:ios`.
+## Data
+
+`src/api/client.ts` is the one place the API is configured: `EXPO_PUBLIC_API_URL` (unset means sample data) and
+`EXPO_PUBLIC_API_KEY` (sent as `x-api-key`; the hosted API requires it), both inlined at build time. `friend.ts`
+holds the friend, story, portrait, stats and reel routes; `mode.tsx` decides live vs demo (Settings → Demo data);
+`people.ts` maps `/people` onto Emma's `Friend` shape. Wrapped's client lives in `src/features/wrapped/data.ts`.
+
+## Run it on web
+
+```sh
+EXPO_PUBLIC_API_URL=http://127.0.0.1:8787 npx expo start --web --port 8081
+```
+
+The Ask API is `packages/history`'s `ask-server` (see its README). A phone can't reach your laptop's 127.0.0.1, so
+native builds need the hosted API (`https://<deployment>.convex.site`) and its key.
 
 ## iOS builds
 
-The native projects are generated (`ios/` and `android/` are gitignored). Bundle id: `com.textrovert.app`.
+Native projects are generated (`ios/` and `android/` are gitignored). Bundle id `com.textrovert.app`; the
+`.textrovert` document type is registered in `app.json`.
 
 ```sh
-EXPO_PUBLIC_API_URL=https://ask.example.dev npm run build:ios
+EXPO_PUBLIC_API_URL=https://<deployment>.convex.site EXPO_PUBLIC_API_KEY=<key> npm run build:ios
 ```
 
-`build:ios` runs `expo prebuild --platform ios --clean` (CocoaPods included) and then `xcodebuild` for the
-simulator; the app lands in `ios/build/Build/Products/Release-iphonesimulator/Textrovert.app`. `npm run ios` builds
-and launches it on a local simulator instead.
-
-The package also builds on its own, outside the monorepo: it has no workspace dependencies and keeps its own
-`package-lock.json`, so `npm ci` in a copy of `packages/mobile` is enough. After changing dependencies, refresh that
-lockfile with `npm install --package-lock-only` in a copy outside the workspace and copy it back.
-
-## Layout
-
-- `src/app/`: routes. `(tabs)/` holds Today, Ask (`index`), Friends and Stats.
-- `src/theme.ts`: the SwiftUI app's Theme and Paper.swift ported: paper, panel, grid lines, ink, the section tones
-  (accent, plans, celebrate, replies, coral, activities) in light and dark, brand colors, the Dynamic Type scale,
-  radii and shadows. Ask uses the purple replies tone. `useTheme()` follows the system appearance.
-- `src/components/`: reusable pieces for ported screens: `PaperScreen` (paper, grid and inline title bar),
-  `GridPaper`, `Bubbles` (`MyBubble`, `AssistantTurn`), `HedgehogAvatar`, `Face`, `Chip`, `QuoteLine`,
-  `Composer`, `Sheet` (bottom sheets via `useSheet()`), `TypingDots`, `PhoneFrame`, `FadeIn` and `ComingSoon`.
-- `src/features/ask/`: the Ask screen, light-markdown answers with `[n]` pills, sources grouped by chat, the receipts
-  sheet, the friend picker, starters and the shared Ask scope.
-- `src/features/friends/`: the Friends list.
-- `src/features/stats/`: the Stats tab. It imports a `.textrovert` file with expo-document-picker, keeps a copy in
-  the app's documents with expo-file-system, and shows `textingStats` from `src/lib/messagesFile.ts`, which reads the
-  file and counts in the phone's time zone.
-- `src/lib/motion.ts` and `src/lib/haptics.ts`: Reduce Motion and device haptics (no-op on web).
-- `src/lib/api.ts`: the Ask API client (2-minute timeout on `/ask`; answers usually take 10-30s).
+The package builds on its own, outside the monorepo, with its own `package-lock.json`. The Wrapped engine
+(`packages/wrapped/src`) is copied into `vendor/wrapped` (gitignored) by `scripts/vendor-wrapped.js`, which runs on
+install, start, web, typecheck and `build:ios`; metro and tsconfig resolve `@textrovert/wrapped` there. Run
+`npm run vendor:wrapped` before archiving `packages/mobile` alone. After changing dependencies, refresh the lockfile
+with `npm install --package-lock-only` in a copy outside the workspace and copy it back.
 
 ## Checks
 
-`pnpm --filter @textrovert/mobile typecheck`.
+`pnpm --filter @textrovert/mobile typecheck` and `npx expo export --platform ios`.

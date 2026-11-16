@@ -209,14 +209,16 @@ It exits with a message naming the missing variable or file. Endpoints (all date
   `answer` carries inline `[n]` markers; each citation's `text` is the full original message and `quote` the exact
   span the answer relies on. `person` scopes the assistant to the chats that person is in (their DM and shared groups).
   Errors are `{"error"}` with a 4xx/5xx status.
-- `POST /wrapped` with `{"conversationId", "from": "YYYY-MM-DD", "through": "YYYY-MM-DD", "model"?: true,
+- `POST /wrapped` with `{"conversationId", "from"?: "YYYY-MM-DD", "through"?: "YYYY-MM-DD", "model"?: true,
   "avoiding"?: [messageId], "number"?, "includeWarmMoments"?, "allowAffectionateTeasing"?, "timeoutMs"?, "debug"?}` →
-  `{"conversation", "range", "outcome", "model"}`: one Wrapped edition (`@textrovert/wrapped`) for a DM over whole days in
-  `ASK_TZ`. Message ids are the store's ids and the owner's messages carry participant id `owner`. `outcome` is the
-  package's `WrappedOutcome` as JSON (instants in epoch ms), with every quote already resolved against the rows; groups
-  get `{"kind": "empty", "reason": {"kind": "unsupportedConversation"}}`. With `model` (default on) the eligible
-  messages go to OpenAI (`WRAPPED_MODEL`, default gpt-5-mini) and its picks pass the same gate; `"model": false` is
-  rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
+  `{"conversation", "range", "outcome", "wider", "model"}`: one Wrapped edition (`@textrovert/wrapped`) for a DM over whole
+  days in `ASK_TZ`. Without `from`/`through` the range is the 30 days ending on the chat's last message. `conversation`
+  is the chat's id, service, participants, title and kind (no messages). Message ids are the store's ids and the owner's
+  messages carry participant id `owner`. `outcome` is the package's `WrappedOutcome` as JSON (instants in epoch ms), with
+  every quote already resolved against the rows; groups get `{"kind": "empty", "reason": {"kind": "unsupportedConversation"}}`.
+  `wider` is the next wider range around `range`, clamped to the chat (null when there's nothing outside it). With `model`
+  (default on) the eligible messages go to OpenAI (`WRAPPED_MODEL`, default gpt-5-mini) and its picks pass the same gate;
+  `"model": false` is rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
 - `GET /health` → `{"ok": true, "chats"}`.
 
 Every /ask citation also carries `isDm` (the chat is the user's one-to-one DM) and `before`/`after`: up to two
@@ -255,12 +257,13 @@ Friends, memoirs, the portrait and reels (`friendRoute` in `pipeline/assistant/a
 The local server never writes to `ASK_DB`: memoirs and the portrait are cached in `ASK_CACHE_DB` (default
 `.data/ask-cache.db`).
 
-The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, shared with
-the hosted API below, so both servers answer identically.
+The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, and the
+`/wrapped` handler in `pipeline/assistant/wrappedApi.ts`, both shared with the hosted API below, so both servers answer
+identically.
 
 ## Hosted Ask API
 
-`convex/http.ts` serves the same `POST /ask`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait`, `GET /stats` and `/reel` from the deployment's site URL
+`convex/http.ts` serves the same `POST /ask`, `POST /wrapped`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait`, `GET /stats` and `/reel` from the deployment's site URL
 (`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
 chats and is off until both of these are set on the deployment:
 
@@ -269,7 +272,7 @@ npx convex env set ASK_OWNER_KEY <owner key whose chats it serves>
 npx convex env set ASK_API_KEY "$(openssl rand -hex 24)"
 ```
 
-`/ask` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
+`/ask`, `/wrapped` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
 `/health` is open and returns `{"ok", "chats"}`. The app sends the header from `EXPO_PUBLIC_API_KEY`.
 
 Trade-off: the key is inlined into the app bundle, so anyone with the build can extract it. It keeps the URL from

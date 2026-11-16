@@ -216,9 +216,33 @@ export class WrappedCombinedProvider implements WrappedCandidateProviding {
   }
 }
 
-/** Rules plus whatever model suggestions are available. */
+/** Added to a model pick when a rule independently found at least two of the same messages. */
+export const CORROBORATION_BONUS = 1.5;
+
+/** Signals whose evidence is a whole day or every late reply, too broad to corroborate a single moment. */
+const aggregateSignals = new Set<WrappedSignal>(["busiestDay", "replyGaps"]);
+
+export function isCorroborated(pick: WrappedCandidate, rules: WrappedCandidate[]): boolean {
+  const ids = new Set(pick.evidenceIDs);
+  return rules.some((r) => !r.suggestedByModel && !aggregateSignals.has(r.signal) && r.evidenceIDs.filter((id) => ids.has(id)).length >= 2);
+}
+
+/** Rules plus whatever model suggestions are available; picks a rule corroborates get CORROBORATION_BONUS. */
+export class WrappedModelAwareProvider implements WrappedCandidateProviding {
+  constructor(
+    readonly suggestions: WrappedModelSuggestion[],
+    readonly options: WrappedModelOptions = defaultModelOptions(),
+  ) {}
+
+  candidates(context: WrappedAnalysisContext): WrappedCandidate[] {
+    const rules = new WrappedHeuristicProvider().candidates(context);
+    const picks = new WrappedSuggestionProvider(this.suggestions, this.options).candidates(context);
+    return [...rules, ...picks.map((c) => (isCorroborated(c, rules) ? { ...c, score: c.score + CORROBORATION_BONUS } : c))];
+  }
+}
+
 export const modelAwareProvider = (suggestions: WrappedModelSuggestion[], options: WrappedModelOptions = defaultModelOptions()) =>
-  new WrappedCombinedProvider([new WrappedHeuristicProvider(), new WrappedSuggestionProvider(suggestions, options)]);
+  new WrappedModelAwareProvider(suggestions, options);
 
 export type WrappedModelRace =
   | { status: "onTime"; suggestions: WrappedModelSuggestion[] }

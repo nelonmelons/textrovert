@@ -188,8 +188,3 @@ export const startReel = (episodeId: number) => postJson<Reel>('/reel', { episod
 /** The playable URL of a ready reel, for expo-video. */
 export const reelUrl = (reel: Extract<Reel, { status: 'ready' }>) => API_URL + reel.url;
 
-/**
- * POST /wrapped {conversationId, from?, through?}: one Wrapped edition for a DM (packages/wrapped's WrappedOutcome).
- * TODO(app-wrapped): src/features/wrapped/ owns the response type and the screen behind /wrapped/[conversationId].
- */
-export const fetchWrapped = (body: { conversationId: string; from?: string; through?: string }) => postJson<unknown>('/wrapped', body, SLOW_TIMEOUT_MS);

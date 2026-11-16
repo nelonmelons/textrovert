@@ -43,7 +43,7 @@ export default function RootLayout() {
                   <Stack.Screen name="settings" options={{ headerShown: true }} />
                   <Stack.Screen name="analysis" options={{ headerShown: true }} />
                   <Stack.Screen name="conversation" options={{ headerShown: true, presentation: 'modal' }} />
-                  <Stack.Screen name="wrapped/[conversationId]" options={{ headerShown: true }} />
+                  <Stack.Screen name="wrapped/[conversationId]" options={{ presentation: 'fullScreenModal' }} />
                   <Stack.Screen name="stats" options={{ headerShown: true }} />
                   <Stack.Screen name="portrait" options={{ headerShown: true }} />
                 </Stack>

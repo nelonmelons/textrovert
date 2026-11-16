@@ -4,6 +4,8 @@ import { ConvexError, v } from "convex/values";
 
 import { ask as askAgent, openAiComplete, type AssistantAnswer } from "../pipeline/assistant/agent";
 import { answerRequest, ApiError, friendRoute, RawJson, type ApiAnswer } from "../pipeline/assistant/api";
+import { parseWrappedRequest, wrappedRequest, type WrappedApiResponse } from "../pipeline/assistant/wrappedApi";
+import { openAIModelSource } from "@textrovert/wrapped/openai";
 import { describeEpisode, openAiFacets, segmentEpisodes, type Episode } from "../pipeline/assistant/episodes";
 import { extractFacts, openAiFactExtractor, openAiFactResolver, type Fact } from "../pipeline/assistant/facts";
 import { chunkMessages, openAiEmbedder } from "../pipeline/assistant/memory";
@@ -94,6 +96,34 @@ export const answerApi = internalAction({
         complete: openAiComplete(apiKey, process.env.ASSISTANT_MODEL || undefined),
         timeZone: safeTimeZone(profile.timeZone),
         now: Date.now(),
+      });
+      return { status: 200, body };
+    } catch (error) {
+      if (error instanceof ApiError) return { status: error.status, body: { error: error.message } };
+      throw error;
+    }
+  },
+});
+
+/** POST /wrapped for the hosted API: one Wrapped edition for one of the owner's DMs, with the server-side model. */
+export const wrappedApi = internalAction({
+  args: { ownerKey: v.string(), request: v.any() },
+  handler: async (ctx, { ownerKey, request }): Promise<{ status: number; body: WrappedApiResponse | { error: string } }> => {
+    const profile = await ctx.runQuery(internal.ingestData.profile, { ownerKey });
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!profile || !apiKey) return { status: 503, body: { error: "The Ask API isn't configured" } };
+    const [conversations, store] = await Promise.all([ctx.runQuery(internal.conversations.directory, { ownerKey }), getMessageStore()]);
+    const owner = storeOwner(ownerKey);
+    try {
+      const body = await wrappedRequest(parseWrappedRequest(request), {
+        conversations,
+        loadRows: async (ref) => {
+          const rows = [];
+          for await (const page of store.scan(owner, [ref.key])) rows.push(...page.messages);
+          return rows;
+        },
+        timeZone: safeTimeZone(profile.timeZone),
+        modelSource: openAIModelSource({ apiKey, model: process.env.WRAPPED_MODEL || undefined }),
       });
       return { status: 200, body };
     } catch (error) {
