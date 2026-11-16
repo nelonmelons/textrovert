@@ -11,11 +11,14 @@
  *
  * POST /ask {question, person?, history?} → {answer, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}
  * GET /people → {people: [{name, dm, chats, messages, lastAt}]}, most-messaged DMs first; dates are ISO 8601 strings
+ * POST /wrapped {conversationId, from, through, model?, ...} → one Wrapped edition for a DM (see README)
  */
 import { existsSync, readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { resolve } from "node:path";
 import { createClient } from "@libsql/client";
+import { dateRangeFromDays } from "@textrovert/wrapped";
+import { openAIModelSource } from "@textrovert/wrapped/openai";
 
 import { openAiComplete, type ConversationRef } from "../pipeline/assistant/agent";
 import { answerRequest, ApiError, listPeople, parseAskRequest } from "../pipeline/assistant/api";
@@ -24,6 +27,7 @@ import { FactIndex } from "../pipeline/assistant/facts";
 import { MemoryIndex, openAiEmbedder } from "../pipeline/assistant/memory";
 import { MessageStore } from "../pipeline/store";
 import { safeTimeZone } from "../pipeline/time";
+import { runWrapped } from "../pipeline/wrapped";
 
 const fail = (message: string): never => {
   console.error("ask-server: " + message);
@@ -61,8 +65,38 @@ const episodes = new EpisodeIndex(db);
 const facts = new FactIndex(db);
 const embed = openAiEmbedder(apiKey);
 const complete = openAiComplete(apiKey, process.env.ASSISTANT_MODEL || undefined);
+const wrappedModel = openAIModelSource({ apiKey, model: process.env.WRAPPED_MODEL || undefined });
 
 const people = listPeople(conversations);
+
+const isDay = (value: unknown): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+async function wrapped(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) throw new ApiError(400, "Body must be a JSON object");
+  const body = input as Record<string, unknown>;
+  const id = typeof body.conversationId === "string" ? body.conversationId : "";
+  const ref = conversations.find((c) => c.id === id);
+  if (!ref) throw new ApiError(404, "No conversation " + JSON.stringify(id));
+  if (!isDay(body.from) || !isDay(body.through)) throw new ApiError(400, "from and through must be YYYY-MM-DD dates");
+  const range = dateRangeFromDays(body.from, body.through, timeZone);
+  if (range.end <= range.start) throw new ApiError(400, "through must not be before from");
+  const rows = [];
+  if (ref.kind === "dm") for await (const page of store.scan(owner, [ref.key])) rows.push(...page.messages);
+  const avoiding = Array.isArray(body.avoiding) ? body.avoiding.filter((x): x is string => typeof x === "string") : [];
+  const run = await runWrapped({
+    ref,
+    rows,
+    range,
+    avoiding,
+    number: typeof body.number === "number" && body.number >= 1 ? Math.floor(body.number) : 1,
+    modelSource: body.model === false ? null : wrappedModel,
+    modelOptions: { includeWarmMoments: body.includeWarmMoments === true, allowAffectionateTeasing: body.allowAffectionateTeasing === true },
+    timeoutMs: typeof body.timeoutMs === "number" && body.timeoutMs > 0 ? Math.min(body.timeoutMs, 120_000) : undefined,
+    debug: body.debug === true,
+  });
+  const { messages: _, ...conversation } = run.conversation;
+  return { conversation: { ...conversation, title: ref.title, kind: ref.kind, ownerID: "owner" }, range, outcome: run.outcome, model: run.model };
+}
 
 const send = (res: ServerResponse, status: number, body: unknown) => {
   res.writeHead(status, {
@@ -98,6 +132,12 @@ const server = createServer(async (req, res) => {
       const request = parseAskRequest(await readJson(req));
       const result = await answerRequest(request, { conversations, owner, store, memory, episodes, facts, embed, complete, timeZone, now: Date.now() });
       console.log(`ask${request.person ? " (scoped)" : ""}: ${result.citations.length} citations in ${Date.now() - started}ms`);
+      return send(res, 200, result);
+    }
+    if (req.method === "POST" && path === "/wrapped") {
+      const result = await wrapped(await readJson(req));
+      const highlights = result.outcome.kind === "edition" ? result.outcome.edition.highlights.length : 0;
+      console.log(`wrapped: ${result.outcome.kind}, ${highlights} highlights, model ${result.model.status} in ${Date.now() - started}ms`);
       return send(res, 200, result);
     }
     throw new ApiError(404, "Not found");

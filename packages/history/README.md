@@ -209,6 +209,14 @@ It exits with a message naming the missing variable or file. Endpoints (all date
   `answer` carries inline `[n]` markers; each citation's `text` is the full original message and `quote` the exact
   span the answer relies on. `person` scopes the assistant to the chats that person is in (their DM and shared groups).
   Errors are `{"error"}` with a 4xx/5xx status.
+- `POST /wrapped` with `{"conversationId", "from": "YYYY-MM-DD", "through": "YYYY-MM-DD", "model"?: true,
+  "avoiding"?: [messageId], "number"?, "includeWarmMoments"?, "allowAffectionateTeasing"?, "timeoutMs"?, "debug"?}` →
+  `{"conversation", "range", "outcome", "model"}`: one Wrapped edition (`@textrovert/wrapped`) for a DM over whole days in
+  `ASK_TZ`. Message ids are the store's ids and the owner's messages carry participant id `owner`. `outcome` is the
+  package's `WrappedOutcome` as JSON (instants in epoch ms), with every quote already resolved against the rows; groups
+  get `{"kind": "empty", "reason": {"kind": "unsupportedConversation"}}`. With `model` (default on) the eligible
+  messages go to OpenAI (`WRAPPED_MODEL`, default gpt-5-mini) and its picks pass the same gate; `"model": false` is
+  rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
 - `GET /health` → `{"ok": true, "chats"}`.
 
 The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, shared with
