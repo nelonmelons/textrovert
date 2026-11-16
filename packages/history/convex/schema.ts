@@ -29,6 +29,20 @@ export const uploadSourceV = v.object({
 
 // Convex holds everything the app renders reactively. The full message history lives in the
 // Turso message store (pipeline/store.ts) and is read through the actions in messages.ts.
+/** What the user told onboarding. Free text is trimmed and capped by POST /onboarding. */
+export const onboardingV = v.object({
+  chatType: v.union(v.string(), v.null()),
+  app: v.union(v.string(), v.null()),
+  method: v.union(v.string(), v.null()),
+  selfName: v.union(v.string(), v.null()),
+  notes: v.union(v.string(), v.null()),
+  email: v.union(v.string(), v.null()),
+  uploadId: v.union(v.string(), v.null()),
+  fileName: v.union(v.string(), v.null()),
+  skippedUpload: v.boolean(),
+  savedAt: v.number(),
+});
+
 export default defineSchema({
   // One per device/user. ownerKey is a secret minted by owners.create that scopes every other row.
   profiles: defineTable({
@@ -37,6 +51,8 @@ export default defineSchema({
     // Sender names known to be the user, used to tell "me" apart in exports that don't say.
     selfNames: v.array(v.string()),
     insights: v.union(insightsV, v.null()),
+    // The phone's onboarding answers (POST /onboarding); missing for accounts made before onboarding saved them.
+    onboarding: v.optional(onboardingV),
     updatedAt: v.number(),
   }).index("by_ownerKey", ["ownerKey"]),
 

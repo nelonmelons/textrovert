@@ -284,6 +284,7 @@ npx convex env set ASK_OWNER_KEY <demo owner key>
 | `POST /upload/url` | (owner) | `{uploadUrl}`: POST the raw file to it (any size), it answers `{storageId}` |
 | `POST /upload/commit` | JSON `{storageId, fileName, timeZone?, selfName?}` | `{uploadId}` |
 | `GET /status` | optional `?uploadId=` (default: latest upload) | see below |
+| `POST /onboarding` | JSON `{chatType?, app?, method?, selfName?, notes?, email?, uploadId?, fileName?, skippedUpload?}` (owner required) | `{ok: true}`; saved on the profile as `onboarding`, and `selfName` joins `selfNames`. `GET /onboarding` returns `{onboarding}` |
 | `GET /people` | | `{people: [{name, dm, chats, messages, lastAt}]}` |
 | `POST /ask` | JSON `{question, person?, history?}` | `{answer, person, chats, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}` |
 | `POST /wrapped`, `GET /friend`, `/story`, `/portrait`, `/stats`, `GET`/`POST /reel` | as in the local ask-server above (`pipeline/assistant/api.ts`, `wrappedApi.ts`) | same as the local ask-server, scoped to the owner |

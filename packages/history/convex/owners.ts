@@ -4,6 +4,7 @@ import { DEFAULT_TIME_ZONE } from "../pipeline/time";
 import { internal } from "./_generated/api";
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { findProfile } from "./lib/owner";
+import { onboardingV } from "./schema";
 
 /** Mints an owner key for a new device. The app stores it in SecureStore; it is the key to all of the user's data. */
 export const create = action({
@@ -70,4 +71,27 @@ export const deleteBatch = internalMutation({
     if (profile) await ctx.db.delete("profiles", profile._id);
     return false;
   },
+});
+
+/** Stores the onboarding answers on the owner's profile (POST /onboarding). The name also joins selfNames. */
+export const saveOnboarding = internalMutation({
+  args: { ownerKey: v.string(), onboarding: onboardingV },
+  returns: v.boolean(),
+  handler: async (ctx, { ownerKey, onboarding }) => {
+    const profile = await findProfile(ctx, ownerKey);
+    if (!profile) return false;
+    const name = onboarding.selfName;
+    await ctx.db.patch("profiles", profile._id, {
+      onboarding,
+      selfNames: name && !profile.selfNames.includes(name) ? [...profile.selfNames, name].slice(-20) : profile.selfNames,
+      updatedAt: Date.now(),
+    });
+    return true;
+  },
+});
+
+/** The owner's saved onboarding answers, or null (GET /onboarding). */
+export const getOnboarding = internalQuery({
+  args: { ownerKey: v.string() },
+  handler: async (ctx, { ownerKey }) => (await findProfile(ctx, ownerKey))?.onboarding ?? null,
 });
