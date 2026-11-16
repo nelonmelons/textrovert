@@ -1,7 +1,17 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-import { conversationKindV, conversationStatsV, insightsV, personV, platformV, uploadStatusV } from "./validators";
+import {
+  commonGroundV,
+  conversationKindV,
+  conversationStatsV,
+  insightsV,
+  interestV,
+  matchStatusV,
+  personV,
+  platformV,
+  uploadStatusV,
+} from "./validators";
 
 export const uploadProgressV = v.object({
   messagesParsed: v.number(),
@@ -81,4 +91,38 @@ export default defineSchema({
     .index("by_ownerKey_and_key", ["ownerKey", "key"])
     .index("by_ownerKey_and_closeness", ["ownerKey", "closeness"])
     .index("by_ownerKey_and_refreshedAt", ["ownerKey", "refreshedAt"]),
+
+  // What a user is into, found in the messages they sent. Only built once they opt into matching, private to them.
+  interestProfiles: defineTable({
+    ownerKey: v.string(),
+    status: v.union(v.literal("building"), v.literal("ready"), v.literal("failed")),
+    interests: v.array(interestV),
+    messages: v.number(),
+    read: v.number(),
+    // finishedAt of the newest upload the profile covers. A newer finished upload means it needs a rebuild.
+    historyAt: v.number(),
+    // Identifies the current build: results from an older build are ignored.
+    startedAt: v.number(),
+    builtAt: v.union(v.number(), v.null()),
+    error: v.union(v.string(), v.null()),
+  }).index("by_ownerKey", ["ownerKey"]),
+
+  // Two users finding what they have in common. "a" creates the invite; "b" joins with its code.
+  matches: defineTable({
+    code: v.string(),
+    aOwnerKey: v.string(),
+    aName: v.string(),
+    bOwnerKey: v.union(v.string(), v.null()),
+    bName: v.union(v.string(), v.null()),
+    status: matchStatusV,
+    // Kept while a re-run is in progress, so the app can keep showing the last result.
+    result: v.union(commonGroundV, v.null()),
+    error: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+    // Also identifies the current comparison run: results from an older run are ignored.
+    updatedAt: v.number(),
+  })
+    .index("by_code", ["code"])
+    .index("by_aOwnerKey", ["aOwnerKey"])
+    .index("by_bOwnerKey", ["bOwnerKey"]),
 });
