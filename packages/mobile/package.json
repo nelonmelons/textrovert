@@ -18,9 +18,11 @@
     "prebuild:ios": "node scripts/vendor-wrapped.js"
   },
   "dependencies": {
+    "@expo-google-fonts/geist": "^0.4.2",
     "@expo-google-fonts/nunito": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.25",
+    "expo-blur": "~58.0.6",
     "expo-clipboard": "~58.0.4",
     "expo-constants": "~58.0.16",
     "expo-contacts": "~58.0.11",
