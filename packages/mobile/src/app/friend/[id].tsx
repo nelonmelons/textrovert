@@ -123,7 +123,7 @@ function Notepad({ friend }: { friend: Friend }) {
 }
 
 /** Opens this friend's Wrapped (src/features/wrapped/, being added on nelson/app-wrapped). */
-function WrappedButton({ conversationId, first }: { conversationId: string | null | undefined; first: string }) {
+function WrappedButton({ conversationId, first, demo = false }: { conversationId: string | null | undefined; first: string; demo?: boolean }) {
   const ready = !!conversationId;
   return (
     <Pressable
@@ -139,7 +139,7 @@ function WrappedButton({ conversationId, first }: { conversationId: string | nul
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Your Wrapped with {first}</Text>
         <Text style={[Type.subheadline, { color: withAlpha('rgba(255, 255, 255, 1)', 0.85) }]}>
-          {conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
+          {demo ? 'Wrapped is made from your own chats' : conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
         </Text>
       </View>
       <Symbol name="chevron.right" size={14} color="#FFFFFF" weight="bold" />
@@ -186,7 +186,7 @@ export default function FriendProfile() {
         </Pressable>
       ))}
       <AskBox friend={friend} ask={(q) => router.push({ pathname: '/chat', params: { friend: friend.id, q } })} />
-      {live ? <LiveSections friend={friend} /> : <WrappedButton conversationId={`demo-${friend.id}`} first={firstName(friend)} />}
+      {live ? <LiveSections friend={friend} /> : <WrappedButton conversationId={null} first={firstName(friend)} demo />}
       {sectionOrder.map((section) => (
         <SectionBlock key={section} friend={friend} section={section} hideEmpty={live} />
       ))}
