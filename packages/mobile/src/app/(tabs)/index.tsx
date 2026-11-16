@@ -53,13 +53,13 @@ export default function Today() {
   const { items } = useNotes();
   const milestones = upcomingMilestones();
   const firstRun = useFirstRun();
-  const { live } = useDataMode();
+  const { live, apiUrl } = useDataMode();
   const people = useFriends();
   const recent = [...people.friends].sort((a, b) => (b.person?.lastAt ?? '').localeCompare(a.person?.lastAt ?? '')).slice(0, 4);
   const sarah = friends[1];
   const mia = friends[0];
 
-  if (!firstRun.done) return <Redirect href="/setup" />;
+  if (!firstRun.done) return <Redirect href={apiUrl ? '/setup' : '/login'} />;
 
   return (
     <View style={{ flex: 1, backgroundColor: Theme.paper }}>

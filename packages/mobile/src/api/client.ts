@@ -4,10 +4,29 @@
  * them alike. Screens choose between it and Emma's fixtures with useDataMode(), so the app works with no backend.
  */
 
-/** Unset means no backend: the app runs on Emma's fixtures. Inlined when the bundle is built. */
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/$/, '');
-/** Sent as x-api-key; the hosted API requires it. It ships inside the app bundle, so it gates casual use, not a determined one. */
-const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
+/** A server and the key sent to it as x-api-key; the hosted API requires the key. */
+export interface Connection {
+  url: string;
+  key: string;
+}
+
+/** "my-app.convex.site/" becomes "https://my-app.convex.site". */
+export function normalizeUrl(url: string) {
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return !trimmed || /^https?:\/\//i.test(trimmed) ? trimmed : 'https://' + trimmed;
+}
+
+/** The server inlined at build time from EXPO_PUBLIC_API_URL and EXPO_PUBLIC_API_KEY; an empty url means Emma's fixtures. */
+export const BUILT_IN: Connection = { url: normalizeUrl(process.env.EXPO_PUBLIC_API_URL ?? ''), key: process.env.EXPO_PUBLIC_API_KEY || '' };
+
+let connection = BUILT_IN;
+
+/** Points every request at another server: mode.tsx calls it on launch and when you sign in or out. */
+export function setConnection(next: Connection) {
+  connection = next;
+}
+
+export const apiUrl = () => connection.url;
 
 export class ApiError extends Error {
   constructor(
@@ -19,20 +38,20 @@ export class ApiError extends Error {
 }
 
 /** One request with the key, a timeout and readable errors; resolves to the raw response, already checked for 2xx. */
-export async function call(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
-  if (!API_URL) throw new ApiError('No API is set up. Set EXPO_PUBLIC_API_URL to use your own chats.');
+export async function call(path: string, init: RequestInit, timeoutMs: number, using = connection): Promise<Response> {
+  if (!using.url) throw new ApiError('Not signed in. Sign in to use your own chats.');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
-    res = await fetch(API_URL + path, {
+    res = await fetch(using.url + path, {
       ...init,
-      headers: { ...(init.headers as Record<string, string> | undefined), ...(API_KEY ? { 'x-api-key': API_KEY } : {}) },
+      headers: { ...(init.headers as Record<string, string> | undefined), ...(using.key ? { 'x-api-key': using.key } : {}) },
       signal: controller.signal,
     });
   } catch {
     throw new ApiError(
-      controller.signal.aborted ? 'That took longer than ' + Math.round(timeoutMs / 1000) + 's, so I stopped waiting.' : "Can't reach the server at " + API_URL + '. Is it running?',
+      controller.signal.aborted ? 'That took longer than ' + Math.round(timeoutMs / 1000) + 's, so I stopped waiting.' : "Can't reach the server at " + using.url + '. Is it running?',
     );
   } finally {
     clearTimeout(timer);
@@ -103,8 +122,12 @@ export interface Turn {
 /** POST /ask: an answer from your chats, scoped to one person or all of them, with numbered citations. */
 export const ask = (question: string, person: string | null, history: Turn[]) => postJson<AskResult>('/ask', { question, person: person ?? undefined, history }, SLOW_TIMEOUT_MS);
 
-/** GET /people: everyone you text, most-messaged DMs first. */
-export const fetchPeople = () => getJson<{ people: Person[] }>('/people').then((r) => r.people);
+/** GET /people: everyone you text, most-messaged DMs first. Pass a connection to try one before signing in to it. */
+export async function fetchPeople(using = connection): Promise<Person[]> {
+  const body = (await (await call('/people', { method: 'GET' }, READ_TIMEOUT_MS, using)).json().catch(() => null)) as { people?: Person[] } | null;
+  if (!Array.isArray(body?.people)) throw new ApiError("That address isn't a Textrovert server.");
+  return body.people;
+}
 
 export const senderLabel = (c: Pick<ApiMessage, 'fromMe' | 'sender'>) => (c.fromMe ? 'You' : c.sender || 'Someone');
 /** "Your DM" for the one-to-one chat, else the chat's name. */

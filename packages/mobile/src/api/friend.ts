@@ -2,7 +2,7 @@
  * The friend, story, portrait, reel and Wrapped routes (packages/history/pipeline/assistant/api.ts). Configuration,
  * keys and errors come from ./client. Shapes mirror the server's; dates are ISO 8601 strings.
  */
-import { API_URL, call, getJson, postJson, SLOW_TIMEOUT_MS, type Person, type Source } from './client';
+import { apiUrl, call, getJson, postJson, SLOW_TIMEOUT_MS, type Person, type Source } from './client';
 
 export type FactPredicate = 'likes' | 'dislikes' | 'wants' | 'works at' | 'studies' | 'lives in' | 'relationship' | 'milestone' | 'habit';
 
@@ -186,5 +186,5 @@ export const fetchReel = (episodeId: number) => getJson<Reel>('/reel?episodeId='
 export const startReel = (episodeId: number) => postJson<Reel>('/reel', { episodeId });
 
 /** The playable URL of a ready reel, for expo-video. */
-export const reelUrl = (reel: Extract<Reel, { status: 'ready' }>) => API_URL + reel.url;
+export const reelUrl = (reel: Extract<Reel, { status: 'ready' }>) => apiUrl() + reel.url;
 

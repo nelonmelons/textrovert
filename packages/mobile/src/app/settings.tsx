@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ActionSheetIOS, ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
 import { useDataMode } from '../api/mode';
 import { useFriends } from '../api/people';
 import { useNotes } from '../store';
+import { useFirstRun } from '../firstRun';
 import { Rounded, Theme, Type } from '../theme';
 import { Divider, Face, SectionCard, Symbol, ToneTab } from '../components/Paper';
 import { PaperScroll } from '../components/PaperScroll';
@@ -36,6 +37,7 @@ export default function Settings() {
   const notes = useNotes();
   const { friends } = useFriends();
   const mode = useDataMode();
+  const firstRun = useFirstRun();
   const [states, setStates] = useState(fixtureStates);
   const [contacts, setContacts] = useState<string[]>();
   const [contactsMessage, setContactsMessage] = useState<string>();
@@ -87,17 +89,32 @@ export default function Settings() {
     setStates(fixtureStates);
     setContacts(undefined);
     setContactsMessage(undefined);
+    await mode.signOut();
+    await firstRun.reset();
+    router.dismissTo('/');
   };
 
   const confirmLogout = () => {
-    const title = 'Log out of the demo?';
-    const message = 'Your notes and accounts go back to how the demo started.';
+    const title = 'Log out?';
+    const message = 'This signs this phone out and clears your notes. You’ll start again from sign in.';
     if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({ title, message, options: ['Log out and reset', 'Cancel'], destructiveButtonIndex: 0, cancelButtonIndex: 1 }, (index) => {
+      ActionSheetIOS.showActionSheetWithOptions({ title, message, options: ['Log out', 'Cancel'], destructiveButtonIndex: 0, cancelButtonIndex: 1 }, (index) => {
         if (index === 0) logOut();
       });
     } else {
-      Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out and reset', style: 'destructive', onPress: logOut }]);
+      Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: logOut }]);
+    }
+  };
+
+  const confirmSignOut = () => {
+    const title = 'Sign out?';
+    const message = 'This phone stops reading your chats until you sign in again. Your notes stay.';
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions({ title, message, options: ['Sign out', 'Cancel'], destructiveButtonIndex: 0, cancelButtonIndex: 1 }, (index) => {
+        if (index === 0) mode.signOut();
+      });
+    } else {
+      Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign out', style: 'destructive', onPress: () => mode.signOut() }]);
     }
   };
 
@@ -176,7 +193,7 @@ export default function Settings() {
                 <Text style={[Type.headline, { color: Theme.ink }]}>Demo data</Text>
                 <Text style={[Type.subheadline, { color: Theme.secondary }]}>
                   {!mode.apiUrl
-                    ? 'This build has no API set up, so the app shows sample friends. Build with EXPO_PUBLIC_API_URL to use your own chats.'
+                    ? 'Not signed in, so the app shows sample friends. Sign in to use your own chats.'
                     : mode.live
                       ? 'Off: friends, Ask and profiles come from your chats.'
                       : 'On: the app shows sample friends instead of your chats.'}
@@ -199,6 +216,18 @@ export default function Settings() {
                 </Text>
               </View>
             ) : null}
+            <Divider />
+            {mode.account ? (
+              <Pressable onPress={confirmSignOut} accessibilityRole="button" style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
+                <Symbol name="person.crop.circle.badge.xmark" size={18} color={Theme.accent} />
+                <Text style={[Type.body, { color: Theme.accent }]}>Sign out</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => router.push('/login')} accessibilityRole="button" style={({ pressed }) => [styles.row, pressed && { opacity: 0.6 }]}>
+                <Symbol name="person.crop.circle.badge.checkmark" size={18} color={Theme.accent} />
+                <Text style={[Type.body, { color: Theme.accent }]}>{mode.apiUrl ? 'Sign in to another server' : 'Sign in'}</Text>
+              </Pressable>
+            )}
           </View>
         </SectionCard>
 
@@ -254,6 +283,7 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   demo: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, borderColor: Theme.celebrateTone.ink },
   icon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accentTone.fill },
   action: { paddingHorizontal: 12, minHeight: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },

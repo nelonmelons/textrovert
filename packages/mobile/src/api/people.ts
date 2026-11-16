@@ -9,27 +9,29 @@ const MIN_SHARED_MESSAGES = 1000;
 export const pickable = (people: Person[]) => people.filter((p) => p.dm || p.messages >= MIN_SHARED_MESSAGES);
 
 type State = { status: 'loading' } | { status: 'ready'; people: Person[] } | { status: 'error'; message: string };
-let cached: Promise<Person[]> | null = null;
+let cached: { url: string; people: Promise<Person[]> } | null = null;
 
-/** The friend list from GET /people, fetched once per app session and shared by every screen. Idle when not live. */
+/** The friend list from GET /people, fetched once per server and shared by every screen. Idle when not live. */
 export function usePeople(enabled = true): State & { retry: () => void } {
+  const { apiUrl } = useDataMode();
   const [state, setState] = useState<State>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    cached ??= fetchPeople().then(pickable);
-    cached.then(
+    if (cached?.url !== apiUrl) cached = { url: apiUrl, people: fetchPeople().then(pickable) };
+    const mine = cached;
+    mine.people.then(
       (people) => live && setState({ status: 'ready', people }),
       (error: Error) => {
-        cached = null;
+        if (cached === mine) cached = null;
         if (live) setState({ status: 'error', message: error.message });
       },
     );
     return () => {
       live = false;
     };
-  }, [attempt, enabled]);
+  }, [attempt, enabled, apiUrl]);
   return { ...state, retry: () => (setState({ status: 'loading' }), setAttempt((a) => a + 1)) };
 }
 
