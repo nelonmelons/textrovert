@@ -20,6 +20,23 @@ public struct Convex {
         try await call("action", path, args)
     }
 
+    /// Whether this backend has an account with this key. A key from another deployment has none.
+    public func accountExists(ownerKey: String) async throws -> Bool {
+        let profile: Profile? = try await query("insights:get", ["ownerKey": ownerKey])
+        return profile != nil
+    }
+
+    /// The account's most recent upload that finished processing.
+    public func lastUpload(ownerKey: String) async throws -> Upload? {
+        let uploads: [Upload] = try await query("uploads:list", ["ownerKey": ownerKey])
+        return uploads.first { $0.status == "done" }
+    }
+
+    /// Full-text search across every message stored for the account, best matches first.
+    public func search(ownerKey: String, text: String) async throws -> [SearchHit] {
+        try await action("messages:search", ["ownerKey": ownerKey, "query": text, "limit": 50])
+    }
+
     /// Uploads a zipped export the same way the phone app uploads one, then reports its processing status until it
     /// is done or failed.
     public func upload(zip: URL, ownerKey: String, onStatus: @MainActor (Upload) -> Void) async throws -> Upload {
@@ -67,6 +84,10 @@ public struct Convex {
     }
 }
 
+private struct Profile: Decodable {
+    let timeZone: String
+}
+
 public struct TextrovertError: LocalizedError {
     public let errorDescription: String?
 
@@ -81,6 +102,7 @@ public struct Upload: Decodable {
     public let progress: Counts
     public let warnings: [String]
     public let error: String?
+    public let finishedAt: Double?
 
     public struct Counts: Decodable {
         public let messagesParsed: Double
@@ -103,4 +125,20 @@ public struct Upload: Decodable {
     }
 
     private func n(_ value: Double) -> String { Int(value).formatted() }
+}
+
+/// One message found by `messages:search`. `snippet` wraps the matched words in ** markers.
+public struct SearchHit: Decodable, Identifiable {
+    public let id: Double
+    public let ts: Double
+    public let sender: String
+    public let fromMe: Bool
+    public let snippet: String
+    public let conversation: Conversation
+
+    public struct Conversation: Decodable {
+        public let title: String
+    }
+
+    public var date: Date { Date(timeIntervalSince1970: ts / 1000) }
 }

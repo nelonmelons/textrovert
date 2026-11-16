@@ -193,4 +193,5 @@ async function patchUpload(
   if (!finished) return;
   if (upload.storageId) await ctx.storage.delete(upload.storageId);
   for (const frame of upload.frames ?? []) await ctx.storage.delete(frame.storageId);
+  await ctx.scheduler.runAfter(0, internal.interests.historyChanged, { ownerKey: upload.ownerKey });
 }
