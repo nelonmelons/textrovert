@@ -19,10 +19,30 @@ Production builds never include `.data`.
 Deep links: `#/orbit`, `#/rivers`, `#/atlas`, and `#/<view>/p/<personId>` for a person's story. When embedded,
 taps post `"light"` or `"medium"` to `window.webkit.messageHandlers.haptic` if the native shell registers it.
 
+## Embedded in the app
+
+`pnpm --filter @textrovert/portrait build:embed` builds one self-contained HTML file (JS and CSS inlined, no data,
+`dist-embed/index.html`) and writes it to `packages/mobile/src/components/portraitHtml.ts`, which
+`PortraitWebView` loads in react-native-webview (an iframe on web). Rerun it after changing the portrait.
+
+The embedded page never fetches anything. Its contract with the host:
+
+| Direction | Message | Meaning |
+| --- | --- | --- |
+| page → host | `{ "type": "textrovert:ready" }` | Loaded and waiting for data. Sent again if the page reloads. |
+| host → page | `window.textrovertPortrait(data)`, or `postMessage({ type: "textrovert:portrait", portrait: data })` | The portrait (`GET /portrait`), as an object or JSON text. |
+| page → host | `{ "type": "textrovert:open-person", "personId", "name" }` | A person was tapped; open their profile (the API keys people by `name`). |
+| page → host | `{ "type": "textrovert:haptic", "style": "light" \| "medium" }` | Play a tap haptic. |
+
+Page → host messages go to `window.ReactNativeWebView.postMessage(JSON.stringify(message))` in the WebView and to
+`window.parent.postMessage(message, "*")` in an iframe. Embedded, taps don't open the page's own story view; the
+host shows the profile instead.
+
 ## Data
 
 `scripts/build-portrait.ts` reads the local libSQL database and conversation directory and writes
-`.data/portrait.json` (ignored by git; it holds real messages). Inputs come from env:
+`.data/portrait.json` with the builder in `packages/history/pipeline/portrait`, the same one behind the API's
+`GET /portrait` and `GET /story` (ignored by git; it holds real messages). Inputs come from env:
 
 | Variable | Default |
 | --- | --- |

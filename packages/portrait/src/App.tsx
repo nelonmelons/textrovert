@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { EMBEDDED, portraitFromHost, toHost } from "./bridge";
 import { buildModel, haptic, type Model } from "./model";
 import type { Portrait } from "./types";
 import { Atlas } from "./views/Atlas";
@@ -15,6 +16,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ];
 
 async function loadPortrait(): Promise<Portrait> {
+  if (EMBEDDED) return portraitFromHost();
   if (!new URLSearchParams(location.search).has("demo")) {
     try {
       const res = await fetch("/portrait.json", { cache: "no-store" });
@@ -52,7 +54,9 @@ export function App() {
   };
   const openPerson = (id: string) => {
     haptic("medium");
-    go(route.tab, id);
+    const person = model?.person.get(id);
+    if (EMBEDDED && person) toHost({ type: "textrovert:open-person", personId: id, name: person.name });
+    else go(route.tab, id);
   };
 
   if (!model) {
@@ -65,7 +69,7 @@ export function App() {
   }
 
   return (
-    <div className="app">
+    <div className={"app" + (EMBEDDED ? " embedded" : "")}>
       <main className="stage" key={route.tab}>
         {route.tab === "orbit" && <Constellation model={model} onOpen={openPerson} paused={route.person !== null} />}
         {route.tab === "rivers" && <Rivers model={model} onOpen={openPerson} />}

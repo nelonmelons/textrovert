@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 const localPortrait = fileURLToPath(new URL("./.data/portrait.json", import.meta.url));
 
@@ -21,7 +22,9 @@ function localData(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), localData()],
+/** `--mode embed` builds one self-contained dist-embed/index.html (JS and CSS inlined, no data) for the app's WebView. */
+export default defineConfig(({ mode }) => ({
+  plugins: mode === "embed" ? [react(), viteSingleFile()] : [react(), localData()],
   server: { host: true, port: 5180 },
-});
+  build: mode === "embed" ? { outDir: "dist-embed" } : {},
+}));
