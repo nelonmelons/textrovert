@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Avatar, EmojiAvatar, Field, Icon, ListRow, ListSection, PillButton, space, sym, Txt, useDesign } from '@/design';
 import { View } from 'react-native';
-import { personLine, usePeople } from '@/api/people';
+import { contactName, personLine, usePeople } from '@/api/people';
 import type { Person } from '@/api/client';
 
 const mark = require('../../../assets/art/hedgehog-mark.png');
@@ -43,7 +43,7 @@ export function PeoplePicker({ current, onPick }: { current: string | null; onPi
       {people.status === 'ready' && matches.length ? (
         <ListSection header="Friends">
           {matches.map((p) => (
-              <ListRow key={p.name} title={p.name} subtitle={personLine(p)} leading={<EmojiAvatar name={p.name} size={36} />} trailing={tick(current === p.name)} onPress={() => onPick(p)} chevron={false} />
+              <ListRow key={p.name} title={contactName(p.name)} subtitle={personLine(p)} leading={<EmojiAvatar name={p.name} size={36} />} trailing={tick(current === p.name)} onPress={() => onPick(p)} chevron={false} />
             ))}
         </ListSection>
       ) : null}

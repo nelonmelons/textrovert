@@ -194,12 +194,12 @@ function WrappedButton({ conversationId, first }: { conversationId: string | nul
 }
 
 function LiveSections({ friend }: { friend: Friend }) {
-  const { state, retry } = useFriendProfile(friend.name);
+  const { state, retry } = useFriendProfile(friend.id);
   const first = firstName(friend);
   return (
     <>
       <WrappedButton conversationId={state.status === 'ready' ? state.profile.dmConversationId : state.status === 'error' ? null : undefined} first={first} />
-      <LiveProfile name={friend.name} first={first} state={state} retry={retry} />
+      <LiveProfile name={friend.id} first={first} state={state} retry={retry} />
     </>
   );
 }

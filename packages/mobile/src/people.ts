@@ -18,7 +18,8 @@ export type Friend = {
   person?: Person;
 };
 
-export const firstName = (friend: Friend) => friend.name.split(' ')[0];
+/** A first name, or the whole name when it is a phone number or a handle with no spaces to split. */
+export const firstName = (friend: Friend) => (/^\+?[\d(]/.test(friend.name) ? friend.name : friend.name.split(' ')[0]);
 
 export const friends: Friend[] = [];
 
