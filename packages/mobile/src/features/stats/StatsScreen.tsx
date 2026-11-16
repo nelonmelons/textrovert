@@ -2,15 +2,12 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
 import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
-import { initials } from '@/api/people';
-import { Divider, Face, SectionCard, ToneTab } from '@/components/Paper';
-import { PaperScroll } from '@/components/PaperScroll';
+import { BigButton, DesignFonts, EmojiAvatar, LargeTitle, ListRow, ListSection, PillButton, Screen, space, StatCard, Txt, useDesign, type FillName } from '@/design';
 import { FadeIn } from '@/components/FadeIn';
 import { haptics } from '@/lib/haptics';
 import { readMessagesFile, textingStats, type MessagesFile, type TextingStats } from '@/lib/messagesFile';
-import { radius, Rounded, Theme, Type, withAlpha } from '@/theme';
 
 type State =
   | { status: 'empty' }
@@ -30,8 +27,6 @@ const count = (n: number) => n.toLocaleString();
 const percent = (share: number) => Math.round(share * 100) + '%';
 const hour = (h: number) => (h % 12 || 12) + (h < 12 ? ' AM' : ' PM');
 const day = (date: Date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-
-const tone = Theme.celebrateTone;
 
 /** Stats: import the file the Textrovert Mac app saves, then see fun numbers from your whole iMessage history. */
 export function StatsScreen() {
@@ -70,142 +65,122 @@ export function StatsScreen() {
     setState({ status: 'empty' });
   };
 
+  const { c } = useDesign();
+  const art = state.status === 'reading' ? SLEEPY : state.status === 'ready' ? CHART : WAVE;
   return (
-    <>
-      <Stack.Screen options={{ headerTitle: 'Your texting stats', headerTitleStyle: { color: Theme.ink, fontWeight: '600' } }} />
-      <PaperScroll contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 18 }}>
+    <DesignFonts>
+      <Stack.Screen options={{ headerTitle: '', headerStyle: { backgroundColor: c.background }, headerTintColor: c.accentText }} />
+      <Screen contentStyle={{ paddingTop: space.sm }}>
+        <View style={{ alignItems: 'center', gap: space.md }}>
+          <EmojiAvatar image={art} color="mint" size={96} name="Your iMessage stats" />
+          {state.status === 'ready' ? null : <LargeTitle center title="Your iMessage stats" subtitle="See your real texting stats, counted on this phone. Nothing is uploaded." />}
+        </View>
         {state.status === 'ready' ? (
           <Ready file={state.file} stats={state.stats} onImport={importFile} onRemove={remove} />
         ) : (
-          <FadeIn>
-            <SectionCard tone={tone}>
-              <View style={{ gap: 14 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <ToneTab title="Your iMessage stats" symbol="chart.bar.fill" tone={tone} />
-                  <Image source={require('../../../assets/art/hedgehog-reader.png')} resizeMode="contain" style={{ width: 70, height: 80 }} aria-hidden />
-                </View>
-                <Text style={[Type.subheadline, { color: Theme.ink }]}>See your real texting stats, counted on this phone. Nothing is uploaded.</Text>
-                <View style={{ gap: 10 }}>
-                  {['On your Mac, open Textrovert and click Save for iPhone.', 'AirDrop the file here, or save it to Files.', 'Tap Import and pick the file.'].map((step, i) => (
-                    <View key={step} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-                      <Text style={[Type.footnote, styles.stepNumber]}>{i + 1}</Text>
-                      <Text style={[Type.subheadline, { flex: 1, color: Theme.ink }]}>{step}</Text>
-                    </View>
-                  ))}
-                </View>
-                {state.status === 'reading' ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 }}>
-                    <ActivityIndicator color={tone.ink} />
-                    <Text style={[Type.subheadline, { color: Theme.secondary }]}>Reading your messages…</Text>
-                  </View>
-                ) : (
-                  <Pressable accessibilityRole="button" onPress={importFile} style={({ pressed }) => [styles.button, pressed && { opacity: 0.8 }]}>
-                    <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Import messages file</Text>
-                  </Pressable>
-                )}
-                {state.status === 'error' ? <Text style={[Type.footnote, { color: Theme.deadline }]}>{state.message}</Text> : null}
+          <FadeIn style={{ gap: space.xxl }}>
+            <ListSection header="How it works" inset={64}>
+              {STEPS.map((step) => (
+                <ListRow key={step.title} title={step.title} subtitle={step.detail} leading={<EmojiAvatar emoji={step.emoji} color={step.color} size={36} />} />
+              ))}
+            </ListSection>
+            {state.status === 'reading' ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.md, paddingVertical: space.lg }}>
+                <ActivityIndicator color={c.accent} />
+                <Txt variant="callout" tone="secondary">
+                  Reading your messages…
+                </Txt>
               </View>
-            </SectionCard>
+            ) : (
+              <BigButton title="Import messages file" emoji="📥" onPress={importFile} />
+            )}
+            {state.status === 'error' ? (
+              <Txt variant="footnote" color={c.danger} style={{ textAlign: 'center' }}>
+                {state.message}
+              </Txt>
+            ) : null}
           </FadeIn>
         )}
-      </PaperScroll>
-    </>
+      </Screen>
+    </DesignFonts>
   );
 }
+
+const WAVE = require('../../../assets/art/hedgehog-wave.png');
+const SLEEPY = require('../../../assets/art/hedgehog-sleepy.png');
+const CHART = require('../../../assets/art/hedgehog-chart.png');
+
+const STEPS: { title: string; detail: string; emoji: string; color: FillName }[] = [
+  { title: 'Save for iPhone', detail: 'On your Mac, open Textrovert and click it', emoji: '💻', color: 'blue' },
+  { title: 'Send it here', detail: 'AirDrop the file, or save it to Files', emoji: '📲', color: 'lilac' },
+  { title: 'Import', detail: 'Tap the button below and pick the file', emoji: '📥', color: 'mint' },
+];
+
+const CARD_COLORS: FillName[] = ['mint', 'pink', 'lilac', 'yellow', 'peach', 'blue', 'coral', 'lime'];
 
 interface Tile {
   value: string;
   label: string;
+  emoji: string;
 }
 
 function Ready({ file, stats, onImport, onRemove }: { file: MessagesFile; stats: TextingStats; onImport: () => void; onRemove: () => void }) {
   if (stats.messages === 0) {
-    return <Text style={[Type.subheadline, { color: Theme.secondary, textAlign: 'center' }]}>That file has no messages in it.</Text>;
+    return (
+      <Txt variant="callout" tone="secondary" style={{ textAlign: 'center' }}>
+        That file has no messages in it.
+      </Txt>
+    );
   }
   const since = stats.since ? ' since ' + new Date(stats.since * 1000).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : '';
   const [topEmoji] = stats.topEmoji;
   const tiles = [
-    { value: percent(stats.sent / stats.messages), label: 'of them are from you' },
-    stats.busiestHour !== undefined && { value: hour(stats.busiestHour), label: 'is when you text the most' },
-    stats.biggestDay && { value: count(stats.biggestDay.messages), label: 'messages on ' + day(stats.biggestDay.date) + ', your biggest day, mostly with ' + stats.biggestDay.mostlyWith },
-    stats.longestStreak && { value: stats.longestStreak.days + ' days', label: 'in a row texting ' + stats.longestStreak.name },
-    topEmoji && { value: stats.topEmoji.map((e) => e.emoji).join(' '), label: 'your top emoji, with ' + topEmoji.emoji + ' sent ' + count(topEmoji.count) + ' times' },
-    stats.laughs > 0 && { value: count(stats.laughs), label: 'times you laughed: lol, haha, 😂' },
-    stats.sent > 0 && { value: percent(stats.lateNight), label: 'of your texts go out after midnight' },
-    stats.loudestGroup && { value: count(stats.loudestGroup.messages), label: 'messages in ' + stats.loudestGroup.name + ', your loudest group chat' },
+    { value: percent(stats.sent / stats.messages), label: 'of them are from you', emoji: '📤' },
+    stats.busiestHour !== undefined && { value: hour(stats.busiestHour), label: 'is when you text the most', emoji: '🌙' },
+    stats.biggestDay && { value: count(stats.biggestDay.messages), label: 'messages on ' + day(stats.biggestDay.date) + ', your biggest day, mostly with ' + stats.biggestDay.mostlyWith, emoji: '📅' },
+    stats.longestStreak && { value: String(stats.longestStreak.days), label: 'days in a row texting ' + stats.longestStreak.name, emoji: '🔥' },
+    topEmoji && { value: stats.topEmoji.map((e) => e.emoji).join(' '), label: 'your top emoji, with ' + topEmoji.emoji + ' sent ' + count(topEmoji.count) + ' times', emoji: '🏆' },
+    stats.laughs > 0 && { value: count(stats.laughs), label: 'times you laughed: lol, haha, 😂', emoji: '🤣' },
+    stats.sent > 0 && { value: percent(stats.lateNight), label: 'of your texts go out after midnight', emoji: '🦉' },
+    stats.loudestGroup && { value: count(stats.loudestGroup.messages), label: 'messages in ' + stats.loudestGroup.name + ', your loudest group chat', emoji: '📣' },
   ].filter((tile): tile is Tile => !!tile);
+  const pairs = Array.from({ length: Math.ceil(tiles.length / 2) }, (_, i) => tiles.slice(i * 2, i * 2 + 2));
 
   return (
     <>
       <FadeIn>
-        <SectionCard tone={tone} fillOpacity={0.55}>
-          <View style={{ gap: 4 }}>
-            <ToneTab title="Your iMessage stats" symbol="chart.bar.fill" tone={tone} style={{ marginBottom: 8 }} />
-            <Text adjustsFontSizeToFit numberOfLines={1} style={[styles.total, { fontFamily: Rounded.heavy }]}>
-              {count(stats.messages)}
-            </Text>
-            <Text style={[Type.subheadline, { color: Theme.secondary }]}>
-              messages across {count(stats.chats)} {stats.chats === 1 ? 'chat' : 'chats'}
-              {since}
-            </Text>
-          </View>
-        </SectionCard>
+        <LargeTitle center size="display" title={count(stats.messages)} subtitle={'messages across ' + count(stats.chats) + (stats.chats === 1 ? ' chat' : ' chats') + since} />
       </FadeIn>
-      <View style={styles.tiles}>
-        {tiles.map((tile, i) => (
-          <FadeIn key={tile.label} delay={60 + i * 40} style={styles.tileWrap}>
-            <View style={styles.tile}>
-              <Text adjustsFontSizeToFit numberOfLines={1} style={[Type.title2, { color: tone.ink, fontFamily: Rounded.bold }]}>
-                {tile.value}
-              </Text>
-              <Text style={[Type.footnote, { color: Theme.secondary }]}>{tile.label}</Text>
-            </View>
+      <View style={{ gap: space.md }}>
+        {pairs.map((pair, r) => (
+          <FadeIn key={pair[0].label} delay={60 + r * 60} style={{ flexDirection: 'row', gap: space.md }}>
+            {pair.map((tile, i) => (
+              <StatCard key={tile.label} value={tile.value} label={tile.label} emoji={tile.emoji} color={CARD_COLORS[(r * 2 + i) % CARD_COLORS.length]} />
+            ))}
+            {pair.length < 2 ? <View style={{ flex: 1 }} /> : null}
           </FadeIn>
         ))}
       </View>
       {stats.people.length > 0 ? (
-        <SectionCard tone={Theme.accentTone}>
-          <View style={{ gap: 12 }}>
-            <ToneTab title="Your top people" symbol="person.2.fill" tone={Theme.accentTone} />
-            {stats.people.map((p, i) => (
-              <View key={p.id} style={{ gap: 12 }}>
-                {i > 0 ? <Divider /> : null}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <Face initials={initials(p.name)} />
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text numberOfLines={1} style={[Type.headline, { color: Theme.ink }]}>
-                      {p.name}
-                    </Text>
-                    <Text numberOfLines={1} style={[Type.footnote, { color: Theme.secondary }]}>
-                      {percent(p.fromYou / p.messages)} from you
-                      {p.streak >= 2 ? ' · ' + p.streak + '-day streak' : ''} · since {new Date(p.since * 1000).getFullYear()}
-                    </Text>
-                  </View>
-                  <Text style={[Type.headline, { color: Theme.accentTone.ink }]}>{count(p.messages)}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </SectionCard>
+        <ListSection header="Your top people">
+          {stats.people.map((p) => (
+            <ListRow
+              key={p.id}
+              title={p.name}
+              subtitle={percent(p.fromYou / p.messages) + ' from you' + (p.streak >= 2 ? ' · ' + p.streak + '-day streak' : '') + ' · since ' + new Date(p.since * 1000).getFullYear()}
+              leading={<EmojiAvatar name={p.name} size={40} />}
+              value={count(p.messages)}
+            />
+          ))}
+        </ListSection>
       ) : null}
-      <Text style={[Type.caption, { color: Theme.secondary }]}>From your Mac · saved {day(new Date(file.exportedAt * 1000))}</Text>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-        <Pressable accessibilityRole="button" onPress={onImport} hitSlop={8}>
-          <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Import a newer file</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={onRemove} hitSlop={8}>
-          <Text style={[Type.subheadline, { color: Theme.deadline, fontWeight: '600' }]}>Remove</Text>
-        </Pressable>
+      <Txt variant="footnote" tone="tertiary" style={{ textAlign: 'center' }}>
+        From your Mac · saved {day(new Date(file.exportedAt * 1000))}
+      </Txt>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.md }}>
+        <PillButton title="Import a newer file" emoji="📥" onPress={onImport} />
+        <PillButton title="Remove" kind="secondary" onPress={onRemove} />
       </View>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  stepNumber: { width: 22, height: 22, lineHeight: 22, borderRadius: 11, overflow: 'hidden', textAlign: 'center', fontWeight: '800', color: tone.ink, backgroundColor: tone.fill },
-  button: { alignItems: 'center', justifyContent: 'center', minHeight: 50, borderRadius: radius.capsule, backgroundColor: Theme.accent },
-  total: { fontSize: 52, lineHeight: 60, color: Theme.accent },
-  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  tileWrap: { width: '48%', flexGrow: 1 },
-  tile: { flex: 1, gap: 4, padding: 14, borderRadius: radius.tile, backgroundColor: withAlpha(Theme.panel, 0.92), borderWidth: StyleSheet.hairlineWidth, borderColor: Theme.gridMajor },
-});

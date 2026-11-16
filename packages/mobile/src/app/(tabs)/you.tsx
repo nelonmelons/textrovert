@@ -1,63 +1,56 @@
 import { useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { View } from 'react-native';
+import { router } from 'expo-router';
+
+import { DesignFonts, EmojiAvatar, LargeTitle, ListRow, ListSection, Screen, SectionTitle, SegmentedControl, space, Txt } from '@/design';
 import { useDataMode } from '../../api/mode';
-import { RowChevron, SectionCard, ToneTab } from '../../components/Paper';
-import { PaperScroll } from '../../components/PaperScroll';
-import { Segmented } from '../../components/Segmented';
-import { TabHeader } from '../../components/TabHeader';
-import { LiveStats, StatsLoading, useStats } from '../../features/stats/LiveStats';
-import { Portrait } from '../../features/portrait/Portrait';
-import { Theme, Type } from '../../theme';
+import { HeadlineStats, RANGES, rangeTotals, StatsBreakdown, StatsLoading, useStats } from '../../features/stats/LiveStats';
+import { count } from '../../features/stats/parts';
+import { TopicTiles } from '../../features/stats/Topics';
 
-type Mode = 'stats' | 'topics';
+const TITLES = ['Your month in texts', 'Your year in texts', 'All your texts'];
 
-/** You: your texting stats (GET /stats, Kevin's file import as a second source) and your topics as the atlas. */
+/** You: your texting stats (GET /stats, Kevin's file import as a second source) and your topics, which open the atlas. */
 export default function You() {
-  const params = useLocalSearchParams<{ mode?: Mode }>();
-  const [mode, setMode] = useState<Mode>(params.mode === 'topics' ? 'topics' : 'stats');
+  const [range, setRange] = useState(1);
   const { live } = useDataMode();
-  const { state, retry } = useStats(live && mode === 'stats');
-  const topics = mode === 'topics';
+  const { state, retry } = useStats(live);
+  const ready = state.status === 'ready' ? state.stats : null;
+  let subtitle = 'Your texting, counted from your own chats.';
+  if (ready) {
+    const { sent, received, since } = rangeTotals(ready, range);
+    const when = !since ? '' : range === 0 ? ' in ' + since.toLocaleDateString('en-US', { month: 'long' }) : ' since ' + since.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    subtitle = count(sent + received) + ' messages back and forth' + when + '.';
+  }
   return (
-    <View style={{ flex: 1 }}>
-      <TabHeader title="You" dark={topics}>
-        <Segmented
-          dark={topics}
-          value={mode}
-          onChange={setMode}
-          options={[
-            { id: 'stats', label: 'Stats' },
-            { id: 'topics', label: 'Topics' },
-          ]}
-        />
-      </TabHeader>
-      {topics ? (
-        <Portrait view="atlas" />
-      ) : (
-        <PaperScroll contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 18 }}>
-          {!live ? (
-            <SectionCard tone={Theme.celebrateTone}>
-              <Text style={[Type.subheadline, { color: Theme.ink }]}>Live stats come from your own chats. With demo data on, import the file from your Mac below to see yours.</Text>
-            </SectionCard>
-          ) : state.status === 'ready' ? (
-            <LiveStats stats={state.stats} />
-          ) : (
-            <StatsLoading state={state} retry={retry} />
-          )}
-          <Pressable onPress={() => router.push('/stats')} style={({ pressed }) => pressed && { opacity: 0.8 }}>
-            <SectionCard tone={Theme.repliesTone} fillOpacity={0.35}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <View style={{ flex: 1, gap: 8 }}>
-                  <ToneTab title="Your iMessage stats" symbol="square.and.arrow.down" tone={Theme.repliesTone} />
-                  <Text style={[Type.subheadline, { color: Theme.ink }]}>Import the file Textrovert on your Mac saves to count your whole iMessage history on this phone.</Text>
-                </View>
-                <RowChevron />
-              </View>
-            </SectionCard>
-          </Pressable>
-        </PaperScroll>
-      )}
-    </View>
+    <DesignFonts>
+      <Screen>
+        <View style={{ alignItems: 'center', gap: space.md, paddingTop: space.lg }}>
+          <EmojiAvatar image={require('../../../assets/art/hedgehog-chart.png')} color="lilac" size={96} name="You" />
+          <LargeTitle center title={TITLES[range]} subtitle={subtitle} />
+        </View>
+        <SegmentedControl segments={[...RANGES]} value={range} onChange={setRange} />
+        {!live ? (
+          <ListSection>
+            <Txt variant="callout" style={{ padding: space.lg }}>
+              Live stats come from your own chats. With demo data on, import the file from your Mac below to see yours.
+            </Txt>
+          </ListSection>
+        ) : ready ? (
+          <HeadlineStats stats={ready} range={range} />
+        ) : (
+          <StatsLoading state={state} retry={retry} />
+        )}
+        <SectionTitle title="What you talk about" />
+        <TopicTiles live={live} />
+        {ready ? <StatsBreakdown stats={ready} /> : null}
+        <ListSection header="From your Mac">
+          <ListRow title="Your iMessage stats" subtitle="Import the file Textrovert on your Mac saves" leading={<EmojiAvatar emoji="💻" color="blue" size={36} />} onPress={() => router.push('/stats')} />
+        </ListSection>
+        <Txt variant="footnote" tone="tertiary" style={{ textAlign: 'center' }}>
+          Counted from your own chats.
+        </Txt>
+      </Screen>
+    </DesignFonts>
   );
 }

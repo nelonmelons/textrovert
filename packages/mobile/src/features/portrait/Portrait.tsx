@@ -12,7 +12,7 @@ export const NIGHT = '#0b0810';
 /** The portrait JSON is several megabytes and only changes with new messages, so every screen shares one fetch. */
 let cached: Promise<string> | null = null;
 
-function usePortraitJson(enabled: boolean) {
+export function usePortraitJson(enabled: boolean) {
   const [json, setJson] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   const [attempt, setAttempt] = useState(0);

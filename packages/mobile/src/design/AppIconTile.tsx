@@ -38,12 +38,13 @@ export interface TileItem {
   onPress?: () => void;
 }
 
-/** App-icon tiles with labels in a two-column dark card. */
-export function TileGrid({ items, columns = 2, footer, style }: { items: TileItem[]; columns?: number; footer?: string; style?: StyleProp<ViewStyle> }) {
+/** App-icon tiles with labels in a two-column dark card, with an optional header row above them. */
+export function TileGrid({ items, columns = 2, header, footer, style }: { items: TileItem[]; columns?: number; header?: ReactNode; footer?: string; style?: StyleProp<ViewStyle> }) {
   const { c } = useDesign();
   const rows = Array.from({ length: Math.ceil(items.length / columns) }, (_, r) => items.slice(r * columns, r * columns + columns));
   return (
     <DarkCard style={style}>
+      {header}
       {rows.map((row, r) => (
         <View key={r} style={{ flexDirection: 'row', gap: 10 }}>
           {row.map((item) => (

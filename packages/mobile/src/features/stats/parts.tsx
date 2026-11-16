@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { fills, space, Txt, withAlpha as alpha, type FillName } from '@/design';
 import { radius, Rounded, Theme, Type, withAlpha } from '../../theme';
 
 export const count = (n: number) => n.toLocaleString('en-US');
@@ -14,6 +15,12 @@ export function duration(sec: number | null | undefined) {
   if (sec < 3600) return Math.round(sec / 60) + ' min';
   return Math.round((sec / 3600) * 10) / 10 + ' hr';
 }
+
+/** "48K", "9.8K", "865". */
+export const compact = (n: number) => (n >= 10000 ? Math.round(n / 1000) + 'K' : n >= 1000 ? Math.round(n / 100) / 10 + 'K' : String(n));
+
+/** "11pm", "9am". */
+export const shortHour = (h: number) => (h % 12 || 12) + (h < 12 ? 'am' : 'pm');
 
 export const argmax = (values: number[]) => values.reduce((best, v, i) => (v > values[best] ? i : best), 0);
 
@@ -50,6 +57,31 @@ export function Bars({ values, labels, labelEvery = 1, color = Theme.plansTone.i
             {i % labelEvery === 0 || i === top ? l : ''}
           </Text>
         ))}
+      </View>
+    </View>
+  );
+}
+
+/** The design kit's bar chart: the tallest bar in a fill's edge colour, the rest washed, labels under every few bars. */
+export function BarChart({ values, labels, labelEvery = 1, color = 'blue', height = 72 }: { values: number[]; labels: string[]; labelEvery?: number; color?: FillName; height?: number }) {
+  const max = Math.max(1, ...values);
+  const top = argmax(values);
+  const ink = fills[color].edge;
+  return (
+    <View style={{ gap: space.xs }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3, height }}>
+        {values.map((v, i) => (
+          <View key={i} style={{ flex: 1, height: Math.max(3, (v / max) * height), borderRadius: 4, borderCurve: 'continuous', backgroundColor: i === top ? ink : alpha(fills[color].fill, 0.45) }} />
+        ))}
+      </View>
+      <View style={{ height: 16 }}>
+        {labels.map((l, i) =>
+          i % labelEvery === 0 || i === top ? (
+            <Txt key={i} variant="caption" tone={i === top ? 'primary' : 'tertiary'} numberOfLines={1} style={{ position: 'absolute', left: `${((i + 0.5) / labels.length) * 100}%`, width: 48, marginLeft: -24, textAlign: 'center', fontSize: 11, fontWeight: i === top ? '700' : '500' }}>
+              {l}
+            </Txt>
+          ) : null,
+        )}
       </View>
     </View>
   );
