@@ -248,6 +248,10 @@ Friends, memoirs, the portrait and reels (`friendRoute` in `pipeline/assistant/a
   the same numbers Convex stores per profile (totals, heatmap, monthly, reply times, habits, top emoji and words,
   archetypes), plus the 30 closest people. Times are milliseconds. Computed on first request and kept until a new
   message arrives.
+- `GET /today` → `{"replies": [{"person", "message": source}], "plans": [{"what", "date", "when", "who", "episodeId",
+  "person", "source"}]}`: DMs whose last message is theirs (within 14 days), most recent first, and plans from any chat
+  dated on or after today (undated ones from the last 7 days), soonest first; 10 of each. Windows count back from the
+  newest message, so an older export still shows what was open when it was taken.
 - `POST /reel {"episodeId"}` and `GET /reel?episodeId=` → `{"status": "none" | "rendering" | "ready" | "failed" |
   "unavailable", "episodeId", "url"?, "error"?, "message"?}`. The local server renders with `packages/reels`
   (episode-props, then render; about a minute, one at a time) into `packages/reels/.data/app/` and serves
@@ -268,7 +272,7 @@ deployment `https://wry-bandicoot-379.convex.site`), with CORS. Every route but 
 the deployment's `ASK_API_KEY` (401 otherwise, 503 while unset); the app sends it from `EXPO_PUBLIC_API_KEY`.
 
 **Owner.** Send `x-owner-key: <ownerKey>` (from `POST /account`, kept in SecureStore) to act as that user. Read routes
-(`/ask`, `/people`, `/status`, `/wrapped`, `/friend`, `/story`, `/portrait`, `/stats`, `/reel`) fall back to the demo owner `ASK_OWNER_KEY` when the header is missing, so the demo works
+(`/ask`, `/people`, `/status`, `/wrapped`, `/friend`, `/story`, `/portrait`, `/stats`, `/today`, `/reel`) fall back to the demo owner `ASK_OWNER_KEY` when the header is missing, so the demo works
 without an account. Uploads always need a real owner. An unknown owner key answers 401.
 
 ```sh
@@ -287,7 +291,7 @@ npx convex env set ASK_OWNER_KEY <demo owner key>
 | `POST /onboarding` | JSON `{chatType?, app?, method?, selfName?, notes?, email?, uploadId?, fileName?, skippedUpload?}` (owner required) | `{ok: true}`; saved on the profile as `onboarding`, and `selfName` joins `selfNames`. `GET /onboarding` returns `{onboarding}` |
 | `GET /people` | | `{people: [{name, dm, chats, messages, lastAt}]}` |
 | `POST /ask` | JSON `{question, person?, history?}` | `{answer, person, chats, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}` |
-| `POST /wrapped`, `GET /friend`, `/story`, `/portrait`, `/stats`, `GET`/`POST /reel` | as in the local ask-server above (`pipeline/assistant/api.ts`, `wrappedApi.ts`) | same as the local ask-server, scoped to the owner |
+| `POST /wrapped`, `GET /friend`, `/story`, `/portrait`, `/stats`, `/today`, `GET`/`POST /reel` | as in the local ask-server above (`pipeline/assistant/api.ts`, `wrappedApi.ts`) | same as the local ask-server, scoped to the owner |
 
 Accepted uploads: the Mac app's `.textrovert` file, a WhatsApp export (`.zip`/`.txt`), an Instagram export zip, and
 anything else in "Getting exports" above. `timeZone` is an IANA zone (defaults to Pacific).

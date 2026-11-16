@@ -6,7 +6,7 @@ import type { Id } from "./_generated/dataModel";
 import { httpAction, type ActionCtx } from "./_generated/server";
 
 /**
- * The hosted API the phone app calls (/ask, /people, /wrapped, /friend, /story, /portrait, /stats and /reel are the same
+ * The hosted API the phone app calls (/ask, /people, /wrapped, /friend, /story, /portrait, /stats, /today and /reel are the same
  * as scripts/ask-server.ts, plus /account, /upload and /status for new users). Every route but /health needs the x-api-key header to equal ASK_API_KEY.
  * The owner is the x-owner-key header (an account from POST /account); without it, read routes fall back to the
  * deployment's demo owner (ASK_OWNER_KEY), so the demo keeps working. Uploads always need a real x-owner-key.
@@ -58,7 +58,7 @@ async function gate(ctx: ActionCtx, request: Request, owner: "fallback" | "requi
 }
 
 const preflight = httpAction(async () => new Response(null, { status: 204, headers: CORS }));
-for (const path of ["/ask", "/people", "/health", "/account", "/upload", "/upload/url", "/upload/commit", "/status", "/onboarding", "/wrapped", "/friend", "/story", "/portrait", "/stats", "/reel"]) {
+for (const path of ["/ask", "/people", "/health", "/account", "/upload", "/upload/url", "/upload/commit", "/status", "/onboarding", "/wrapped", "/friend", "/story", "/portrait", "/stats", "/today", "/reel"]) {
   http.route({ path, method: "OPTIONS", handler: preflight });
 }
 
@@ -293,7 +293,7 @@ http.route({
   }),
 });
 
-/** /friend, /story, /portrait, /stats and /reel: pipeline/assistant/api.ts friendRoute, the same as the local ask-server. */
+/** /friend, /story, /portrait, /stats, /today and /reel: pipeline/assistant/api.ts friendRoute, the same as the local ask-server. */
 const friendHandler = httpAction(async (ctx, request) => {
   const owner = await gate(ctx, request, "fallback");
   if (owner instanceof Response) return owner;
@@ -309,7 +309,7 @@ const friendHandler = httpAction(async (ctx, request) => {
   });
   return new Response(result.text, { status: result.status, headers: { ...CORS, "content-type": "application/json; charset=utf-8" } });
 });
-for (const path of ["/friend", "/story", "/portrait", "/stats", "/reel"]) http.route({ path, method: "GET", handler: friendHandler });
+for (const path of ["/friend", "/story", "/portrait", "/stats", "/today", "/reel"]) http.route({ path, method: "GET", handler: friendHandler });
 http.route({ path: "/reel", method: "POST", handler: friendHandler });
 
 /**

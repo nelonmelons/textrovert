@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { Friend, friendById, friends as fixtureFriends } from '../people';
 import { formatAgo } from '../lib/answer';
 import { fetchPeople, type Person } from './client';
+import { fetchToday, type Today } from './friend';
 import { loadOwnerKey } from './owner';
 import { useDataMode } from './mode';
 
@@ -35,6 +37,30 @@ export function usePeople(enabled = true): State & { retry: () => void } {
     };
   }, [attempt, enabled]);
   return { ...state, retry: () => (setState({ status: 'loading' }), setAttempt((a) => a + 1)) };
+}
+
+type TodayState = { status: 'loading' } | { status: 'ready'; today: Today } | { status: 'error'; message: string };
+
+/**
+ * Replies you owe and upcoming plans from GET /today, refetched whenever the screen comes into focus so they fill in
+ * as a new upload finishes indexing. A failed refetch keeps what was already shown. Idle when not live.
+ */
+export function useToday(enabled = true): TodayState {
+  const [state, setState] = useState<TodayState>({ status: 'loading' });
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled) return;
+      let live = true;
+      fetchToday().then(
+        (today) => live && setState({ status: 'ready', today }),
+        (error: Error) => live && setState((s) => (s.status === 'ready' ? s : { status: 'error', message: error.message })),
+      );
+      return () => {
+        live = false;
+      };
+    }, [enabled]),
+  );
+  return state;
 }
 
 export const initials = (name: string) =>
