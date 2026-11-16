@@ -9,7 +9,9 @@ import { Chevron, Backdrop, ditto, Eyebrow, fill, fonts, Glass, Icon, PillButton
 import { Friend, firstName, upcomingMilestones } from '../../people';
 import { DeadlineBadge, Face, HedgehogMark } from '../../components/Paper';
 import { useDataMode } from '../../api/mode';
-import { useFriends } from '../../api/people';
+import { useFriends, useToday } from '../../api/people';
+import { openLiveSource } from '../../api/sources';
+import { formatAgo } from '../../lib/answer';
 import { MilestoneRow } from '../../components/MilestoneRow';
 import { useNotes } from '../../store';
 import { SearchResults } from '../../components/SearchResults';
@@ -22,6 +24,9 @@ const openProfile = (friend: Friend) => router.push({ pathname: '/friend/[id]', 
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
 
 type Mode = 'idle' | 'live' | 'final';
+
+/** One row of the replies or plans card: from GET /today when live, or a note saved on the phone. */
+type Item = { key: string; friend: Friend; headline: string; detail?: string; deadline?: Date; open: () => void };
 
 
 const today = () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -72,10 +77,10 @@ function Rows({ children }: { children: ReactNode[] }) {
   );
 }
 
-function Row({ friend, source, children }: { friend: Friend; source?: string; children: ReactNode }) {
+function Row({ friend, onPress, children }: { friend: Friend; onPress?: () => void; children: ReactNode }) {
   const { c } = useDesign();
   return (
-    <PressScale onPress={() => (source ? openSource(friend, source) : openProfile(friend))} scale={0.98} style={styles.row}>
+    <PressScale onPress={onPress ?? (() => openProfile(friend))} scale={0.98} style={styles.row}>
       <Pressable onPress={() => openProfile(friend)} accessibilityLabel={`Open ${firstName(friend)}’s profile`}>
         <Face initials={friend.initials} />
       </Pressable>
@@ -110,8 +115,36 @@ export default function Today() {
   const people = useFriends();
   const friends = people.friends;
   const recent = [...friends].sort((a, b) => (b.person?.lastAt ?? '').localeCompare(a.person?.lastAt ?? '')).slice(0, 4);
-  const replies = friends.flatMap((friend) => items(friend, 'reply').map((item) => ({ friend, item })));
-  const plans = friends.flatMap((friend) => items(friend, 'plans').map((item) => ({ friend, item })));
+  const day = useToday(live);
+  const byName = new Map(friends.map((f) => [f.id, f]));
+  const noted = (section: 'reply' | 'plans') =>
+    friends.flatMap((friend) =>
+      items(friend, section).map((item): Item => ({
+        key: friend.id + item.id,
+        friend,
+        headline: `${item.title} with ${firstName(friend)}`,
+        detail: item.detail,
+        deadline: item.deadline,
+        open: () => (item.sourceID ? openSource(friend, item.sourceID) : openProfile(friend)),
+      })),
+    );
+  const fetched = day.status === 'ready' ? day.today : { replies: [], plans: [] };
+  const replies: Item[] = [
+    ...fetched.replies.flatMap(({ person, message }) => {
+      const friend = byName.get(person);
+      return friend ? [{ key: 'reply' + message.messageId, friend, headline: friend.name, detail: `“${message.text}” · ${formatAgo(message.sentAt)}`, open: () => openLiveSource(message) }] : [];
+    }),
+    ...noted('reply'),
+  ];
+  const plans: Item[] = [
+    ...fetched.plans.flatMap((plan) => {
+      const friend = byName.get(plan.person);
+      const detail = [plan.when, plan.source.isDm ? null : plan.source.chat].filter(Boolean).join(' · ');
+      return friend ? [{ key: 'plan' + plan.source.messageId + plan.what, friend, headline: `${plan.what} with ${firstName(friend)}`, detail, open: () => openLiveSource(plan.source) }] : [];
+    }),
+    ...noted('plans'),
+  ];
+  const pending = live && day.status === 'loading' ? 'Checking your chats…' : live && day.status === 'error' ? `Couldn’t load this. ${day.message}` : null;
   const searching = mode !== 'idle';
   const dock = TAB_BAR_SPACE - 14;
 
@@ -238,13 +271,13 @@ export default function Today() {
           <>
             <Card title="Waiting on your reply" accent="reply" count={replies.length}>
               {replies.length === 0 ? (
-                <Empty text="Nothing waiting on you." />
+                <Empty text={pending ?? 'Nothing waiting on you.'} />
               ) : (
                 <Rows>
-                  {replies.map(({ friend, item }) => (
-                    <Row key={friend.id + item.id} friend={friend} source={item.sourceID}>
+                  {replies.map((item) => (
+                    <Row key={item.key} friend={item.friend} onPress={item.open}>
                       <Txt variant="headline">
-                        {item.title} with {firstName(friend)}
+                        {item.headline}
                       </Txt>
                       {item.detail ? (
                         <Txt variant="subhead" tone="secondary">
@@ -272,13 +305,13 @@ export default function Today() {
 
             <Card title="Upcoming plans" accent="plans">
               {plans.length === 0 ? (
-                <Empty text="No plans yet." />
+                <Empty text={pending ?? 'No plans coming up.'} />
               ) : (
                 <Rows>
-                  {plans.map(({ friend, item }) => (
-                    <Row key={friend.id + item.id} friend={friend} source={item.sourceID}>
+                  {plans.map((item) => (
+                    <Row key={item.key} friend={item.friend} onPress={item.open}>
                       <Txt variant="headline">
-                        {item.title} with {firstName(friend)}
+                        {item.headline}
                       </Txt>
                       {item.detail ? (
                         <Txt variant="subhead" tone="secondary">
