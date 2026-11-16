@@ -13,6 +13,7 @@ import { MilestoneRow } from '../../components/MilestoneRow';
 import { PaperScroll } from '../../components/PaperScroll';
 import { AskBox } from '../../components/AskBox';
 import { WrappedEntry } from '../../components/WrappedEntry';
+import { CommonGroundEntry } from '../../features/common/CommonGroundEntry';
 
 const openSource = (friend: Friend, messageID: string) => router.push({ pathname: '/source', params: { friend: friend.id, message: messageID } });
 const openEditor = (friend: Friend, section: NoteSection, id?: string) => router.push({ pathname: '/note', params: { friend: friend.id, section, ...(id ? { id } : {}) } });
@@ -188,6 +189,7 @@ export default function FriendProfile() {
       ))}
       <AskBox friend={friend} ask={(q) => router.push({ pathname: '/chat', params: { friend: friend.id, q } })} />
       {live ? <LiveSections friend={friend} /> : <WrappedEntry friend={friend} />}
+      {live ? <CommonGroundEntry friend={friend} /> : null}
       {sectionOrder.map((section) => (
         <SectionBlock key={section} friend={friend} section={section} hideEmpty={live} />
       ))}

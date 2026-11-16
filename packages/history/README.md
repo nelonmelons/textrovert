@@ -288,6 +288,14 @@ npx convex env set ASK_OWNER_KEY <demo owner key>
 | `GET /people` | | `{people: [{name, dm, chats, messages, lastAt}]}` |
 | `POST /ask` | JSON `{question, person?, history?}` | `{answer, person, chats, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}` |
 | `POST /wrapped`, `GET /friend`, `/story`, `/portrait`, `/stats`, `GET`/`POST /reel` | as in the local ask-server above (`pipeline/assistant/api.ts`, `wrappedApi.ts`) | same as the local ask-server, scoped to the owner |
+| `GET /matches` | (owner required) | `{matches}` as `matches.list` (see Matching above) |
+| `POST /matches` | JSON `{name}` (owner required, with an upload of their own) | `{matchId, code}` as `matches.create`; `409 {code: "needs_upload"}` without an upload |
+| `POST /matches/join` | JSON `{code, name}` (same) | `{matchId}` as `matches.join`; the code ignores case, spaces and dashes |
+| `GET /match` | `?id=` (owner required) | `{match}` as `matches.get` from the caller's side; 404 if it isn't theirs or was deleted |
+| `POST /match/rerun`, `POST /match/remove` | JSON `{matchId}` (owner required) | `{ok: true}` as `matches.rerun` / `matches.remove` (remove deletes it for both people) |
+
+The matching routes never serve the demo owner: comparing is only between two accounts that each uploaded their own
+chats and opted in with an invite code.
 
 Accepted uploads: the Mac app's `.textrovert` file, a WhatsApp export (`.zip`/`.txt`), an Instagram export zip, and
 anything else in "Getting exports" above. `timeZone` is an IANA zone (defaults to Pacific).

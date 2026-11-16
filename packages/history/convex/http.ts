@@ -1,5 +1,6 @@
 import { httpRouter } from "convex/server";
 
+import { hasOwnHistory, matchError, NEEDS_UPLOAD, parseBody, readCode, readMatchId, readName } from "../pipeline/assistant/matchRequests";
 import { ApiError, listPeople, parseAskRequest, parseWrappedRequest } from "../pipeline/assistant/requests";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -7,7 +8,8 @@ import { httpAction, type ActionCtx } from "./_generated/server";
 
 /**
  * The hosted API the phone app calls (/ask, /people, /wrapped, /friend, /story, /portrait, /stats and /reel are the same
- * as scripts/ask-server.ts, plus /account, /upload and /status for new users). Every route but /health needs the x-api-key header to equal ASK_API_KEY.
+ * as scripts/ask-server.ts, plus /account, /upload and /status for new users, and /matches and /match for comparing
+ * with another user). Every route but /health needs the x-api-key header to equal ASK_API_KEY.
  * The owner is the x-owner-key header (an account from POST /account); without it, read routes fall back to the
  * deployment's demo owner (ASK_OWNER_KEY), so the demo keeps working. Uploads always need a real x-owner-key.
  * Shapes are documented in packages/history/README.md ("Hosted API").
@@ -58,7 +60,7 @@ async function gate(ctx: ActionCtx, request: Request, owner: "fallback" | "requi
 }
 
 const preflight = httpAction(async () => new Response(null, { status: 204, headers: CORS }));
-for (const path of ["/ask", "/people", "/health", "/account", "/upload", "/upload/url", "/upload/commit", "/status", "/onboarding", "/wrapped", "/friend", "/story", "/portrait", "/stats", "/reel"]) {
+for (const path of ["/ask", "/people", "/health", "/account", "/upload", "/upload/url", "/upload/commit", "/status", "/onboarding", "/wrapped", "/friend", "/story", "/portrait", "/stats", "/reel", "/matches", "/matches/join", "/match", "/match/rerun", "/match/remove"]) {
   http.route({ path, method: "OPTIONS", handler: preflight });
 }
 
@@ -360,6 +362,103 @@ http.route({
     const owner = await gate(ctx, request, "required");
     if (owner instanceof Response) return owner;
     return json(200, { onboarding: await ctx.runQuery(internal.owners.getOnboarding, { ownerKey: owner.ownerKey }) });
+  }),
+});
+
+/*
+ * Matching (convex/matches.ts) for the phone: two people who have each uploaded their own chats compare interest
+ * profiles after one shares an invite code and the other joins. Every route needs a real account (never the demo
+ * owner), and creating or joining also needs that account's own upload. Results never include messages.
+ *
+ *   GET  /matches                        → { matches }  (matches.list)
+ *   POST /matches       { name }         → { matchId, code }  (matches.create)
+ *   POST /matches/join  { code, name }   → { matchId }  (matches.join)
+ *   GET  /match?id=                      → { match }  (matches.get from the caller's side)
+ *   POST /match/rerun   { matchId }      → { ok: true }
+ *   POST /match/remove  { matchId }      → { ok: true }  (deletes it for both people)
+ */
+async function matchOwner(ctx: ActionCtx, request: Request): Promise<Owner | Response> {
+  const owner = await gate(ctx, request, "required");
+  if (owner instanceof Response) return owner;
+  if (owner.ownerKey === process.env.ASK_OWNER_KEY?.trim()) return json(403, { error: "The demo account can't be matched. Upload your own chats first." });
+  return owner;
+}
+
+async function needsOwnHistory(ctx: ActionCtx, ownerKey: string): Promise<Response | null> {
+  const uploads = await ctx.runQuery(api.uploads.list, { ownerKey });
+  return hasOwnHistory(uploads) ? null : json(409, { error: NEEDS_UPLOAD, code: "needs_upload" });
+}
+
+const matchRoute = (run: (ctx: ActionCtx, request: Request, owner: Owner) => Promise<Response>) =>
+  httpAction(async (ctx, request) => {
+    const owner = await matchOwner(ctx, request);
+    if (owner instanceof Response) return owner;
+    try {
+      return await run(ctx, request, owner);
+    } catch (error) {
+      const failure = matchError(error);
+      return json(failure.status, { error: failure.message });
+    }
+  });
+
+http.route({
+  path: "/matches",
+  method: "GET",
+  handler: matchRoute(async (ctx, _request, owner) => json(200, { matches: await ctx.runQuery(api.matches.list, { ownerKey: owner.ownerKey }) })),
+});
+
+http.route({
+  path: "/matches",
+  method: "POST",
+  handler: matchRoute(async (ctx, request, owner) => {
+    const name = readName(parseBody(await request.text()));
+    const blocked = await needsOwnHistory(ctx, owner.ownerKey);
+    if (blocked) return blocked;
+    return json(200, await ctx.runMutation(api.matches.create, { ownerKey: owner.ownerKey, name }));
+  }),
+});
+
+http.route({
+  path: "/matches/join",
+  method: "POST",
+  handler: matchRoute(async (ctx, request, owner) => {
+    const body = parseBody(await request.text());
+    const code = readCode(body);
+    const name = readName(body);
+    const blocked = await needsOwnHistory(ctx, owner.ownerKey);
+    if (blocked) return blocked;
+    const matchId = await ctx.runMutation(api.matches.join, { ownerKey: owner.ownerKey, code, name });
+    return json(200, { matchId });
+  }),
+});
+
+http.route({
+  path: "/match",
+  method: "GET",
+  handler: matchRoute(async (ctx, request, owner) => {
+    const matchId = readMatchId(new URL(request.url).searchParams.get("id")) as Id<"matches">;
+    const match = await ctx.runQuery(api.matches.get, { ownerKey: owner.ownerKey, matchId });
+    return match ? json(200, { match }) : json(404, { error: "Match not found." });
+  }),
+});
+
+http.route({
+  path: "/match/rerun",
+  method: "POST",
+  handler: matchRoute(async (ctx, request, owner) => {
+    const matchId = readMatchId(parseBody(await request.text()).matchId) as Id<"matches">;
+    await ctx.runMutation(api.matches.rerun, { ownerKey: owner.ownerKey, matchId });
+    return json(200, { ok: true });
+  }),
+});
+
+http.route({
+  path: "/match/remove",
+  method: "POST",
+  handler: matchRoute(async (ctx, request, owner) => {
+    const matchId = readMatchId(parseBody(await request.text()).matchId) as Id<"matches">;
+    await ctx.runMutation(api.matches.remove, { ownerKey: owner.ownerKey, matchId });
+    return json(200, { ok: true });
   }),
 });
 
