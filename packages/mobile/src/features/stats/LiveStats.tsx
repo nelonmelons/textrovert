@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { router } from 'expo-router';
+
+import { Chip, EmojiAvatar, ListRow, ListSection, PillButton, space, StatCard, Txt, useDesign, type FillName } from '@/design';
 import { fetchStats, type Stats, type StatsPerson } from '../../api/friend';
-import { initials } from '../../api/people';
-import { Divider, Face, RowChevron, SectionCard, ToneTab } from '../../components/Paper';
-import { FadeIn } from '../../components/FadeIn';
 import { haptics } from '../../lib/haptics';
-import { Rounded, Theme, Type, withAlpha } from '../../theme';
-import { argmax, Bars, Chips, count, duration, hourLabel, percent, Split, Tile, Tiles, WEEKDAYS, WEEKDAYS_LONG } from './parts';
+import { argmax, BarChart, compact, count, duration, hourLabel, percent, shortHour, WEEKDAYS, WEEKDAYS_LONG } from './parts';
 
 type State = { status: 'loading' } | { status: 'ready'; stats: Stats } | { status: 'error'; message: string };
 
@@ -44,132 +42,140 @@ export function whoFirst(byMe: number, byThem: number, first: string) {
   return 'You take turns starting';
 }
 
-function PersonRow({ p }: { p: StatsPerson }) {
-  const first = p.name.split(/\s+/)[0];
-  const starts = whoFirst(p.initiatedByMe, p.initiatedByThem, first);
+/** Month, Year or All time, as the You tab's segmented control indexes them. */
+export const RANGES = ['Month', 'Year', 'All time'] as const;
+
+/** Messages in the latest month, the latest twelve, or everything. */
+export function rangeTotals(stats: Stats, range: number) {
+  const { totals, monthly } = stats.insights;
+  if (range === 2 || !monthly.length) return { sent: totals.sent, received: totals.received, since: totals.firstAt ? new Date(totals.firstAt) : null };
+  const months = monthly.slice(range === 0 ? -1 : -12);
+  return {
+    sent: months.reduce((n, m) => n + m.sent, 0),
+    received: months.reduce((n, m) => n + m.received, 0),
+    since: new Date(months[0].month + '-15'),
+  };
+}
+
+const hoursOf = (heatmap: number[]) => Array.from({ length: 24 }, (_, h) => WEEKDAYS.reduce((n, _d, d) => n + (heatmap[d * 24 + h] ?? 0), 0));
+
+function Pair({ children }: { children: React.ReactNode }) {
+  return <View style={{ flexDirection: 'row', gap: space.md }}>{children}</View>;
+}
+
+/** The four headline numbers from GET /stats; messages sent follows the range. */
+export function HeadlineStats({ stats, range }: { stats: Stats; range: number }) {
+  const { insights } = stats;
+  const { sent } = rangeTotals(stats, range);
+  const top = insights.topEmojis[0]?.text;
   return (
-    <Pressable onPress={() => openPerson(p.name)} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 2 }, pressed && { opacity: 0.6 }]}>
-      <Face initials={initials(p.name)} />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={1} style={[Type.headline, { color: Theme.ink }]}>
-          {p.name}
-        </Text>
-        <Text numberOfLines={1} style={[Type.footnote, { color: Theme.secondary }]}>
-          {count(p.messages)} messages · {percent(p.fromMe / Math.max(1, p.messages))} from you
-        </Text>
-        {starts || p.theirReplyMedianSec != null ? (
-          <Text numberOfLines={1} style={[Type.footnote, { color: Theme.secondary }]}>
-            {[starts, p.theirReplyMedianSec != null ? `replies in ${duration(p.theirReplyMedianSec)}` : null].filter(Boolean).join(' · ')}
-          </Text>
-        ) : null}
-      </View>
-      <RowChevron />
-    </Pressable>
+    <View style={{ gap: space.md }}>
+      <Pair>
+        <StatCard value={compact(sent)} label="Messages sent" emoji="📤" color="mint" />
+        <StatCard value={compact(insights.totals.people)} label="People" emoji="👯" color="pink" />
+      </Pair>
+      <Pair>
+        <StatCard value={shortHour(argmax(hoursOf(insights.heatmap)))} label="Peak hour" emoji="🌙" color="lilac" />
+        <StatCard value={top ?? '–'} label="Top emoji" emoji="🏆" color="yellow" />
+      </Pair>
+    </View>
   );
 }
 
-/** The You tab's stats: the analyzer's numbers over every chat (GET /stats). */
-export function LiveStats({ stats }: { stats: Stats }) {
+/** A plain kit card for charts: the inset-grouped section with one padded child. */
+function ChartSection({ header, children }: { header: string; children: React.ReactNode }) {
+  return (
+    <ListSection header={header}>
+      <View style={{ padding: space.lg, gap: space.lg }}>{children}</View>
+    </ListSection>
+  );
+}
+
+function PersonRow({ p }: { p: StatsPerson }) {
+  const first = p.name.split(/\s+/)[0];
+  const starts = whoFirst(p.initiatedByMe, p.initiatedByThem, first);
+  const details = [count(p.messages) + ' messages', starts ?? percent(p.fromMe / Math.max(1, p.messages)) + ' from you', p.theirReplyMedianSec != null ? 'replies in ' + duration(p.theirReplyMedianSec) : null];
+  return <ListRow title={p.name} subtitle={details.filter(Boolean).join(' · ')} leading={<EmojiAvatar name={p.name} size={40} />} onPress={() => openPerson(p.name)} />;
+}
+
+function Habit({ emoji, color, title, value }: { emoji: string; color: FillName; title: string; value: string }) {
+  return <ListRow title={title} value={value} leading={<EmojiAvatar emoji={emoji} color={color} size={36} />} />;
+}
+
+/** Everything under the headline: when you text, your closest people, your habits and your style. */
+export function StatsBreakdown({ stats }: { stats: Stats }) {
   const { insights, people } = stats;
-  const t = insights.totals;
-  const hours = Array.from({ length: 24 }, (_, h) => WEEKDAYS.reduce((n, _d, d) => n + (insights.heatmap[d * 24 + h] ?? 0), 0));
+  const hours = hoursOf(insights.heatmap);
   const days = WEEKDAYS.map((_d, d) => insights.heatmap.slice(d * 24, d * 24 + 24).reduce((a, b) => a + b, 0));
   const months = insights.monthly.slice(-12);
-  const since = t.firstAt ? new Date(t.firstAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : null;
+  const h = insights.habits;
   return (
-    <View style={{ gap: 18 }}>
-      <FadeIn>
-        <SectionCard tone={Theme.celebrateTone} fillOpacity={0.55}>
-          <View style={{ gap: 4 }}>
-            <ToneTab title="Your texting" symbol="chart.bar.fill" tone={Theme.celebrateTone} style={{ marginBottom: 8 }} />
-            <Text adjustsFontSizeToFit numberOfLines={1} style={{ fontSize: 52, lineHeight: 60, color: Theme.accent, fontFamily: Rounded.heavy }}>
-              {count(t.messages)}
-            </Text>
-            <Text style={[Type.subheadline, { color: Theme.secondary }]}>
-              messages with {count(t.people)} people across {t.dms} DMs and {t.groups} groups{since ? ' since ' + since : ''}
-            </Text>
-            <View style={{ marginTop: 12 }}>
-              <Split mine={t.sent} theirs={t.received} mineLabel={`You sent ${count(t.sent)}`} theirsLabel={`You got ${count(t.received)}`} />
-            </View>
-          </View>
-        </SectionCard>
-      </FadeIn>
+    <View style={{ gap: space.xxl }}>
+      <ListSection header="Your closest people">
+        {people.slice(0, 8).map((p) => (
+          <PersonRow key={p.key} p={p} />
+        ))}
+      </ListSection>
 
-      <Tiles>
-        <Tile value={duration(insights.reply.myMedianSec)} label="is how fast you usually reply" color={Theme.accent} />
-        <Tile value={duration(insights.reply.theirMedianSec)} label="is how fast your friends reply" color={Theme.plansTone.ink} />
-        <Tile value={percent(insights.habits.initiationRate)} label="of your DMs start with you" color={Theme.repliesTone.ink} />
-        <Tile value={percent(insights.habits.nightOwlRate)} label="of your texts are late at night" color={Theme.coralTone.ink} />
-        {insights.habits.doubleTextRate != null ? <Tile value={percent(insights.habits.doubleTextRate)} label="are double texts" color={Theme.activitiesTone.ink} /> : null}
-        {insights.habits.avgWordsPerMessage != null ? <Tile value={String(Math.round(insights.habits.avgWordsPerMessage * 10) / 10)} label="words in your average text" /> : null}
-      </Tiles>
+      <ListSection header="Breakdown">
+        <Habit emoji="⚡️" color="yellow" title="Your usual reply time" value={duration(insights.reply.myMedianSec)} />
+        <Habit emoji="🐢" color="lilac" title="Friends’ usual reply time" value={duration(insights.reply.theirMedianSec)} />
+        <Habit emoji="👋" color="mint" title="DMs you start" value={percent(h.initiationRate)} />
+        <Habit emoji="🦉" color="blue" title="Texts late at night" value={percent(h.nightOwlRate)} />
+        {h.doubleTextRate != null ? <Habit emoji="✌️" color="pink" title="Double texts" value={percent(h.doubleTextRate)} /> : null}
+        {h.avgWordsPerMessage != null ? <Habit emoji="📝" color="peach" title="Words per text" value={String(Math.round(h.avgWordsPerMessage * 10) / 10)} /> : null}
+      </ListSection>
 
-      <SectionCard tone={Theme.plansTone}>
-        <View style={{ gap: 14 }}>
-          <ToneTab title="When you text" symbol="clock.fill" tone={Theme.plansTone} />
-          <Text style={[Type.subheadline, { color: Theme.ink }]}>
-            Most around <Text style={{ fontWeight: '700' }}>{hourLabel(argmax(hours))}</Text>, and most on <Text style={{ fontWeight: '700' }}>{WEEKDAYS_LONG[argmax(days)]}</Text>.
-          </Text>
-          <Bars values={hours} labels={hours.map((_, h) => (h % 12 || 12) + (h < 12 ? 'a' : 'p'))} labelEvery={6} />
-          <Bars values={days} labels={WEEKDAYS} color={Theme.repliesTone.ink} height={56} />
-        </View>
-      </SectionCard>
+      <ChartSection header="When you text">
+        <Txt variant="callout">
+          Most around <Txt variant="callout" style={{ fontWeight: '700' }}>{hourLabel(argmax(hours))}</Txt>, and most on{' '}
+          <Txt variant="callout" style={{ fontWeight: '700' }}>{WEEKDAYS_LONG[argmax(days)]}</Txt>.
+        </Txt>
+        <BarChart values={hours} labels={hours.map((_, i) => (i % 12 || 12) + (i < 12 ? 'a' : 'p'))} labelEvery={6} color="blue" />
+        <BarChart values={days} labels={WEEKDAYS} color="lilac" height={56} />
+      </ChartSection>
 
       {months.length > 1 ? (
-        <SectionCard tone={Theme.activitiesTone}>
-          <View style={{ gap: 14 }}>
-            <ToneTab title="Month by month" symbol="calendar" tone={Theme.activitiesTone} />
-            <Bars values={months.map((m) => m.sent + m.received)} labels={months.map((m) => new Date(m.month + '-15').toLocaleDateString('en-US', { month: 'narrow' }))} color={Theme.activitiesTone.ink} />
-          </View>
-        </SectionCard>
+        <ChartSection header="Month by month">
+          <BarChart values={months.map((m) => m.sent + m.received)} labels={months.map((m) => new Date(m.month + '-15').toLocaleDateString('en-US', { month: 'short' }))} color="mint" />
+        </ChartSection>
       ) : null}
 
-      <SectionCard tone={Theme.accentTone}>
-        <View style={{ gap: 12 }}>
-          <ToneTab title="Your closest people" symbol="person.2.fill" tone={Theme.accentTone} />
-          {people.slice(0, 8).map((p, i) => (
-            <View key={p.key} style={{ gap: 12 }}>
-              {i > 0 ? <Divider /> : null}
-              <PersonRow p={p} />
-            </View>
+      {insights.archetypes.length || insights.topEmojis.length ? (
+        <ListSection header="Your style">
+          {insights.archetypes.map((a, i) => (
+            <ListRow key={a.id} title={a.label} subtitle={a.reason} leading={<EmojiAvatar emoji={['✨', '🎭', '🔥', '🌈'][i % 4]} color={(['coral', 'lilac', 'peach', 'lime'] as const)[i % 4]} size={36} />} />
           ))}
-        </View>
-      </SectionCard>
-
-      {insights.topEmojis.length || insights.archetypes.length ? (
-        <SectionCard tone={Theme.coralTone}>
-          <View style={{ gap: 12 }}>
-            <ToneTab title="Your style" symbol="sparkles" tone={Theme.coralTone} />
-            {insights.archetypes.map((a) => (
-              <View key={a.id} style={{ gap: 2 }}>
-                <Text style={[Type.headline, { color: Theme.ink }]}>{a.label}</Text>
-                <Text style={[Type.footnote, { color: Theme.secondary }]}>{a.reason}</Text>
-              </View>
-            ))}
-            {insights.topEmojis.length ? <Chips items={insights.topEmojis.slice(0, 6).map((e) => `${e.text} ${count(e.count)}`)} tone={Theme.coralTone} /> : null}
-          </View>
-        </SectionCard>
+          {insights.topEmojis.length ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, padding: space.lg }}>
+              {insights.topEmojis.slice(0, 6).map((e) => (
+                <Chip key={e.text} emoji={e.text} label={count(e.count)} />
+              ))}
+            </View>
+          ) : null}
+        </ListSection>
       ) : null}
     </View>
   );
 }
 
 export function StatsLoading({ state, retry }: { state: State; retry: () => void }) {
+  const { c } = useDesign();
   if (state.status === 'error')
     return (
-      <SectionCard tone={Theme.coralTone}>
-        <View style={{ gap: 8 }}>
-          <Text style={[Type.subheadline, { color: Theme.ink }]}>Couldn’t load your stats. {state.message}</Text>
-          <Pressable onPress={retry} hitSlop={8}>
-            <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Try again</Text>
-          </Pressable>
+      <ListSection>
+        <View style={{ padding: space.lg, gap: space.md, alignItems: 'flex-start' }}>
+          <Txt variant="callout">Couldn’t load your stats. {state.message}</Txt>
+          <PillButton title="Try again" onPress={retry} small />
         </View>
-      </SectionCard>
+      </ListSection>
     );
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 18, backgroundColor: withAlpha(Theme.panel, 0.9) }}>
-      <ActivityIndicator color={Theme.accent} />
-      <Text style={[Type.subheadline, { color: Theme.secondary }]}>Counting every message…</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: 20, borderCurve: 'continuous', backgroundColor: c.grouped }}>
+      <ActivityIndicator color={c.accent} />
+      <Txt variant="callout" tone="secondary">
+        Counting every message…
+      </Txt>
     </View>
   );
 }
