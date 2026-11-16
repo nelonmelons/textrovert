@@ -21,7 +21,13 @@ controller.generate();                                                 // "Anoth
 - Model layer: a `WrappedModelSource` returns message ids, kind, a ≤ 6-word headline, a one-line why and a sensitive
   flag, never text. `WrappedSuggestionProvider` gates them; at most 2 of 3 cards come from the model; a late model
   feeds "Another edition". `includeWarmMoments` and `allowAffectionateTeasing` default to false.
+- Ranking: a model pick gets `CORROBORATION_BONUS` (+1.5) when a rule-based card (not busiest day or reply gaps)
+  independently found at least two of its messages, and a rule-based running joke scores at most
+  `RUNNING_JOKE_SCORE_CAP` (3.25), so a callback the model found can take the joke slot in edition 1.
+- `WrappedController` also takes a `remote` source (`generate({range, avoiding, number}) → {outcome, wider}`) for hosts
+  that get editions from a server, as the Expo app does; failures show a `failed` phase that `generate()` retries.
 - `@textrovert/wrapped/openai` is a server-only source (gpt-5-mini, structured output). Don't import it in the app.
   The local ask server exposes it as `POST /wrapped` (packages/history README).
 
-Tests: `pnpm test` runs the 39 ported Swift tests (21 engine, 18 model layer) plus calendar and text parity tests.
+Tests: `pnpm test` runs the ported Swift tests (engine and model layer, with the ranking and remote-source tests added
+since the port) plus calendar and text parity tests.

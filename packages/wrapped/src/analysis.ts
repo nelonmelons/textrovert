@@ -213,6 +213,12 @@ const acceptTokens = new Set(["yes", "yeah", "yep", "sure", "absolutely", "obvio
 const twistMarkers = ["turns out", "actually", "the other", "meant", "wrong", "oops", "plot twist", "never mind", "nevermind", "not that"];
 const swerveMarkers = ["anyway", "unrelated", "random question", "off topic", "speaking of", "tangent", "out of nowhere"];
 
+/**
+ * The most a running joke can score from word frequency alone. Long chats repeat plenty of words, so uncapped counts
+ * outranked every other card; capped, a model pick that a rule corroborates (see CORROBORATION_BONUS) can win the slot.
+ */
+export const RUNNING_JOKE_SCORE_CAP = 3.25;
+
 const disjoint = (a: Iterable<string>, b: Iterable<string>) => {
   const set = new Set(a);
   for (const x of b) if (set.has(x)) return false;
@@ -279,7 +285,7 @@ export class WrappedHeuristicProvider implements WrappedCandidateProviding {
         evidenceIDs: item.occ.map((e) => e.message.id),
         quantity: { value: String(item.occ.length), label: "times", detail: `over ${span + 1} days` },
         figure: { kind: "occurrences", dates: item.occ.filter((e) => e.date !== null).map((e) => e.date!) },
-        score: item.score, shareByDefault: true,
+        score: Math.min(item.score, RUNNING_JOKE_SCORE_CAP - result.length * 0.01), shareByDefault: true,
       });
     }
     return result;

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   MemoryStorage, WrappedAnalysisContext, WrappedController, WrappedEditionStore, WrappedEngine, WrappedFixtures, WrappedStubModelSource,
   WrappedSuggestionProvider, defaultModelOptions, editionSourceIDs, isModelSuggestion, makeModelPrompt, modelAwareProvider, modelOptionKeys,
-  storedModelOptions,
-  type WrappedConversation, type WrappedHighlight, type WrappedModelOptions, type WrappedModelSource, type WrappedModelSuggestion,
+  storedModelOptions, CORROBORATION_BONUS, WrappedHeuristicProvider, isCorroborated,
+  type WrappedRemoteRequest, type WrappedRemoteSource, type WrappedConversation, type WrappedHighlight, type WrappedModelOptions, type WrappedModelSource, type WrappedModelSuggestion,
   type WrappedOutcome, type WrappedSignal,
 } from "../src";
 
@@ -153,6 +153,35 @@ describe("Wrapped model layer", () => {
     }
   });
 
+  it("a model pick gets the corroboration bonus only when a rule found the same messages", () => {
+    const ctx = WrappedAnalysisContext.create(F.mia, "emma", range, en)!;
+    const rules = new WrappedHeuristicProvider().candidates(ctx);
+    const joke = rules.find((c) => c.signal === "runningJoke")!;
+    const [a, b, c] = joke.evidenceIDs;
+    const picks = modelAwareProvider([s("callback", [a, b, c], "Define it again")]).candidates(ctx).filter((x) => x.suggestedByModel);
+    expect(picks.length).toBe(1);
+    expect(picks[0].score).toBeCloseTo(3.3 + CORROBORATION_BONUS);
+    expect(isCorroborated(picks[0], rules)).toBe(true);
+    const e = expectEdition(edition(F.mia, [s("callback", [a, b, c], "Define it again")]));
+    const shown = e.highlights.find((h) => h.signal === "runningJoke")!;
+    expect(shown.suggestedByModel, "the corroborated pick outranks the capped rule joke on the same messages").toBe(true);
+
+    const lone = candidates([s("quotable", ["theo-05", "theo-06"])])[0];
+    const theoRules = new WrappedHeuristicProvider().candidates(WrappedAnalysisContext.create(F.theo, "emma", range, en)!);
+    expect(isCorroborated(lone, theoRules)).toBe(false);
+    expect(modelAwareProvider([s("quotable", ["theo-05", "theo-06"])]).candidates(WrappedAnalysisContext.create(F.theo, "emma", range, en)!)
+      .find((x) => x.suggestedByModel)!.score).toBe(3.1);
+  });
+
+  it("aggregate rule cards (busiest day, reply gaps) never corroborate a pick", () => {
+    const ctx = WrappedAnalysisContext.create(F.mia, "emma", range, en)!;
+    const rules = new WrappedHeuristicProvider().candidates(ctx).filter((c) => c.signal === "busiestDay" || c.signal === "replyGaps");
+    expect(rules.length).toBeGreaterThan(0);
+    const ids = rules[0].evidenceIDs.slice(0, 2);
+    const pick = { ...rules[0], suggestedByModel: true, evidenceIDs: ids };
+    expect(isCorroborated(pick, rules)).toBe(false);
+  });
+
   it("the merge is deterministic for a fixed stub", () => {
     expect(edition(F.theo, F.theoStubSuggestions)).toEqual(edition(F.theo, F.theoStubSuggestions));
   });
@@ -227,6 +256,53 @@ describe("Wrapped model layer", () => {
     if (m.phase.kind !== "edition") throw new Error("expected an edition");
     expect(m.phase.edition.number).toBe(2);
     expect(m.phase.edition.highlights.some(isModelSuggestion)).toBe(true);
+  });
+
+  it("a remote source makes editions, gets seen ids and numbers, and reopen is served from the cache", async () => {
+    const storage = new MemoryStorage();
+    const requests: WrappedRemoteRequest[] = [];
+    const wider = F.range(10, 25, 11, 14);
+    const remote: WrappedRemoteSource = {
+      async generate(request) {
+        requests.push(request);
+        return { outcome: edition(F.theo, [], options(), request.avoiding), wider };
+      },
+    };
+    const shell = { ...F.theo, messages: [] };
+    const open = async () => new WrappedController({ conversation: shell, ownerID: "emma", range, store: await WrappedEditionStore.open(storage), locale: en, remote });
+    const m = await open();
+    expect(m.usesModel).toBe(true);
+    const opened = m.open();
+    expect(m.phase.kind).toBe("loading");
+    await opened;
+    if (m.phase.kind !== "edition") throw new Error("expected an edition");
+    expect(requests[0]).toEqual({ range, avoiding: [], number: 1 });
+    expect(m.wider).toEqual(wider);
+    const first = m.phase.edition;
+    await m.generate();
+    expect(requests[1].number).toBe(2);
+    expect(new Set(requests[1].avoiding)).toEqual(editionSourceIDs(first));
+    const again = await open();
+    await again.open();
+    expect(requests.length, "reopen doesn't call the remote").toBe(2);
+    expect(again.phase.kind === "edition" && again.phase.edition.highlights.length > 0, "cached editions aren't dropped for lack of messages").toBe(true);
+    expect(again.wider).toEqual(wider);
+  });
+
+  it("a failing remote source shows a failed phase, and generate retries", async () => {
+    let fail = true;
+    const remote: WrappedRemoteSource = {
+      async generate(request) {
+        if (fail) throw new Error("offline");
+        return { outcome: edition(F.theo, [], options(), request.avoiding), wider: null };
+      },
+    };
+    const m = new WrappedController({ conversation: F.theo, ownerID: "emma", range, store: await WrappedEditionStore.open(new MemoryStorage()), locale: en, remote });
+    await m.open();
+    expect(m.phase).toEqual({ kind: "failed", message: "offline" });
+    fail = false;
+    await m.generate();
+    expect(m.phase.kind).toBe("edition");
   });
 
   it("a failing model falls back to rules", async () => {
