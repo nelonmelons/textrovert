@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Friend, NoteItem, NoteSection } from './fixtures';
+import { Friend, NoteItem, NoteSection } from './people';
 
 type StoredNote = Omit<NoteItem, 'deadline'> & { deadline?: string; edited?: boolean };
 export type Note = NoteItem & { edited?: boolean };

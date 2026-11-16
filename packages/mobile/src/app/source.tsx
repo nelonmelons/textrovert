@@ -1,6 +1,6 @@
 import { Linking, Pressable, Text, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { firstName, friendById } from '../fixtures';
+import { firstName, friendById } from '../people';
 import { Theme, Type } from '../theme';
 import { Bubble, RowChevron, SourceHeader, Symbol } from '../components/Paper';
 import { PaperScroll } from '../components/PaperScroll';

@@ -3,7 +3,7 @@ import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { Stack, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { firstName, friendById } from '../fixtures';
+import { firstName, friendById } from '../people';
 import { turn, Turn, unavailableReply } from '../chat';
 import { Theme, Type } from '../theme';
 import { GridPaper, HedgehogAvatar, Symbol } from '../components/Paper';

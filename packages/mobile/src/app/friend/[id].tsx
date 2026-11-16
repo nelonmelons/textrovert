@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolViewProps } from 'expo-symbols';
-import { Friend, firstName, friendById, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../fixtures';
+import { Friend, firstName, friendById, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../people';
 import { Note, useNotes } from '../../store';
 import { Rounded, sectionTone, Theme, Type, withAlpha } from '../../theme';
 import { art, DeadlineBadge, Divider, Face, RowChevron, SectionCard, ServiceIcon, Symbol, ToneTab } from '../../components/Paper';

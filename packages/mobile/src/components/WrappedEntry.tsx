@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Friend, firstName } from '../fixtures';
+import { Friend, firstName } from '../people';
 import { Rounded, Theme, Type } from '../theme';
 import { Symbol } from './Paper';
 

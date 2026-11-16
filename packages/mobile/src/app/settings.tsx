@@ -3,7 +3,7 @@ import { ActionSheetIOS, Alert, FlatList, Modal, Platform, Pressable, StyleSheet
 import { router, Stack } from 'expo-router';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
-import { friends } from '../fixtures';
+import { friends } from '../people';
 import { useNotes } from '../store';
 import { useFirstRun } from '../firstRun';
 import { Rounded, Theme, Type } from '../theme';
@@ -73,7 +73,7 @@ export default function Settings() {
             <Face initials="ED" />
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[Type.title2, { fontFamily: Rounded.bold, color: Theme.ink }]}>Emma Di</Text>
-              <Text style={[Type.subheadline, { color: Theme.secondary }]}>{friends.length} friends</Text>
+              <Text style={[Type.subheadline, { color: Theme.secondary }]}>{friends.length ? `${friends.length} friends` : 'No people yet'}</Text>
             </View>
           </View>
         </SectionCard>
