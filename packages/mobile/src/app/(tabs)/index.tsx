@@ -115,7 +115,7 @@ export default function Today() {
   const people = useFriends();
   const friends = people.friends;
   const recent = [...friends].sort((a, b) => (b.person?.lastAt ?? '').localeCompare(a.person?.lastAt ?? '')).slice(0, 4);
-  const day = useToday(live);
+  const day = useToday(live && firstRun.done);
   const byName = new Map(friends.map((f) => [f.id, f]));
   const noted = (section: 'reply' | 'plans') =>
     friends.flatMap((friend) =>

@@ -119,8 +119,9 @@ async function parseChat(entry: ArchiveEntry, name: string, group: string | unde
       mode = "body";
       return;
     }
+    // A threaded reply can follow the tapbacks; its indented timestamp ends them, or "(Read by you after ...)" reads as a reaction.
     if (mode === "tapbacks") {
-      if (line.startsWith(INDENT)) {
+      if (line.startsWith(INDENT) && !TIME_RE.test(line.slice(INDENT.length))) {
         const t = TAPBACK_RE.exec(line);
         if (t) pending.reactions.push({ sender: t[2], emoji: TAPBACK_EMOJI[t[1]] ?? t[1] });
         return;

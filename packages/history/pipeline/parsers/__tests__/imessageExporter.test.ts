@@ -141,6 +141,33 @@ describe("imessage-exporter txt", () => {
     expect(messages[8]).toMatchObject({ ts: Date.UTC(2024, 4, 18, 17, 15, 5), text: "Oh it translated what I sent!" });
   });
 
+  it("ends tapbacks at a threaded reply, so its read receipt and text aren't read as reactions", async () => {
+    const chat = [
+      "May 17, 2024  5:29:42 PM (Read by you after 5 minutes)",
+      "Jamie Rivera",
+      "did you get milk",
+      "Tapbacks:",
+      "    Liked by Me",
+      "    May 17, 2024  5:35:00 PM (Read by you after 2 minutes, 3 seconds)",
+      "    Me",
+      "    stopped by the store",
+      "",
+      "",
+      "May 17, 2024  5:35:00 PM (Read by them after 1 minute)",
+      "Me",
+      "stopped by the store",
+      "This message responded to an earlier message.",
+      "",
+    ].join("\n");
+    const run = await runParser(imessageExporterParser, { "+15550001111.txt": chat }, { timeZone: "America/Los_Angeles" });
+    expect(run.conversations.get("chat:+15550001111")).toMatchObject({ kind: "dm", participants: ["Jamie Rivera", "Me"] });
+    const messages = run.messages.get("chat:+15550001111")!;
+    expect(messages.map((m) => [m.sender, m.text, m.meta?.reactions])).toEqual([
+      ["Jamie Rivera", "did you get milk", [{ sender: "Me", emoji: "👍" }]],
+      ["Me", "stopped by the store", undefined],
+    ]);
+  });
+
   it("parses named and unnamed groups with system lines and threaded replies", async () => {
     const run = await runParser(imessageExporterParser, files, { timeZone: "America/Los_Angeles" });
 
