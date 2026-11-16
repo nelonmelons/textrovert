@@ -9,7 +9,7 @@ import type { MessageStore, StoredMessage } from "../store";
 import { normalizeName } from "../text";
 import { LocalTime } from "../time";
 import { ask, type ChatTurn, type ConversationRef } from "./agent";
-import { ApiError, listPeople, type ApiPerson, type AskRequest } from "./requests";
+import { ApiError, isJunkName, listPeople, type ApiPerson, type AskRequest } from "./requests";
 
 export { ApiError, listPeople, parseAskRequest, type ApiPerson, type AskRequest } from "./requests";
 import type { EpisodeIndex, StoredEpisode } from "./episodes";
@@ -534,7 +534,7 @@ const SHOWN_TODAY = 10;
 export async function today(ctx: FriendContext): Promise<ApiToday> {
   const { owner, store, conversations } = ctx;
   const latest = Math.min(Date.now(), conversations.reduce((max, c) => Math.max(max, c.lastAt), 0));
-  const other = (ref: ConversationRef) => ref.participants.find((p) => p !== ref.selfName && p !== "Instagram User") ?? null;
+  const other = (ref: ConversationRef) => ref.participants.find((p) => p !== ref.selfName && p !== "Instagram User" && !isJunkName(p)) ?? null;
 
   const dms = conversations
     .filter((c) => isDm(c) && c.lastAt >= latest - REPLY_WINDOW_MS)
@@ -558,7 +558,7 @@ export async function today(ctx: FriendContext): Promise<ApiToday> {
       if (!plan.sources.length || seen.has(key)) return [];
       if (plan.date ? plan.date < day : e.endTs < latest - UNDATED_PLAN_WINDOW_MS) return [];
       const named = new Set(plan.who.flatMap(words));
-      const person = isDm(ref) ? other(ref) : ref.participants.find((p) => p !== ref.selfName && words(p).some((w) => named.has(w)));
+      const person = isDm(ref) ? other(ref) : ref.participants.find((p) => p !== ref.selfName && !isJunkName(p) && words(p).some((w) => named.has(w)));
       if (!person) return [];
       seen.add(key);
       return [{ plan, episode: e, person, ref }];

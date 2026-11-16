@@ -47,6 +47,22 @@ export function parseAskRequest(body: unknown): AskRequest {
 }
 
 /**
+ * Names that are really pieces of imessage-exporter's text, not people: "(Read by you after 2 minutes)" split into
+ * "you after 2 minutes)" and "May 17, 2024  5:35:00 PM (Read" by Mac apps before the threaded-reply fix. Chats
+ * uploaded before that fix still carry them as participants, so every list of people drops them by name.
+ */
+export function isJunkName(name: string): boolean {
+  const n = name.trim();
+  return (
+    !n ||
+    /\bafter (?:\d+|an?|one) (?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b/i.test(n) ||
+    /\(Read\b|\bRead by\b/i.test(n) ||
+    /^you\b.*\)$/i.test(n) ||
+    /^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}\b/.test(n)
+  );
+}
+
+/**
  * Everyone in the chats except the user and business senders (Apple's "urn:biz:" handles), people with a DM first by
  * DM volume, then by messages in shared chats.
  */
@@ -55,7 +71,7 @@ export function listPeople(conversations: ConversationRef[]): ApiPerson[] {
   const byName = new Map<string, Omit<ApiPerson, "lastAt"> & { lastAt: number; dmMessages: number }>();
   for (const c of conversations) {
     for (const name of c.participants) {
-      if (selfNames.has(name) || name === "Instagram User" || name.startsWith("urn:biz:")) continue;
+      if (selfNames.has(name) || name === "Instagram User" || name.startsWith("urn:biz:") || isJunkName(name)) continue;
       const p = byName.get(name) ?? { name, dm: false, chats: 0, messages: 0, lastAt: 0, dmMessages: 0 };
       p.chats++;
       p.messages += c.messageCount;

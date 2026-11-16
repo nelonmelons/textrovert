@@ -10,7 +10,22 @@ import { useFirstRun } from '../firstRun';
 
 /** Friends worth listing: anyone with a DM, or anyone sharing a lot of group messages. */
 const MIN_SHARED_MESSAGES = 1000;
-export const pickable = (people: Person[]) => people.filter((p) => p.dm || p.messages >= MIN_SHARED_MESSAGES);
+/**
+ * Pieces of imessage-exporter's text that older Mac app exports turned into "people", like "you after 2 minutes)" from
+ * "(Read by you after 2 minutes)". Never show them, whatever the server sends. Mirrors isJunkName in the history package.
+ */
+export function isJunkName(name: string): boolean {
+  const n = name.trim();
+  return (
+    !n ||
+    /\bafter (?:\d+|an?|one) (?:seconds?|minutes?|hours?|days?|weeks?|months?|years?)\b/i.test(n) ||
+    /\(Read\b|\bRead by\b/i.test(n) ||
+    /^you\b.*\)$/i.test(n) ||
+    /^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}\b/.test(n)
+  );
+}
+
+export const pickable = (people: Person[]) => people.filter((p) => !isJunkName(p.name) && (p.dm || p.messages >= MIN_SHARED_MESSAGES));
 
 type State = { status: 'loading' } | { status: 'ready'; people: Person[] } | { status: 'error'; message: string };
 let cached: { ownerKey: string | null; people: Promise<Person[]> } | null = null;
