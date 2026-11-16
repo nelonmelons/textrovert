@@ -25,6 +25,7 @@ export default function TabLayout() {
       <Tabs.Screen name="today" options={{ title: 'Today', tabBarIcon: icon({ ios: 'sun.max', android: 'wb_sunny', web: 'wb_sunny' }) }} />
       <Tabs.Screen name="index" options={{ title: 'Ask', tabBarIcon: icon({ ios: 'bubble.left.and.text.bubble.right', android: 'forum', web: 'forum' }) }} />
       <Tabs.Screen name="friends" options={{ title: 'Friends', tabBarIcon: icon({ ios: 'person.2', android: 'group', web: 'group' }) }} />
+      <Tabs.Screen name="stats" options={{ title: 'Stats', tabBarIcon: icon({ ios: 'chart.bar', android: 'bar_chart', web: 'bar_chart' }) }} />
     </Tabs>
   );
 }
