@@ -10,11 +10,28 @@ export const pickable = (people: Person[]) => people.filter((p) => p.dm || p.mes
 
 type State = { status: 'loading' } | { status: 'ready'; people: Person[] } | { status: 'error'; message: string };
 let cached: Promise<Person[]> | null = null;
+const refetchers = new Set<() => void>();
 
-/** The friend list from GET /people, fetched once per app session and shared by every screen. Idle when not live. */
+/**
+ * Drops the cached friend list and makes every mounted screen fetch it again. Call it whenever the account changes
+ * (log out, a new account), or screens keep showing the previous account's people until the app restarts.
+ */
+export function forgetPeople() {
+  cached = null;
+  refetchers.forEach((refetch) => refetch());
+}
+
+/** The friend list from GET /people, fetched once per account and shared by every screen. Idle when not live. */
 export function usePeople(enabled = true): State & { retry: () => void } {
   const [state, setState] = useState<State>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const refetch = () => (setState({ status: 'loading' }), setAttempt((a) => a + 1));
+    refetchers.add(refetch);
+    return () => {
+      refetchers.delete(refetch);
+    };
+  }, []);
   useEffect(() => {
     if (!enabled) return;
     let live = true;

@@ -4,7 +4,9 @@ import { router, Stack } from 'expo-router';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
 import { useDataMode } from '../api/mode';
-import { useFriends } from '../api/people';
+import { clearOwnerKey } from '../api/owner';
+import { forgetPeople, useFriends } from '../api/people';
+import { forgetSources } from '../api/sources';
 import { useNotes } from '../store';
 import { useFirstRun } from '../firstRun';
 import { Rounded, Theme, Type } from '../theme';
@@ -50,6 +52,11 @@ export default function Settings() {
   };
 
   const logOut = async () => {
+    // Forget this device's account first, so nothing after this reads the previous user's chats and the next
+    // onboarding upload creates a fresh account instead of adding to the old one.
+    await clearOwnerKey();
+    forgetPeople();
+    forgetSources();
     await notes.reset();
     await firstRun.reset();
     router.dismissTo('/');

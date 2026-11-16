@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { forgetPeople } from '../api/people';
 import { fetchStatus, type StageName, type UploadStatus } from '../api/upload';
 import { Tactile } from '../design/Tactile';
 
@@ -122,7 +123,12 @@ export default function Indexing() {
           ring={1}
           haptic="thud"
           disabled={!statsReady && !failed}
-          onPress={() => router.replace('/')}
+          onPress={() => {
+            // Anything fetched before the upload finished (the demo owner's people, or an empty list mid-indexing)
+            // must not stick around now that this account has people.
+            forgetPeople();
+            router.replace('/');
+          }}
           accessibilityLabel="Start exploring"
           faceStyle={{ height: 46, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={text(15, D.text, '600')}>{failed ? 'Continue to Textrovert' : 'Start exploring'}</Text>
