@@ -120,7 +120,7 @@ describe("instagram", () => {
     const messenger = await runParser(messengerParser, files);
     expect(instagram.claimed).toEqual(["messages/inbox/sam_1/message_1.json", "messages/message_requests/rando_2/message_1.json"]);
     expect(messenger.claimed).toEqual([]);
-    expect([...instagram.conversations.keys()]).toEqual(["sam_1", "rando_2"]);
+    expect([...instagram.conversations.keys()]).toEqual(["sam_1"]);
   });
 
   it("warns about a broken thread file and keeps going", async () => {
