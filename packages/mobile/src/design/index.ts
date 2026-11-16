@@ -4,6 +4,7 @@ export { haptics } from './haptics';
 export { DesignFonts, fonts, fontFiles, geist, geistFor, useDittoFonts } from './fonts';
 export { Backdrop, SceneView, Glass, Scallop, Sticker, Wordmark, fill, scenes, type SceneName } from './Backdrop';
 export { Txt } from './Txt';
+export { Avatar, ContactHeader, Bubble, Stamp, FormCard, Field, FieldError, Chevron, Count } from './Kit';
 export { Tactile, PressScale } from './Tactile';
 export { Screen, TopBar, LargeTitle, Header, SectionTitle, Eyebrow } from './Screen';
 export { EmojiAvatar, AvatarStack, type EmojiAvatarProps } from './EmojiAvatar';

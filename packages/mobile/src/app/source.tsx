@@ -112,8 +112,8 @@ function LiveSource({ message, quote }: { message: LiveMessage; quote?: string }
       <Who name={name} detail={message.isDm ? 'Your DM' : 'Group chat'} group={message.isDm ? undefined : message.chatId} />
       {q && q !== message.text.trim() ? (
         <Glass tone="dark" radius={radii.xl} style={{ gap: space.sm, padding: space.lg }}>
-          <View style={{ position: 'absolute', left: 0, top: space.lg, bottom: space.lg, width: 3, borderRadius: 2, backgroundColor: '#FF2CAB' }} />
-          <Eyebrow text="The part that mattered" color="#FF7BCB" />
+          <View style={{ position: 'absolute', left: 0, top: space.lg, bottom: space.lg, width: 3, borderRadius: 2, backgroundColor: '#F748B1' }} />
+          <Eyebrow text="The part that mattered" />
           <Txt variant="title2">“{q}”</Txt>
         </Glass>
       ) : null}

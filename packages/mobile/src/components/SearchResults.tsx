@@ -75,12 +75,12 @@ export function SearchResults({ query }: { query: string }) {
       >
         <HedgehogAvatar />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[Type.headline, { color: question ? '#FFFFFF' : Theme.ink }]}>Ask me</Text>
-          <Text style={[Type.subheadline, { color: question ? '#FFFFFF' : Theme.secondary }]} numberOfLines={2}>
+          <Text style={[Type.headline, { color: question ? '#081721' : Theme.ink }]}>Ask me</Text>
+          <Text style={[Type.subheadline, { color: question ? 'rgba(8, 23, 33, 0.7)' : Theme.secondary }]} numberOfLines={2}>
             “{query.trim()}”
           </Text>
         </View>
-        <Symbol name="arrow.up.circle.fill" size={24} color="#FFFFFF" />
+        <Symbol name="arrow.up.circle.fill" size={24} color={question ? '#081721' : '#FFFFFF'} />
       </Pressable>
       {people.length === 0 && activities.length === 0 ? (
         <View style={{ gap: 12, paddingVertical: 24 }}>
@@ -132,7 +132,7 @@ export function SearchResults({ query }: { query: string }) {
 
 const styles = StyleSheet.create({
   ask: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.3)' },
-  askStrong: { backgroundColor: Theme.accent, borderColor: Theme.accent, boxShadow: '0px 0px 18px rgba(255, 44, 171, 0.45)' },
+  askStrong: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
   activityBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6 },
   quote: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(Theme.accentTone.fill, 0.6) },

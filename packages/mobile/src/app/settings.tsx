@@ -9,7 +9,7 @@ import { useNotes } from '../store';
 import { useFirstRun } from '../firstRun';
 import { Theme, Type } from '../theme';
 import { Divider, SectionCard, Symbol, ToneTab } from '../components/Paper';
-import { BigButton, Screen, Txt } from '@/design';
+import { Avatar, BigButton, Screen, Txt } from '@/design';
 
 const accounts: { id: string; name: string; symbol: SymbolViewProps['name']; purpose: string }[] = [
   { id: 'imessage', name: 'iMessage', symbol: 'message.fill', purpose: 'So I can spot plans, replies and birthdays in your texts.' },
@@ -71,9 +71,7 @@ export default function Settings() {
     <>
       <Screen back title="Settings" scene="sky" contentStyle={{ gap: 16 }}>
         <View style={{ alignItems: 'center', gap: 10, paddingBottom: 8 }}>
-          <View style={styles.avatar}>
-            <Txt variant="title1">ED</Txt>
-          </View>
+          <Avatar name="Emma Di" size={88} />
           <Txt variant="largeTitle">Emma Di</Txt>
           <Txt variant="subhead" tone="secondary" shadow>
             {friends.length ? `${friends.length} people` : 'No people yet'}
@@ -182,7 +180,7 @@ export default function Settings() {
 
 const styles = StyleSheet.create({
   avatar: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.14)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.5)' },
-  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0, 0, 0, 0.1)' },
   action: { paddingHorizontal: 12, minHeight: 30, borderRadius: 999, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)' },
   sheetHeader: { height: 56, alignItems: 'center', justifyContent: 'center' },
 });

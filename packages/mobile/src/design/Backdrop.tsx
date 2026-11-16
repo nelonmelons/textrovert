@@ -56,22 +56,21 @@ export function SceneView({ scene = 'sky', scrim, children, style }: { scene?: S
 
 type GlassTone = 'light' | 'dark' | 'navy';
 
-const sheen: Record<GlassTone, readonly [string, string, string]> = {
-  light: ['rgba(255, 255, 255, 0.36)', 'rgba(255, 255, 255, 0.08)', 'rgba(255, 255, 255, 0.18)'],
-  dark: ['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.03)', 'rgba(255, 255, 255, 0.09)'],
-  navy: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.04)'],
+/** Per-edge rims that stand in for the frontpage's masked gradient rings (bright where the light catches). */
+const rims: Record<GlassTone, ViewStyle> = {
+  /** Form glass: the Enroll card's white ring, bright top-left, a weaker return streak bottom-right. */
+  light: { borderTopColor: 'rgba(255, 255, 255, 0.8)', borderLeftColor: 'rgba(255, 255, 255, 0.45)', borderRightColor: 'rgba(255, 255, 255, 0.14)', borderBottomColor: 'rgba(255, 255, 255, 0.3)' },
+  /** House glass: the FAQ card's slate ring. */
+  dark: { borderTopColor: 'rgba(83, 105, 121, 1)', borderLeftColor: 'rgba(83, 105, 121, 0.7)', borderRightColor: 'rgba(83, 105, 121, 0.3)', borderBottomColor: 'rgba(83, 105, 121, 0.2)' },
+  navy: { borderTopColor: 'rgba(83, 105, 121, 1)', borderLeftColor: 'rgba(83, 105, 121, 0.7)', borderRightColor: 'rgba(83, 105, 121, 0.3)', borderBottomColor: 'rgba(83, 105, 121, 0.2)' },
 };
-const tint: Record<GlassTone, string> = {
-  light: 'rgba(255, 255, 255, 0.06)',
-  /** Deep blue (the frontpage's shadow navy) so white copy holds on a bright painted sky. */
-  dark: 'rgba(14, 40, 96, 0.44)',
-  navy: 'rgba(8, 16, 34, 0.84)',
-};
+const fills: Record<GlassTone, string> = { light: 'rgba(255, 255, 255, 0.1)', dark: 'rgba(1, 30, 44, 0.4)', navy: 'rgba(1, 30, 44, 0.9)' };
+const blurs: Record<GlassTone, number> = { light: 10, dark: 24, navy: 24 };
 
 /**
- * The frontpage phone's liquid glass: clear rather than frosted, a 160deg white sheen, a 1px white rim, a lit top edge,
- * and a soft navy drop shadow. light is the clear glass for chrome; dark tints it deep blue for cards of white copy;
- * navy is near-opaque for sheets and dense content.
+ * The frontpage's two glasses. dark is the FAQ card's house glass (#011E2C at 40%, blur 24, slate rim) for lists and
+ * cards of white copy; light is the Enroll card's form glass (white/10, blur 10, an inner top light, a white rim) for
+ * forms, fields' cards, pills and bars; navy is the house glass near-opaque, for sheets.
  */
 export function Glass({ tone = 'dark', radius = radii.xl, blur = true, style, children, pointerEvents }: { tone?: GlassTone; radius?: number; blur?: boolean; style?: StyleProp<ViewStyle>; children?: ReactNode; pointerEvents?: 'box-none' | 'none' | 'box-only' | 'auto' }) {
   return (
@@ -82,21 +81,20 @@ export function Glass({ tone = 'dark', radius = radii.xl, blur = true, style, ch
           borderRadius: radius,
           borderCurve: 'continuous',
           overflow: 'hidden',
-          backgroundColor: tint[tone],
-          boxShadow: `${shadows.light.inset}, ${shadows.light.card}`,
+          backgroundColor: fills[tone],
+          boxShadow: tone === 'light' ? shadows.light.inset : shadows.light.card,
         },
         style,
       ]}>
       {blur ? (
         Platform.OS === 'web' ? (
-          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backdropFilter: 'blur(10px) saturate(1.4)', WebkitBackdropFilter: 'blur(10px) saturate(1.4)' } as object]} />
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backdropFilter: `blur(${blurs[tone]}px)`, WebkitBackdropFilter: `blur(${blurs[tone]}px)` } as object]} />
         ) : (
-          <BlurView pointerEvents="none" intensity={tone === 'light' ? 14 : 24} tint={tone === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
+          <BlurView pointerEvents="none" intensity={tone === 'light' ? 16 : 30} tint={tone === 'light' ? 'light' : 'dark'} style={StyleSheet.absoluteFill} />
         )
       ) : null}
-      <LinearGradient pointerEvents="none" colors={sheen[tone]} locations={[0, 0.42, 1]} start={{ x: 0.32, y: 0 }} end={{ x: 0.68, y: 1 }} style={StyleSheet.absoluteFill} />
       {children}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderCurve: 'continuous', borderWidth: 1, borderColor: tone === 'navy' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.5)' }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius, borderCurve: 'continuous', borderWidth: 1 }, rims[tone]]} />
     </View>
   );
 }

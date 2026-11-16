@@ -1,72 +1,44 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { View, type StyleProp, type ViewStyle } from 'react-native';
+import { Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 
 import { Glass } from './Backdrop';
-import { EmojiAvatar, type EmojiAvatarProps } from './EmojiAvatar';
-import { useDesign } from './theme';
-import { Txt } from './Txt';
-import { durations, radii, space, withAlpha } from './tokens';
+import { type EmojiAvatarProps } from './EmojiAvatar';
+import { fonts } from './fonts';
+import { Avatar, Bubble } from './Kit';
+import { ditto, durations, radii, softShadow, space } from './tokens';
 
-/** A chat panel: the navy glass the bubbles sit on. */
+/** A chat panel: house glass the bubbles sit on. */
 export function ChatPanel({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <Glass tone="dark" radius={radii.xxl} style={[{ padding: space.lg, gap: space.sm }, style]}>
+    <Glass tone="dark" radius={radii.xl} style={[{ padding: space.md, gap: 2 }, style]}>
       {children}
     </Glass>
   );
 }
 
 /**
- * A message bubble. Theirs is white glass with the sender's name in pink; mine is Ditto's white key with navy ink.
- * Time sits bottom-right. highlighted rings it in pink with a glow, for messages the scan line picked out.
+ * A Messages bubble (see Kit's Bubble): received grey with black ink, sent blue. The sender's name sits above a received
+ * bubble and the time under it, small and white, the way the hero phone labels its thread. highlighted rings it pink.
  */
 export function ChatBubble({ text, mine = false, name, time, highlighted = false, children }: { text?: string; mine?: boolean; name?: string; time?: string; highlighted?: boolean; children?: ReactNode }) {
-  const { c, shadow } = useDesign();
-  const tail = radii.bubbleTail;
+  const label = { fontFamily: fonts.sf, fontSize: 11, lineHeight: 14, color: 'rgba(255, 255, 255, 0.8)', fontWeight: '500' as const };
   return (
-    <View
-      style={{
-        alignSelf: mine ? 'flex-end' : 'flex-start',
-        maxWidth: '82%',
-        backgroundColor: mine ? c.bubbleMine : c.bubbleTheirs,
-        borderTopWidth: mine ? 0 : 0.5,
-        borderRadius: radii.bubble,
-        borderBottomRightRadius: mine ? tail : radii.bubble,
-        borderBottomLeftRadius: mine ? radii.bubble : tail,
-        paddingHorizontal: 12,
-        paddingTop: 8,
-        paddingBottom: 6,
-        borderWidth: highlighted ? 2 : mine ? 0 : 0.5,
-        borderColor: highlighted ? c.accent : 'rgba(255, 255, 255, 0.22)',
-        boxShadow: highlighted ? shadow.glow : shadow.bubble,
-      }}>
-      {name && !mine ? (
-        <Txt variant="footnote" color={c.bubbleName} style={{ fontWeight: '600' }}>
-          {name}
-        </Txt>
-      ) : null}
-      {text ? (
-        <Txt variant="callout" color={mine ? c.bubbleMineText : c.bubbleText}>
-          {text}
-        </Txt>
-      ) : null}
-      {children}
-      {time ? (
-        <Txt variant="caption" color={mine ? c.bubbleMineTime : c.bubbleTime} style={{ alignSelf: 'flex-end', fontSize: 11, marginTop: 1, fontWeight: '400', letterSpacing: 0 }}>
-          {time}
-        </Txt>
-      ) : null}
+    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '84%', marginTop: 6, gap: 2 }}>
+      {name && !mine ? <Text style={[label, softShadow, { marginLeft: 17 }]}>{name}</Text> : null}
+      <Bubble text={text} mine={mine} maxWidth="100%" style={highlighted ? { borderRadius: radii.bubble, borderWidth: 2, borderColor: ditto.primary } : undefined}>
+        {children}
+      </Bubble>
+      {time ? <Text style={[label, softShadow, { alignSelf: mine ? 'flex-end' : 'flex-start', marginHorizontal: 17, opacity: 0.85 }]}>{time}</Text> : null}
     </View>
   );
 }
 
 /**
- * Sweeps a glowing line with an avatar riding on it down over its children, back and forth, like reading the chat.
- * Reduce Motion parks the line at rest instead of animating.
+ * Sweeps a thin white line with an avatar riding on it down over its children, back and forth, like reading the chat.
+ * Reduce Motion parks the line at rest.
  */
 export function ScanHighlight({ children, avatar, rest = 0.5 }: { children: ReactNode; avatar: EmojiAvatarProps; rest?: number }) {
-  const { c } = useDesign();
   const reduced = useReducedMotion();
   const [height, setHeight] = useState(0);
   const t = useSharedValue(rest);
@@ -84,11 +56,8 @@ export function ScanHighlight({ children, avatar, rest = 0.5 }: { children: Reac
       {children}
       {height ? (
         <Animated.View pointerEvents="none" style={[{ position: 'absolute', left: -space.lg, right: -space.lg, top: -22, height: 44, justifyContent: 'center', alignItems: 'center' }, line]}>
-          <View style={{ position: 'absolute', left: 0, right: 0, height: 28, backgroundColor: withAlpha('#FF2CAB', 0.12) }} />
-          <View style={{ position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: c.accent, boxShadow: '0px 0px 12px rgba(255, 44, 171, 0.9)' }} />
-          <View style={{ borderRadius: 24, borderWidth: 3, borderColor: '#FFFFFF', boxShadow: '0px 0px 24px rgba(255, 44, 171, 0.7)' }}>
-            <EmojiAvatar size={40} {...avatar} />
-          </View>
+          <View style={{ position: 'absolute', left: 0, right: 0, height: 1.5, backgroundColor: 'rgba(255, 255, 255, 0.9)' }} />
+          <Avatar name={avatar.name} image={avatar.image} size={40} />
         </Animated.View>
       ) : null}
     </View>

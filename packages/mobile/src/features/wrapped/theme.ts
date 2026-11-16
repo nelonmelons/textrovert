@@ -4,23 +4,23 @@ import { fonts as ditto } from '@/design/fonts';
 import type { SceneName } from '@/design/Backdrop';
 
 /**
- * Wrapped on Ditto's design language: every slide sits on one of Ditto's photographs, white type, Spencer for titles,
- * Argent Pixel for big numbers, and Ditto pink for the moments. The old names stay so the scenes read the same:
- * butter is now the white type colour, ink is Ditto navy, plum is Ditto pink.
+ * Wrapped in Ditto's frontpage design: every slide on one of the frontpage's scenes, white type, Spencer for titles and
+ * numbers, the navy title shadow, and Ditto pink (#F748B1) as the only colour. The old names stay so the scenes read the
+ * same: butter is white, ink is navy, plum and coral are pink, and the rest fold into white.
  */
 export const palette = {
-  plum: '#FF2CAB',
-  periwinkle: '#C9B8FF',
+  plum: '#F748B1',
+  periwinkle: '#FFFFFF',
   butter: '#FFFFFF',
-  coral: '#FF8AD0',
-  leaf: '#8FE3C4',
+  coral: '#F748B1',
+  leaf: '#FFFFFF',
   ink: '#081721',
 };
 
-export const rainbow = ['#FF2CAB', '#F748B1', palette.coral, '#FFFFFF', palette.periwinkle, '#9CC8FF'];
-/** For text over the photographs: white into pinks and lilacs, light enough for every letter. */
-export const rainbowText = ['#FFFFFF', '#FFD6EE', palette.coral, palette.periwinkle, '#CFE6FF'];
-export const rainbowRing = [...rainbow, '#FF2CAB'];
+/** No rainbows on the frontpage: pink and white. */
+export const rainbow = ['#F748B1', '#FFFFFF', '#F748B1', '#FFFFFF'];
+export const rainbowText = ['#FFFFFF', '#FFFFFF'];
+export const rainbowRing = ['#F748B1', '#FFFFFF', '#F748B1'];
 
 export interface World {
   deep: string;
@@ -32,10 +32,11 @@ export interface World {
   scenes: SceneName[];
 }
 
+/** Every world is the frontpage's navy and section blue with pink; only the order of scenes differs. */
 export const worlds: World[] = [
-  { deep: '#0E1638', mid: '#5B5FC7', hot: '#FF2CAB', glow: '#FFD6EE', name: 'dusk', scenes: ['dusk', 'twilight', 'clouds', 'ocean'] },
-  { deep: '#062035', mid: '#1F5E96', hot: '#FF7BCB', glow: '#CFE6FF', name: 'ocean', scenes: ['ocean', 'clouds', 'dusk', 'twilight'] },
-  { deep: '#0B2747', mid: '#3A7BD5', hot: '#FF2CAB', glow: '#FFFFFF', name: 'clouds', scenes: ['clouds', 'twilight', 'ocean', 'dusk'] },
+  { deep: '#081721', mid: '#0F2B60', hot: '#F748B1', glow: '#FFFFFF', name: 'dusk', scenes: ['dusk', 'twilight', 'clouds', 'ocean'] },
+  { deep: '#081721', mid: '#0F2B60', hot: '#F748B1', glow: '#FFFFFF', name: 'ocean', scenes: ['ocean', 'clouds', 'dusk', 'twilight'] },
+  { deep: '#081721', mid: '#0F2B60', hot: '#F748B1', glow: '#FFFFFF', name: 'clouds', scenes: ['clouds', 'twilight', 'ocean', 'dusk'] },
 ];
 
 /** The photograph behind slide `index` of a chat's story. */
@@ -63,7 +64,7 @@ export function mix(a: string, b: string, t: number): string {
 
 /**
  * Ditto's faces in the slots the SwiftUI designs used: Spencer stands in for the serif, compressed and typewriter
- * designs (it has one weight, so callers pass 400), Arial for expanded and rounded, Argent Pixel for numbers.
+ * designs (it has one weight, so callers pass 400), Arial for expanded and rounded, and Spencer for numbers too.
  */
 export const fonts = {
   serif: ditto.serif,
@@ -74,8 +75,8 @@ export const fonts = {
   pixel: ditto.pixel,
 };
 
-/** Ditto's title shadow, for white type straight on a photograph. */
-export const lift = { textShadowColor: 'rgba(4, 12, 18, 0.35)', textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 6 } as const;
+/** The frontpage's navy title shadow, for white type straight on a scene. */
+export const lift = { textShadowColor: 'rgba(14, 40, 96, 0.38)', textShadowOffset: { width: 2, height: 4 }, textShadowRadius: 8 } as const;
 
 export type DisplayType = 'serifItalic' | 'poster' | 'wide' | 'typewriter' | 'rounded';
 

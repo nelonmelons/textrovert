@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native';
+import { Fragment, useState, type ReactNode } from 'react';
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -8,39 +8,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 
 import { useFirstRun } from '../firstRun';
-import { Tactile } from '../design/Tactile';
+import { Backdrop, BigButton, Chevron, Field, FieldError, FormCard, Glass, Icon, IconButton, PillButton, PressScale, Sticker, Txt, Wordmark } from '@/design';
 
 /**
- * First-run onboarding in PostHog's design language (PostHog 3000 light theme: warm #f3f4ef canvas, white surfaces
- * with #dadbd2 hairlines, #111 text, #f54e01 accent, 6px corners, and 3D "Lemon" buttons whose face sits 3px up on a
- * darker frame and presses down). One question per screen with a progress bar and "N of M"; choices advance on tap. Six steps (seven for iMessage, which asks how to export first):
- * chat type, app, upload, your name, anything else, and where to send the report. Answers go to AsyncStorage.
+ * First-run onboarding, one question per screen, in Ditto's frontpage design: the painted sky behind, a thin white
+ * progress bar with "N of M", each question as a white Spencer title, choices as rows in the FAQ's house glass (the
+ * chosen one turns into the white pill), and typed answers in the Enroll card (a black/10 field over the white pill).
+ * Six steps (seven for iMessage, which asks how to export first): chat type, app, upload, your name, anything else, and
+ * where to send the report. Answers go to AsyncStorage.
  */
 const BRAND = 'Textrovert';
 const ANSWERS_KEY = 'textrovert.onboarding.v1';
 const MAC_APP_URL = 'https://github.com/nelonmelons/textrovert/tree/main/mac';
-
-// PostHog 3000 light theme (frontend/src/styles/base.scss, lib/lemon-ui/LemonButton/LemonButton.scss).
-const D = {
-  canvas: '#F3F4EF', // --color-bg-3000-light
-  surface: '#FFFFFF', // --color-bg-surface-primary
-  surfaceAlt: '#F3F4EF', // --secondary-3000-button-bg-light
-  border: '#DADBD2', // --border-3000-light
-  text: '#111111', // --text-3000-light
-  muted: 'rgba(17, 17, 17, 0.6)', // --muted-3000-light
-  placeholder: 'rgba(17, 17, 17, 0.4)',
-  accent: '#F54E01', // --primary-3000-light
-  accentSoft: 'rgba(245, 78, 1, 0.08)',
-  primaryFace: '#EB9D2A', // --primary-3000-frame-bg-light
-  primaryEdge: '#B17816', // --primary-3000-button-border-light
-  secondaryEdge: '#CCCCCC', // --secondary-3000-button-border-light
-  success: '#388600', // --success
-  danger: '#DB3707', // --danger
-  radius: 6, // --radius: 0.375rem
-  depth: 3, // --lemon-button-chrome-depth: 0.1875rem
-};
-const SANS = Platform.select({ ios: undefined, android: 'sans-serif', default: '-apple-system, BlinkMacSystemFont, Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' });
-const text = (size: number, color: string, weight: TextStyle['fontWeight'] = '400'): TextStyle => ({ fontFamily: SANS, fontSize: size, lineHeight: Math.round(size * 1.35), color, fontWeight: weight });
 
 type ChatType = 'romantic' | 'group' | 'friend' | 'family' | 'work' | 'other';
 type ChatApp = 'whatsapp' | 'imessage' | 'instagram' | 'messenger' | 'kakaotalk' | 'line';
@@ -48,22 +27,22 @@ type Method = 'mac' | 'iphone';
 type StepId = 'type' | 'app' | 'method' | 'upload' | 'self' | 'extra' | 'email';
 type PickedFile = { name: string; size?: number; uri: string; mimeType?: string };
 
-const CHAT_TYPES: { id: ChatType; emoji: string; title: string; subtitle: string }[] = [
-  { id: 'romantic', emoji: '💌', title: 'Romantic', subtitle: 'Partner, situationship, ex...' },
-  { id: 'group', emoji: '😂', title: 'Friends group', subtitle: 'Uni crew, trip chat, sports team...' },
-  { id: 'friend', emoji: '🫶', title: 'Any friend', subtitle: 'Best friend, childhood friend, work bestie...' },
-  { id: 'family', emoji: '🏠', title: 'Family', subtitle: 'Family group, mum or dad, siblings...' },
-  { id: 'work', emoji: '📋', title: 'Work / team', subtitle: 'Team chat, colleagues, boss...' },
-  { id: 'other', emoji: '🤷‍♂️', title: 'Other', subtitle: 'Roommates, neighbours, anything else...' },
+const CHAT_TYPES: { id: ChatType; title: string; subtitle: string }[] = [
+  { id: 'romantic', title: 'Romantic', subtitle: 'Partner, situationship, ex...' },
+  { id: 'group', title: 'Friends group', subtitle: 'Uni crew, trip chat, sports team...' },
+  { id: 'friend', title: 'Any friend', subtitle: 'Best friend, childhood friend, work bestie...' },
+  { id: 'family', title: 'Family', subtitle: 'Family group, mum or dad, siblings...' },
+  { id: 'work', title: 'Work / team', subtitle: 'Team chat, colleagues, boss...' },
+  { id: 'other', title: 'Other', subtitle: 'Roommates, neighbours, anything else...' },
 ];
 
-const APPS: { id: ChatApp; name: string; emoji: string }[] = [
-  { id: 'whatsapp', name: 'WhatsApp', emoji: '📞' },
-  { id: 'imessage', name: 'iMessage', emoji: '💬' },
-  { id: 'instagram', name: 'Instagram', emoji: '📸' },
-  { id: 'messenger', name: 'Messenger', emoji: '⚡️' },
-  { id: 'kakaotalk', name: 'KakaoTalk', emoji: '💛' },
-  { id: 'line', name: 'LINE', emoji: '💚' },
+const APPS: { id: ChatApp; name: string }[] = [
+  { id: 'whatsapp', name: 'WhatsApp' },
+  { id: 'imessage', name: 'iMessage' },
+  { id: 'instagram', name: 'Instagram' },
+  { id: 'messenger', name: 'Messenger' },
+  { id: 'kakaotalk', name: 'KakaoTalk' },
+  { id: 'line', name: 'LINE' },
 ];
 
 const fileSize = (bytes?: number) =>
@@ -90,7 +69,7 @@ export default function Onboarding() {
 
   const next = () => setIndex((i) => Math.min(i + 1, steps.length - 1));
   const back = () => setIndex((i) => Math.max(i - 1, 0));
-  // Let the card's press play before the screen changes.
+  // Let the row's press show before the screen changes.
   const chooseThen = (apply: () => void) => {
     apply();
     setTimeout(next, 160);
@@ -122,49 +101,42 @@ export default function Onboarding() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: D.canvas }}>
-      <StatusBar style="dark" />
+    <View style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <Backdrop scene="clouds" scrim={0.12} />
       <Header index={index} total={steps.length} onBack={index === 0 ? undefined : back} onClose={index === 0 ? () => finish(true) : undefined} topInset={insets.top} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView
-          key={step}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 28, paddingBottom: insets.bottom + 48 }}
-          showsVerticalScrollIndicator={false}>
-          <Animated.View entering={FadeInRight.duration(280)} style={{ gap: 14 }}>
+        <ScrollView key={step} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 20, paddingBottom: insets.bottom + 48 }} showsVerticalScrollIndicator={false}>
+          <Animated.View entering={FadeInRight.duration(300)} style={{ gap: 16 }}>
             {step === 'type' && (
               <>
                 <Question>What type of chat would you like {BRAND} to analyze?</Question>
-                {CHAT_TYPES.map((t) => (
-                  <ChoiceCard key={t.id} selected={chatType === t.id} onPress={() => chooseThen(() => setChatType(t.id))} label={t.title}>
-                    <Emoji>{t.emoji}</Emoji>
-                    <View style={{ flex: 1, gap: 3 }}>
-                      <Text style={text(16, D.text, '600')}>{t.title}</Text>
-                      <Text style={text(14, D.muted)}>{t.subtitle}</Text>
-                    </View>
-                  </ChoiceCard>
-                ))}
+                <Choices>
+                  {CHAT_TYPES.map((t) => (
+                    <Choice key={t.id} title={t.title} subtitle={t.subtitle} selected={chatType === t.id} onPress={() => chooseThen(() => setChatType(t.id))} />
+                  ))}
+                </Choices>
               </>
             )}
 
             {step === 'app' && (
               <>
                 <Question>Where's your chat from?</Question>
-                {APPS.map((a) => (
-                  <ChoiceCard
-                    key={a.id}
-                    selected={app === a.id}
-                    onPress={() =>
-                      chooseThen(() => {
-                        setApp(a.id);
-                        if (a.id !== 'imessage') setMethod(undefined);
-                      })
-                    }
-                    label={a.name}>
-                    <Emoji tile>{a.emoji}</Emoji>
-                    <Text style={[text(16, D.text, '600'), { flex: 1 }]}>{a.name}</Text>
-                  </ChoiceCard>
-                ))}
+                <Choices>
+                  {APPS.map((a) => (
+                    <Choice
+                      key={a.id}
+                      title={a.name}
+                      selected={app === a.id}
+                      onPress={() =>
+                        chooseThen(() => {
+                          setApp(a.id);
+                          if (a.id !== 'imessage') setMethod(undefined);
+                        })
+                      }
+                    />
+                  ))}
+                </Choices>
               </>
             )}
 
@@ -172,7 +144,6 @@ export default function Onboarding() {
               <>
                 <Question>How do you want to export your iMessage chat?</Question>
                 <MethodCard
-                  emoji="💻"
                   title="On your Mac"
                   badge="Recommended"
                   lead="With our Mac app"
@@ -185,7 +156,6 @@ export default function Onboarding() {
                   onPress={() => chooseThen(() => setMethod('mac'))}
                 />
                 <MethodCard
-                  emoji="📱"
                   title="On your iPhone"
                   lead="By screen recording the chat"
                   points={[
@@ -204,27 +174,56 @@ export default function Onboarding() {
                 {app === 'imessage' && method !== 'iphone' ? (
                   <>
                     <Question>Download our iMessage export app</Question>
-                    <View style={{ backgroundColor: D.surface, borderRadius: D.radius, borderWidth: 1, borderColor: D.border, padding: 14, gap: 12 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <Emoji tile>💻</Emoji>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <Text style={text(16, D.text, '600')}>Export Assistant</Text>
-                          <Text style={text(13, D.muted)}>Requires macOS 14 or newer.</Text>
-                        </View>
-                      </View>
-                      <SecondaryButton title="Download for macOS" onPress={() => Linking.openURL(MAC_APP_URL)} />
-                      <Text style={text(14, D.muted)}>Then follow its steps to save your iMessage conversations as a .textrovert file, and AirDrop it to this phone.</Text>
-                    </View>
-                    <Text style={[text(18, D.text, '600'), { marginTop: 10 }]}>Then upload your iMessage chat</Text>
+                    <Glass tone="dark" radius={24} style={{ padding: 16, gap: 12 }}>
+                      <Txt variant="title2">Export Assistant</Txt>
+                      <Txt variant="footnote" tone="secondary">
+                        Requires macOS 14 or newer. Follow its steps to save your iMessage conversations as a .textrovert file, then AirDrop it to this phone.
+                      </Txt>
+                      <PillButton title="Download for macOS" onPress={() => Linking.openURL(MAC_APP_URL)} />
+                    </Glass>
+                    <Sticker text="Then upload your iMessage chat" accent="upload" size={20} style={{ marginTop: 8 }} />
                   </>
                 ) : (
                   <Question>{app === 'imessage' ? 'Upload your iMessage screen recording' : `Upload your ${appName} chat`}</Question>
                 )}
-                {app === 'imessage' && method === 'iphone' ? <Text style={text(15, D.muted)}>Choose the screen recording from your Gallery or Files app.</Text> : null}
-                <UploadBox file={file} onPress={pick} format={app === 'imessage' ? (method === 'iphone' ? 'MOV' : 'TEXTROVERT') : app === 'whatsapp' ? 'ZIP · TXT' : 'ZIP'} />
-                {pickError ? <Text style={text(13, D.danger)}>{pickError}</Text> : null}
-                <Text style={[text(13, D.muted), { textAlign: 'center' }]}>🔒 Your data stays private</Text>
-                <PrimaryButton title="Continue" onPress={next} disabled={!file} />
+                {app === 'imessage' && method === 'iphone' ? (
+                  <Txt variant="callout" tone="secondary" shadow>
+                    Choose the screen recording from your Gallery or Files app.
+                  </Txt>
+                ) : null}
+                <FormCard>
+                  <PressScale onPress={pick} accessibilityLabel={file ? `Change file, ${file.name}` : 'Choose a file'} scale={0.98}>
+                    <View style={{ minHeight: 76, borderRadius: 16, backgroundColor: 'rgba(0, 0, 0, 0.1)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, gap: 4 }}>
+                      {file ? (
+                        <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: 'center', gap: 2 }}>
+                          <Txt variant="body" numberOfLines={1} style={{ fontWeight: '700' }}>
+                            {file.name}
+                          </Txt>
+                          <Txt variant="footnote" tone="secondary">
+                            {fileSize(file.size)} · Tap to change
+                          </Txt>
+                        </Animated.View>
+                      ) : (
+                        <>
+                          <Txt variant="caption" tone="tertiary" style={{ letterSpacing: 1 }}>
+                            {app === 'imessage' ? (method === 'iphone' ? 'MOV' : 'TEXTROVERT') : app === 'whatsapp' ? 'ZIP · TXT' : 'ZIP'}
+                          </Txt>
+                          <Txt variant="body" tone="tertiary">
+                            Tap to choose your file
+                          </Txt>
+                        </>
+                      )}
+                    </View>
+                  </PressScale>
+                  {pickError ? <FieldError>{pickError}</FieldError> : null}
+                  <BigButton title="Continue" onPress={next} disabled={!file} />
+                </FormCard>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  <Icon name="lock.shield" size={13} color="rgba(255, 255, 255, 0.8)" />
+                  <Txt variant="footnote" tone="secondary" shadow>
+                    Your data stays private
+                  </Txt>
+                </View>
                 <TextLink onPress={next}>I'll do this later</TextLink>
               </>
             )}
@@ -232,25 +231,40 @@ export default function Onboarding() {
             {step === 'self' && (
               <>
                 <Question subtitle={`${BRAND} will call you by this name in your report.`}>What's your name?</Question>
-                <Field value={selfName} onChangeText={setSelfName} placeholder="John" onSubmit={() => selfName.trim() && next()} />
-                <PrimaryButton title="Continue" onPress={next} disabled={!selfName.trim()} />
+                <FormCard>
+                  <Field value={selfName} onChangeText={setSelfName} placeholder="John" autoFocus center autoCapitalize="words" returnKeyType="next" onSubmitEditing={() => selfName.trim() && next()} />
+                  <BigButton title="Continue" onPress={next} disabled={!selfName.trim()} />
+                </FormCard>
               </>
             )}
 
             {step === 'extra' && (
               <>
                 <Question>Anything else {BRAND} should know?</Question>
-                <Field value={extra} onChangeText={setExtra} placeholder="What happened off the chat, what you want looked at…" multiline />
-                {extra.trim() ? <PrimaryButton title="Continue" onPress={next} /> : <SecondaryButton title="Skip" onPress={next} />}
+                <FormCard>
+                  <Field value={extra} onChangeText={setExtra} placeholder="What happened off the chat, what you want looked at…" autoFocus multiline />
+                  <BigButton title={extra.trim() ? 'Continue' : 'Skip'} kind={extra.trim() ? 'primary' : 'secondary'} onPress={next} />
+                </FormCard>
               </>
             )}
 
             {step === 'email' && (
               <>
                 <Question>Which email address should we send your report to?</Question>
-                <Text style={text(13, D.muted, '600')}>Email address</Text>
-                <Field value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" onSubmit={() => finish()} />
-                <PrimaryButton title={finishing ? 'Creating…' : 'Create my report'} onPress={() => finish()} disabled={finishing} />
+                <FormCard>
+                  <Field
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="you@example.com"
+                    autoFocus
+                    center
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onSubmitEditing={() => finish()}
+                  />
+                  <BigButton title={finishing ? 'Creating…' : 'Create my report'} onPress={() => finish()} disabled={finishing} />
+                </FormCard>
               </>
             )}
           </Animated.View>
@@ -260,206 +274,122 @@ export default function Onboarding() {
   );
 }
 
-/** Back (or close on the first step), PostHog's thin accent progress bar, and "N of M". */
+/** The wordmark, back (or close on the first step), a thin white progress bar, and "N of M". */
 function Header({ index, total, onBack, onClose, topInset }: { index: number; total: number; onBack?: () => void; onClose?: () => void; topInset: number }) {
   return (
-    <View style={{ paddingTop: topInset + 8, paddingHorizontal: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: D.border, backgroundColor: D.canvas }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={onBack ? 'Back' : 'Close'} onPress={onBack ?? onClose} hitSlop={12} style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={text(20, D.muted, '500')}>{onBack ? '←' : '✕'}</Text>
-      </Pressable>
-      <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: D.border, overflow: 'hidden' }}>
-        <View style={{ width: `${Math.round(((index + 1) / total) * 100)}%`, height: '100%', borderRadius: 2, backgroundColor: D.accent }} />
+    <View style={{ paddingTop: topInset + 12, paddingHorizontal: 16, gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Wordmark size={22} />
+        <IconButton icon={onBack ? 'chevron.left' : 'xmark'} label={onBack ? 'Back' : 'Close'} size={40} onPress={onBack ?? onClose} />
       </View>
-      <Text style={[text(12, D.muted, '600'), { minWidth: 40, textAlign: 'right' }]}>
-        {index + 1} of {total}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255, 255, 255, 0.25)', overflow: 'hidden' }}>
+          <View style={{ width: `${Math.round(((index + 1) / total) * 100)}%`, height: '100%', borderRadius: 2, backgroundColor: '#FFFFFF' }} />
+        </View>
+        <Txt variant="footnote" shadow style={{ fontWeight: '600', minWidth: 44, textAlign: 'right' }}>
+          {index + 1} of {total}
+        </Txt>
+      </View>
     </View>
   );
 }
 
 function Question({ children, subtitle }: { children: ReactNode; subtitle?: string }) {
   return (
-    <View style={{ gap: 6, marginBottom: 4 }}>
-      <Text accessibilityRole="header" style={[text(24, D.text, '700'), { letterSpacing: -0.3 }]}>
+    <View style={{ gap: 8, marginBottom: 4, paddingHorizontal: 4 }}>
+      <Txt accessibilityRole="header" variant="largeTitle">
         {children}
-      </Text>
-      {subtitle ? <Text style={text(15, D.muted)}>{subtitle}</Text> : null}
+      </Txt>
+      {subtitle ? (
+        <Txt variant="callout" tone="secondary" shadow>
+          {subtitle}
+        </Txt>
+      ) : null}
     </View>
   );
 }
 
-function Emoji({ children }: { children: string; tile?: boolean }) {
+/** Choices as rows in the FAQ's house-glass card, divided by white/10 hairlines. */
+function Choices({ children }: { children: ReactNode[] }) {
   return (
-    <View style={{ width: 40, height: 40, borderRadius: D.radius, backgroundColor: D.canvas, borderWidth: 1, borderColor: D.border, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontSize: 20, lineHeight: 26 }}>{children}</Text>
-    </View>
+    <Glass tone="dark" radius={24} style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
+      {children.map((child, i) => (
+        <Fragment key={i}>
+          {i ? <View style={{ height: 0.5, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginHorizontal: 12 }} /> : null}
+          {child}
+        </Fragment>
+      ))}
+    </Glass>
   );
 }
 
-/** A tap-to-advance answer: PostHog's secondary 3D button, edged in the accent when chosen. */
-function ChoiceCard({ children, onPress, selected, label }: { children: ReactNode; onPress: () => void; selected?: boolean; label: string }) {
+/** A tap-to-advance answer: a row with a pink chevron; once chosen it becomes the white pill with navy ink. */
+function Choice({ title, subtitle, selected, onPress }: { title: string; subtitle?: string; selected?: boolean; onPress: () => void }) {
   return (
-    <Tactile
-      face={selected ? '#FFF4EE' : D.surface}
-      edge={selected ? D.accent : D.secondaryEdge}
-      radius={D.radius}
-      lip={D.depth}
-      ring={1}
-      onPress={onPress}
-      accessibilityLabel={label}
-      faceStyle={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12 }}>
-      {children}
-    </Tactile>
-  );
-}
-
-function MethodCard({ emoji, title, badge, lead, points, selected, onPress }: { emoji: string; title: string; badge?: string; lead: string; points: { ok: boolean; text: string }[]; selected?: boolean; onPress: () => void }) {
-  return (
-    <Tactile
-      face={selected ? '#FFF4EE' : D.surface}
-      edge={selected ? D.accent : D.secondaryEdge}
-      radius={D.radius}
-      lip={D.depth}
-      ring={1}
-      onPress={onPress}
-      accessibilityLabel={title}
-      faceStyle={{ padding: 14, gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Emoji>{emoji}</Emoji>
-        <Text style={text(16, D.text, '600')}>{title}</Text>
-        {badge ? (
-          <View style={{ backgroundColor: '#FFF4EE', borderRadius: 4, borderWidth: 1, borderColor: 'rgba(245, 78, 1, 0.35)', paddingHorizontal: 6, paddingVertical: 1 }}>
-            <Text style={text(11, D.accent, '700')}>{badge.toUpperCase()}</Text>
-          </View>
-        ) : null}
+    <PressScale onPress={onPress} accessibilityLabel={title} scale={0.98}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, paddingVertical: subtitle ? 12 : 15, borderRadius: 16, backgroundColor: selected ? '#FFFFFF' : 'transparent' }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt variant="body" color={selected ? '#081721' : '#FFFFFF'} style={{ fontWeight: '700' }}>
+            {title}
+          </Txt>
+          {subtitle ? (
+            <Txt variant="footnote" color={selected ? 'rgba(8, 23, 33, 0.7)' : 'rgba(255, 255, 255, 0.8)'}>
+              {subtitle}
+            </Txt>
+          ) : null}
+        </View>
+        {selected ? <Icon name="checkmark" size={16} color="#081721" /> : <Chevron />}
       </View>
-      <Text style={text(14, D.muted)}>{lead}</Text>
+    </PressScale>
+  );
+}
+
+function MethodCard({ title, badge, lead, points, selected, onPress }: { title: string; badge?: string; lead: string; points: { ok: boolean; text: string }[]; selected?: boolean; onPress: () => void }) {
+  const ink = selected ? '#081721' : '#FFFFFF';
+  const muted = selected ? 'rgba(8, 23, 33, 0.7)' : 'rgba(255, 255, 255, 0.8)';
+  const body = (
+    <View style={{ padding: 16, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        <Txt variant="title2" color={ink} style={selected ? { textShadowRadius: 0, textShadowColor: 'transparent' } : undefined}>
+          {title}
+        </Txt>
+        {badge ? <Sticker text={badge} accent={badge} size={14} /> : null}
+      </View>
+      <Txt variant="footnote" color={muted}>
+        {lead}
+      </Txt>
       <View style={{ gap: 4 }}>
         {points.map((p) => (
-          <View key={p.text} style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
-            <Text style={[text(14, p.ok ? D.success : D.danger, '700'), { width: 14 }]}>{p.ok ? '✓' : '×'}</Text>
-            <Text style={[text(14, D.text), { flex: 1 }]}>{p.text}</Text>
+          <View key={p.text} style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <Icon name={p.ok ? 'checkmark' : 'xmark'} size={12} color={p.ok ? ink : muted} />
+            <Txt variant="subhead" color={p.ok ? ink : muted} style={{ flex: 1 }}>
+              {p.text}
+            </Txt>
           </View>
         ))}
       </View>
-    </Tactile>
-  );
-}
-
-/** PostHog's primary LemonButton: amber face 3px up on its darker frame, pressing down on tap. */
-function PrimaryButton({ title, onPress, disabled }: { title: string; onPress: () => void; disabled?: boolean }) {
-  return (
-    <View style={{ marginTop: 4 }}>
-      <Tactile
-        face={D.primaryFace}
-        edge={D.primaryEdge}
-        radius={D.radius}
-        lip={D.depth}
-        ring={1}
-        haptic="thud"
-        onPress={onPress}
-        disabled={disabled}
-        accessibilityLabel={title}
-        faceStyle={{ height: 46, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={text(15, D.text, '600')}>{title}</Text>
-      </Tactile>
     </View>
   );
-}
-
-/** PostHog's secondary LemonButton: white face on a grey frame. */
-function SecondaryButton({ title, onPress }: { title: string; onPress: () => void }) {
   return (
-    <Tactile
-      face={D.surface}
-      edge={D.secondaryEdge}
-      radius={D.radius}
-      lip={D.depth}
-      ring={1}
-      onPress={onPress}
-      accessibilityLabel={title}
-      faceStyle={{ height: 44, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={text(15, D.text, '600')}>{title}</Text>
-    </Tactile>
-  );
-}
-
-function UploadBox({ file, onPress, format }: { file?: PickedFile; onPress: () => void; format: string }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={file ? `Change file, ${file.name}` : 'Tap to upload'} onPress={onPress}>
-      {({ pressed }) => (
-        <View
-          style={{
-            borderWidth: 1.5,
-            borderStyle: 'dashed',
-            borderColor: file ? D.accent : D.secondaryEdge,
-            backgroundColor: file ? '#FFF4EE' : D.surface,
-            borderRadius: D.radius,
-            paddingVertical: 24,
-            paddingHorizontal: 16,
-            alignItems: 'center',
-            gap: 4,
-            opacity: pressed ? 0.7 : 1,
-          }}>
-          {file ? (
-            <Animated.View entering={FadeIn.duration(200)} style={{ alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 24, lineHeight: 30 }}>📄</Text>
-              <Text numberOfLines={1} style={text(15, D.text, '600')}>
-                {file.name}
-              </Text>
-              <Text style={text(13, D.muted)}>{fileSize(file.size)} · Tap to change</Text>
-            </Animated.View>
-          ) : (
-            <>
-              <Text style={[text(11, D.muted, '700'), { letterSpacing: 0.6 }]}>{format}</Text>
-              <Text style={text(15, D.accent, '600')}>Tap to upload</Text>
-            </>
-          )}
-        </View>
+    <PressScale onPress={onPress} accessibilityLabel={title} scale={0.98}>
+      {selected ? (
+        <View style={{ borderRadius: 24, backgroundColor: '#FFFFFF' }}>{body}</View>
+      ) : (
+        <Glass tone="dark" radius={24}>
+          {body}
+        </Glass>
       )}
-    </Pressable>
+    </PressScale>
   );
 }
 
-function Field({ value, onChangeText, placeholder, multiline, keyboardType, onSubmit }: { value: string; onChangeText: (v: string) => void; placeholder: string; multiline?: boolean; keyboardType?: 'default' | 'email-address'; onSubmit?: () => void }) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      placeholderTextColor={D.placeholder}
-      autoFocus
-      multiline={multiline}
-      keyboardType={keyboardType}
-      autoCapitalize={keyboardType === 'email-address' ? 'none' : multiline ? 'sentences' : 'words'}
-      autoCorrect={!keyboardType}
-      returnKeyType={multiline ? 'default' : 'next'}
-      onSubmitEditing={multiline ? undefined : onSubmit}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-      selectionColor={D.accent}
-      style={{
-        minHeight: multiline ? 120 : 46,
-        borderRadius: D.radius,
-        borderWidth: 1,
-        borderColor: focused ? D.accent : D.border,
-        backgroundColor: D.surface,
-        paddingHorizontal: 12,
-        paddingVertical: multiline ? 10 : 0,
-        fontFamily: SANS,
-        fontSize: 16,
-        color: D.text,
-        textAlignVertical: multiline ? 'top' : 'center',
-      }}
-    />
-  );
-}
-
+/** The frontpage's small underlined link ("Ditto ghosting? Fix it"). */
 function TextLink({ children, onPress }: { children: ReactNode; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" onPress={onPress} hitSlop={8} style={{ alignSelf: 'center', paddingVertical: 6 }}>
-      <Text style={text(15, D.accent, '600')}>{children}</Text>
+      <Txt variant="callout" shadow style={{ textDecorationLine: 'underline' }}>
+        {children}
+      </Txt>
     </Pressable>
   );
 }

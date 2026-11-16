@@ -4,7 +4,7 @@ import { SymbolViewProps } from 'expo-symbols';
 import { fetchFriend, fetchStory, type FriendFact, type FriendProfile, type Story } from '../../api/friend';
 import { chatLabel, type Source } from '../../api/client';
 import { openLiveSource } from '../../api/sources';
-import { Chip, Eyebrow, Glass, Icon, PillButton, PressScale, space, Txt } from '@/design';
+import { Chevron, Chip, Eyebrow, Glass, Icon, PillButton, PressScale, space, Txt } from '@/design';
 import { ProfileCard } from './ProfileCard';
 
 export { ProfileCard };
@@ -61,12 +61,12 @@ function Row({ onPress, children, label }: { onPress: () => void; children: Reac
   return (
     <PressScale scale={0.985} accessibilityLabel={label} onPress={onPress} style={styles.row}>
       <View style={{ flex: 1, gap: 3 }}>{children}</View>
-      <Icon name="chevron.right" size={12} color="rgba(255, 255, 255, 0.45)" />
+      <Chevron />
     </PressScale>
   );
 }
 
-const Hairline = () => <View style={{ height: 0.5, backgroundColor: 'rgba(255, 255, 255, 0.12)' }} />;
+const Hairline = () => <View style={{ height: 0.5, backgroundColor: 'rgba(255, 255, 255, 0.1)' }} />;
 
 const Meta = ({ text }: { text: string }) => (
   <Txt variant="footnote" tone="tertiary">
@@ -84,7 +84,7 @@ function Facts({ facts }: { facts: FriendFact[] }) {
         <View key={f.messageId + f.predicate + f.object} style={{ gap: space.sm }}>
           {i > 0 ? <Hairline /> : null}
           <Row onPress={() => open(f.source, f.quote)} label={`${predicateLabel[f.predicate] ?? f.predicate} ${f.object}. Show the message`}>
-            <Txt variant="caption" color={Theme.accentTone.ink} style={{ textTransform: 'uppercase', letterSpacing: 1 }}>
+            <Txt variant="footnote" tone="secondary">
               {predicateLabel[f.predicate] ?? f.predicate}
             </Txt>
             <Txt variant="callout" tone={f.validTo ? 'secondary' : 'primary'} style={{ fontWeight: '700' }}>
@@ -160,7 +160,7 @@ function StoryCard({ name, first, initial }: { name: string; first: string; init
               </Txt>
             </View>
           ) : (
-            <PillButton kind="primary" title="Write our story" icon={<Icon name="pencil.and.outline" size={14} color="#FF2CAB" />} onPress={write} />
+            <PillButton kind="primary" title="Write our story" onPress={write} />
           )}
           {note ? (
             <Txt variant="footnote" tone="secondary">
@@ -273,5 +273,5 @@ export function LiveProfile({ name, first, state, retry }: { name: string; first
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  footnote: { color: '#FF7BCB', fontWeight: '700', fontSize: 12 },
+  footnote: { color: '#F748B1', fontWeight: '700', fontSize: 12 },
 });

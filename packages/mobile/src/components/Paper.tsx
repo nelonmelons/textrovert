@@ -3,6 +3,7 @@ import { Image, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-nativ
 import { SymbolView, SymbolViewProps } from 'expo-symbols';
 import { Rounded, Theme, Tone, Type, withAlpha } from '../theme';
 import { Glass, Sticker } from '../design/Backdrop';
+import { Avatar, Bubble as KitBubble } from '../design/Kit';
 import { symbolName } from '../design/symbols';
 import { deadlineText, Friend } from '../people';
 
@@ -17,14 +18,9 @@ export function Symbol({ name, size, color, weight }: { name: SymbolViewProps['n
   return <SymbolView name={symbolName(name)} size={size} tintColor={color} weight={weight ?? 'regular'} resizeMode="scaleAspectFit" style={{ width: size * 1.25, height: size * 1.1 }} />;
 }
 
+/** Messages' grey contact avatar with initials. */
 export function Face({ initials }: { initials: string }) {
-  return (
-    <View style={styles.faceRing}>
-      <View style={styles.face}>
-        <Text style={[Type.headline, { color: Theme.ink }]}>{initials}</Text>
-      </View>
-    </View>
-  );
+  return <Avatar name={initials.split('').join(' ')} size={44} />;
 }
 
 /** A section header: the frontpage's black sticker. symbol and tone are kept for callers. */
@@ -42,8 +38,9 @@ export function SectionCard({ tone, fillOpacity = 0.5, children, style }: { tone
   );
 }
 
+/** The FAQ's pink chevron. */
 export function RowChevron() {
-  return <Symbol name="chevron.right" size={12} color={Theme.secondary} weight="bold" />;
+  return <Symbol name="chevron.right" size={14} color={Theme.accent} weight="semibold" />;
 }
 
 export function Divider() {
@@ -53,9 +50,9 @@ export function Divider() {
 export function DeadlineBadge({ deadline }: { deadline: Date }) {
   const { text, urgent } = deadlineText(deadline);
   return (
-    <View style={[styles.badge, { backgroundColor: urgent ? Theme.deadline : 'rgba(255, 255, 255, 0.14)' }]}>
-      <Symbol name={urgent ? 'clock.badge.exclamationmark.fill' : 'clock'} size={13} color={urgent ? '#FFFFFF' : Theme.ink} weight={urgent ? 'semibold' : 'medium'} />
-      <Text style={[Type.subheadline, { lineHeight: 18, color: urgent ? '#FFFFFF' : Theme.ink, fontWeight: urgent ? '600' : '500' }]}>{text}</Text>
+    <View style={[styles.badge, { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: urgent ? Theme.accent : 'rgba(255, 255, 255, 0.45)' }]}>
+      <Symbol name="clock" size={13} color={urgent ? Theme.accent : Theme.ink} weight="medium" />
+      <Text style={[Type.footnote, { color: urgent ? Theme.accent : Theme.ink, fontWeight: '600' }]}>{text}</Text>
     </View>
   );
 }
@@ -87,14 +84,13 @@ export function SourceHeader({ friend }: { friend: Friend }) {
   );
 }
 
+/** A Messages bubble with its meta line under it; cited ones get a pink ring. */
 export function Bubble({ text, meta, service, fromMe, cited }: { text: string; meta: string; service?: string; fromMe?: boolean; cited?: boolean }) {
   return (
-    <View style={{ alignItems: fromMe ? 'flex-end' : 'flex-start', gap: 6, paddingRight: fromMe ? 0 : 40, paddingLeft: fromMe ? 40 : 0 }}>
-      <View style={[styles.bubble, fromMe && styles.bubbleMine, cited && { borderWidth: 2, borderColor: Theme.accent }]}>
-        <Text style={[Type.body, { color: fromMe ? '#081721' : Theme.ink }]}>{text}</Text>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {cited ? <Text style={[Type.caption, { color: Theme.accent, fontWeight: '600' }]}>❝ Used in the reading ·</Text> : null}
+    <View style={{ alignItems: fromMe ? 'flex-end' : 'flex-start', gap: 4 }}>
+      <KitBubble text={text} mine={fromMe} style={cited ? { borderRadius: 18, borderWidth: 2, borderColor: Theme.accent } : undefined} />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 17 }}>
+        {cited ? <Text style={[Type.caption, { color: Theme.accent, fontWeight: '600' }]}>Used in the reading ·</Text> : null}
         {service ? <ServiceIcon service={service} /> : null}
         <Text style={[Type.caption, { color: Theme.secondary }]}>{meta}</Text>
       </View>
@@ -107,12 +103,9 @@ export function HedgehogMark({ height, color = '#FFFFFF' }: { height: number; co
   return <Image source={art.mark} style={{ height, width: height * 1.3, tintColor: color }} resizeMode="contain" />;
 }
 
+/** Textrovert as a Messages contact: the hedgehog mark on the grey contact avatar. */
 export function HedgehogAvatar() {
-  return (
-    <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255, 44, 171, 1)', alignItems: 'center', justifyContent: 'center' }}>
-      <Image source={art.mark} style={{ width: 22, height: 22, tintColor: '#FFFFFF' }} resizeMode="contain" />
-    </View>
-  );
+  return <Avatar name="Textrovert" image={art.mark} size={34} />;
 }
 
 export const roundedText = (weight: 'bold' | 'heavy') => ({ fontFamily: Rounded[weight] });
@@ -160,5 +153,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
+    borderWidth: 1,
   },
 });

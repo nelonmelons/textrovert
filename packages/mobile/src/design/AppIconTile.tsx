@@ -2,84 +2,76 @@ import type { ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Glass } from './Backdrop';
-import { PressScale, Tactile } from './Tactile';
-import { useDesign } from './theme';
+import { EmojiAvatar } from './EmojiAvatar';
+import { Chevron } from './Kit';
+import { PressScale } from './Tactile';
 import { Txt } from './Txt';
-import { fills, iconRadius, radii, space, tileGradient, type FillName } from './tokens';
+import { radii, space, type FillName } from './tokens';
 
-/** An iOS app-icon square: a gradient cut from a fill, one big emoji, and a darker lip underneath. */
-export function AppIconTile({ emoji, color = 'blue', size = 64, onPress, accessibilityLabel }: { emoji: string; color?: FillName; size?: number; onPress?: () => void; accessibilityLabel?: string }) {
+/** No app-icon tiles on the frontpage: an emoji on Messages' grey contact circle instead. */
+export function AppIconTile({ emoji, size = 56, onPress, accessibilityLabel }: { emoji: string; color?: FillName; size?: number; onPress?: () => void; accessibilityLabel?: string }) {
   return (
-    <Tactile
-      face={tileGradient(color)}
-      edge={fills[color].edge}
-      radius={iconRadius(size)}
-      lip={0}
-      ring={0}
-      onPress={onPress}
-      accessibilityLabel={accessibilityLabel}
-      style={{ width: size }}
-      faceStyle={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Txt style={{ fontSize: size * 0.5, lineHeight: size * 0.62, textAlign: 'center' }}>{emoji}</Txt>
-    </Tactile>
+    <PressScale onPress={onPress} accessibilityLabel={accessibilityLabel}>
+      <EmojiAvatar emoji={emoji} size={size} />
+    </PressScale>
   );
 }
 
-/** The navy glass card that holds tile grids and feature callouts. */
+/** The house-glass card that holds grids and callouts. */
 export function DarkCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return (
-    <Glass tone="dark" radius={radii.sheet} style={[{ padding: 10, gap: 10 }, style]}>
+    <Glass tone="dark" radius={radii.xl} style={[{ padding: space.md, gap: space.md }, style]}>
       {children}
     </Glass>
   );
 }
 
 export interface TileItem {
-  emoji: string;
+  emoji?: string;
   label: string;
   color?: FillName;
-  /** A small line under the label, e.g. a count. */
   detail?: string;
   onPress?: () => void;
 }
 
-/** App-icon tiles with labels in a two-column dark card, with an optional header row above them. */
+/**
+ * Items in house-glass cells, two to a row: a Spencer label, a small detail line and a pink chevron, under an optional
+ * header row. No icons: the frontpage labels things with type, not tiles.
+ */
 export function TileGrid({ items, columns = 2, header, footer, style }: { items: TileItem[]; columns?: number; header?: ReactNode; footer?: string; style?: StyleProp<ViewStyle> }) {
-  const { c } = useDesign();
   const rows = Array.from({ length: Math.ceil(items.length / columns) }, (_, r) => items.slice(r * columns, r * columns + columns));
   return (
-    <DarkCard style={style}>
+    <View style={[{ gap: 10 }, style]}>
       {header}
       {rows.map((row, r) => (
         <View key={r} style={{ flexDirection: 'row', gap: 10 }}>
           {row.map((item) => (
-            <PressScale
-              key={item.label}
-              onPress={item.onPress}
-              accessibilityLabel={item.label}
-              outerStyle={{ flex: 1 }}
-              style={{ backgroundColor: c.darkCell, borderColor: c.darkCellEdge, borderWidth: 1, borderRadius: 22, borderCurve: 'continuous', alignItems: 'center', paddingTop: space.xl, paddingBottom: space.lg, gap: space.md }}>
-              <AppIconTile emoji={item.emoji} color={item.color} size={56} />
-              <View style={{ alignItems: 'center', gap: 1 }}>
-                <Txt variant="headline" tone="onDark" style={{ fontSize: 15 }}>
+            <PressScale key={item.label} onPress={item.onPress} accessibilityLabel={item.label} outerStyle={{ flex: 1 }}>
+              <Glass tone="dark" radius={radii.xl} style={{ padding: space.lg, minHeight: 96, justifyContent: 'space-between', gap: space.sm }}>
+                <Txt variant="title2" numberOfLines={2}>
                   {item.label}
                 </Txt>
-                {item.detail ? (
-                  <Txt variant="footnote" tone="onDarkMuted">
-                    {item.detail}
-                  </Txt>
-                ) : null}
-              </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  {item.detail ? (
+                    <Txt variant="footnote" tone="secondary" style={{ flex: 1 }}>
+                      {item.detail}
+                    </Txt>
+                  ) : (
+                    <View />
+                  )}
+                  {item.onPress ? <Chevron size={14} /> : null}
+                </View>
+              </Glass>
             </PressScale>
           ))}
           {row.length < columns ? Array.from({ length: columns - row.length }, (_, i) => <View key={i} style={{ flex: 1 }} />) : null}
         </View>
       ))}
       {footer ? (
-        <Txt variant="subhead" tone="onDarkMuted" style={{ textAlign: 'center', paddingTop: space.sm, paddingBottom: space.md, fontWeight: '500' }}>
+        <Txt variant="footnote" tone="secondary" shadow style={{ textAlign: 'center', paddingTop: space.xs }}>
           {footer}
         </Txt>
       ) : null}
-    </DarkCard>
+    </View>
   );
 }

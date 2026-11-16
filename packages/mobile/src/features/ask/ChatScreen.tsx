@@ -1,8 +1,7 @@
 import { ComponentRef, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Animated, Image, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { firstName } from '../../people';
 import { turn, Turn, unavailableReply } from '../../chat';
@@ -10,10 +9,8 @@ import { ask, type Citation, type Person, type Turn as ApiTurn } from '../../api
 import { useDataMode } from '../../api/mode';
 import { useFriend } from '../../api/people';
 import { openLiveSource } from '../../api/sources';
-import { Backdrop, ChatBubble, Chip, DesignFonts, fonts, Glass, Icon, PillButton, PressScale, radii, ScanHighlight, space, sym, TAB_BAR_SPACE, TopBar, Txt, useDesign } from '@/design';
+import { BackButton, Backdrop, Bubble, Chevron, Chip, ContactHeader, DesignFonts, FieldError, fonts, Glass, Icon, IconButton, PillButton, PressScale, radii, space, Stamp, Sticker, sym, TAB_BAR_SPACE, Txt, useDesign } from '@/design';
 import { useSheet } from '../../components/Sheet';
-import { AskAvatar } from './AskAvatar';
-import { askHedgehog } from './hedgehog';
 import { FadeIn } from '../../components/FadeIn';
 import { AnswerText } from './AnswerText';
 import { groupByChat, Sources } from './Sources';
@@ -22,6 +19,8 @@ import { PeoplePicker } from './PeoplePicker';
 import { starters } from './starters';
 import { haptics } from '../../lib/haptics';
 import { nativeDriver, useReducedMotion } from '../../lib/motion';
+
+const mark = require('../../../assets/art/hedgehog-mark.png');
 
 const greeting = (name?: string) =>
   turn({ fromMe: false, text: name ? `Hi! Ask me anything about your chats with ${name}, or add a photo.` : 'Hi! Ask me anything about your friends, plans or chats, or add a photo.' });
@@ -35,8 +34,9 @@ const historyOf = (turns: Turn[]): ApiTurn[] =>
     .slice(-6);
 
 /**
- * Ask, answering from /ask when live, on Ditto's dusk photograph. In the Ask tab it draws a Spencer title over the sky
- * and its composer clears the floating tab bar; pushed as /chat, it draws a glass top bar and sits on the safe area.
+ * Ask, answering from /ask when live, drawn as the frontpage hero phone's Messages thread over the moonlit beach: the
+ * contact header (Textrovert's avatar over its name), a timestamp line, grey received and blue sent bubbles with tails,
+ * a typing bubble while it reads, starters as a house-glass list, and a form-glass composer with a white send key.
  */
 export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
   const params = useLocalSearchParams<{ friend?: string; q?: string; image?: string }>();
@@ -131,7 +131,6 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
     haptics.select();
     const chats = groupByChat(citations).length;
     sheet.open({
-      emoji: '🧾',
       title: 'Receipts',
       subtitle: `${citations.length} ${citations.length === 1 ? 'message' : 'messages'} from ${chats} ${chats === 1 ? 'chat' : 'chats'}`,
       content: (
@@ -150,7 +149,6 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
   const openPicker = () => {
     haptics.select();
     sheet.open({
-      emoji: '🔎',
       title: 'Ask about',
       subtitle: 'Everyone, or one friend’s chats',
       content: (
@@ -168,108 +166,104 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
 
   const canSend = (draft.trim().length > 0 || !!photo) && !busy;
   const fresh = turns.length === 1;
-  const title = name ? `Ask about ${name}` : 'Ask';
+  const contact = name ? `${name} · Textrovert` : 'Textrovert';
+  const firstAt = turns.find((t) => t.at)?.at;
 
-  /** In the tab the composer floats over the transparent tab bar; with the keyboard up (iOS hides nothing) it hugs it. */
-  const composerBottom = inTab ? (keyboard ? space.sm : Math.max(TAB_BAR_SPACE - 12, 49 + insets.bottom + 12)) : insets.bottom + space.sm;
-  const newChat = <PillButton title="New" icon={<Icon name={sym('square.and.pencil', 'edit_square')} size={14} />} small disabled={fresh} accessibilityLabel="New chat" onPress={startOver} />;
+  /** In the tab the composer floats over the tab bar; with the keyboard up it hugs the keyboard. */
+  const composerBottom = inTab ? (keyboard ? space.sm : Math.max(TAB_BAR_SPACE - 4, 49 + insets.bottom + 20)) : insets.bottom + space.sm;
+  const newChat = <PillButton title="New" small disabled={fresh} accessibilityLabel="New chat" onPress={startOver} />;
 
   return (
     <DesignFonts>
       <View style={{ flex: 1 }}>
-        <Backdrop scene="dusk" scrim={0.2} />
+        <Backdrop scene="dusk" scrim={0.18} />
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          {inTab ? (
-            <View style={{ paddingTop: insets.top + space.xl, paddingHorizontal: space.gutter, paddingBottom: space.sm, flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-              <View style={{ flex: 1, paddingLeft: space.xs }}>
-                <Txt accessibilityRole="header" variant={name ? 'title1' : 'largeTitle'} numberOfLines={1}>
-                  {title}
-                </Txt>
+          <View style={{ paddingTop: insets.top + space.md, paddingHorizontal: space.gutter, paddingBottom: space.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <View style={{ width: 72 }}>{inTab ? null : <BackButton />}</View>
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <ContactHeader name={contact} image={mark} onPress={live ? openPicker : undefined} />
               </View>
-              {newChat}
+              <View style={{ width: 72, alignItems: 'flex-end' }}>{newChat}</View>
             </View>
-          ) : null}
+          </View>
           <ScrollView
             ref={scroll}
             style={{ flex: 1 }}
-            contentContainerStyle={{ flexGrow: 1, paddingHorizontal: space.gutter, paddingTop: inTab ? space.md : insets.top + 76, paddingBottom: space.lg, gap: space.md }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: fresh ? 'flex-start' : 'flex-end', paddingHorizontal: 10, paddingTop: space.md, paddingBottom: space.lg, gap: 2 }}
             onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
             keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}>
-            {fresh ? (
-              <Hero name={name} greeting={turns[0].text} />
-            ) : (
-              turns.map((t) =>
-                t.fromMe ? (
-                  <FadeIn key={t.id}>
-                    <ChatBubble mine text={t.text || undefined} time={clock(t.at)}>
-                      {t.image ? <Image source={{ uri: t.image }} style={{ width: 180, height: 180, borderRadius: radii.md, marginTop: 6 }} accessibilityLabel="Your photo" /> : null}
-                    </ChatBubble>
+            <View style={{ marginBottom: 6 }}>
+              <Stamp>
+                iMessage{'\n'}
+                <Text style={{ fontWeight: '600' }}>Today</Text> {clock(firstAt ?? Date.now())}
+              </Stamp>
+            </View>
+            {turns.map((t, i) => {
+              const nextSame = turns[i + 1] && !!turns[i + 1].fromMe === !!t.fromMe;
+              const gap = i > 0 && !!turns[i - 1].fromMe === !!t.fromMe ? 2 : 8;
+              if (t.fromMe)
+                return (
+                  <FadeIn key={t.id} style={{ marginTop: gap }}>
+                    {t.image ? <Image source={{ uri: t.image }} style={{ alignSelf: 'flex-end', width: 180, height: 180, borderRadius: radii.bubble, marginBottom: 2, marginRight: 5 }} accessibilityLabel="Your photo" /> : null}
+                    {t.text ? <Bubble mine text={t.text} tail={!nextSame} /> : null}
                   </FadeIn>
-                ) : t.kind === 'pending' ? (
-                  <FadeIn key={t.id} delay={120}>
-                    <ScanHighlight avatar={askHedgehog} rest={0.5}>
-                      <Theirs>
-                        <ChatBubble>
-                          <Waiting startedAt={t.startedAt ?? Date.now()} name={name} />
-                        </ChatBubble>
-                      </Theirs>
-                    </ScanHighlight>
+                );
+              if (t.kind === 'pending')
+                return (
+                  <FadeIn key={t.id} delay={120} style={{ marginTop: gap, gap: 6 }}>
+                    <Bubble>
+                      <TypingDots />
+                    </Bubble>
+                    <Waiting startedAt={t.startedAt ?? Date.now()} name={name} />
                   </FadeIn>
-                ) : (
-                  <FadeIn key={t.id}>
-                    <Theirs>
-                      <ChatBubble time={clock(t.at)}>
-                        {t.kind === 'answer' ? (
-                          <>
-                            <AnswerText answer={t.text} known={new Set((t.citations ?? []).map((x) => x.n))} onCite={(n) => openReceipts(t.citations ?? [], n)} />
-                            {t.citations?.length ? (
-                              <Sources citations={t.citations} onOpen={(n) => openReceipts(t.citations ?? [], n)} />
-                            ) : (
-                              <Txt variant="footnote" color={c.bubbleTime} style={{ marginTop: space.xs }}>
-                                No messages cited for this one.
-                              </Txt>
-                            )}
-                          </>
-                        ) : t.kind === 'error' ? (
-                          <View style={{ gap: space.xs, alignItems: 'flex-start', paddingVertical: 2 }}>
-                            <Txt variant="headline" color={c.danger}>
-                              I couldn’t answer that.
-                            </Txt>
-                            <Txt variant="subhead" tone="secondary">
-                              {t.text}
-                            </Txt>
-                            <View style={{ marginTop: space.xs }}>
-                              <PillButton title="Try again" icon={<Icon name={sym('arrow.clockwise', 'refresh')} size={14} />} small onPress={() => retry(t)} />
-                            </View>
-                          </View>
-                        ) : (
-                          <>
-                            <Txt variant="callout" color={c.bubbleText}>
-                              {t.text}
-                            </Txt>
-                            {t.detail ? (
-                              <Txt variant="footnote" tone="secondary" style={{ marginTop: 2 }}>
-                                {t.detail}
-                              </Txt>
-                            ) : null}
-                          </>
-                        )}
-                      </ChatBubble>
-                    </Theirs>
-                  </FadeIn>
-                ),
-              )
-            )}
+                );
+              return (
+                <FadeIn key={t.id} style={{ marginTop: gap, gap: 6 }}>
+                  <Bubble tail={!nextSame} maxWidth="86%">
+                    {t.kind === 'answer' ? (
+                      <AnswerText answer={t.text} known={new Set((t.citations ?? []).map((x) => x.n))} onCite={(n) => openReceipts(t.citations ?? [], n)} />
+                    ) : t.kind === 'error' ? (
+                      <View style={{ gap: 2 }}>
+                        <Text style={{ fontFamily: fonts.sf, fontSize: 17, lineHeight: 22, fontWeight: '600', color: '#000000' }}>I couldn’t answer that.</Text>
+                        <Text style={{ fontFamily: fonts.sf, fontSize: 15, lineHeight: 20, color: 'rgba(0, 0, 0, 0.6)' }}>{t.text}</Text>
+                      </View>
+                    ) : (
+                      <View style={{ gap: 2 }}>
+                        <Text style={{ fontFamily: fonts.sf, fontSize: 17, lineHeight: 22, letterSpacing: -0.43, color: '#000000' }}>{t.text}</Text>
+                        {t.detail ? <Text style={{ fontFamily: fonts.sf, fontSize: 15, lineHeight: 20, color: 'rgba(0, 0, 0, 0.6)' }}>{t.detail}</Text> : null}
+                      </View>
+                    )}
+                  </Bubble>
+                  {t.kind === 'answer' && t.citations?.length ? (
+                    <View style={{ paddingLeft: 10 }}>
+                      <Sources citations={t.citations} onOpen={(n) => openReceipts(t.citations ?? [], n)} />
+                    </View>
+                  ) : null}
+                  {t.kind === 'error' ? (
+                    <View style={{ paddingLeft: 10 }}>
+                      <PillButton title="Try again" small onPress={() => retry(t)} />
+                    </View>
+                  ) : null}
+                </FadeIn>
+              );
+            })}
             {live && fresh ? (
-              <View style={{ gap: space.sm }}>
-                {starters(person).map((s, i) => (
-                  <FadeIn key={s.question} delay={120 + i * 60}>
-                    <Starter emoji={s.emoji} question={s.question} detail={s.detail} onPress={() => send(s.question)} />
-                  </FadeIn>
-                ))}
-              </View>
+              <FadeIn delay={160} style={{ marginTop: space.xl, gap: space.sm }}>
+                <View style={{ paddingHorizontal: 6 }}>
+                  <Sticker text="Try asking" accent="asking" size={18} />
+                </View>
+                <Glass tone="dark" radius={radii.xl} style={{ paddingHorizontal: space.sm, paddingVertical: space.xs }}>
+                  {starters(person).map((s, i) => (
+                    <View key={s.question}>
+                      {i ? <View style={{ height: 0.5, backgroundColor: c.separator, marginHorizontal: space.md }} /> : null}
+                      <Starter question={s.question} detail={s.detail} onPress={() => send(s.question)} />
+                    </View>
+                  ))}
+                </Glass>
+              </FadeIn>
             ) : null}
           </ScrollView>
           <View style={{ gap: space.sm, paddingHorizontal: space.gutter, paddingTop: space.xs, paddingBottom: composerBottom }}>
@@ -277,138 +271,76 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' }}>
                 {live ? (
                   <Chip
-                    emoji={name ? '💬' : '✨'}
                     label={(name ? `${name}’s chats` : 'All your chats') + '  ▾'}
                     accessibilityLabel={(name ? `Asking about ${name}` : 'Asking about all your chats') + '. Change'}
                     onPress={openPicker}
                   />
                 ) : null}
                 {photo ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingLeft: 4, paddingRight: 12, borderRadius: radii.pill, backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.28)' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingLeft: 4, paddingRight: 12, borderRadius: radii.pill, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.45)' }}>
                     <Image source={{ uri: photo }} style={{ width: 26, height: 26, borderRadius: 13 }} />
-                    <Txt variant="subhead" style={{ fontWeight: '700', fontSize: 13 }}>
+                    <Txt variant="subhead" style={{ fontWeight: '600', fontSize: 13 }}>
                       1 photo
                     </Txt>
                     <Pressable onPress={() => setPhoto(undefined)} accessibilityLabel="Remove photo" hitSlop={8}>
-                      <Txt variant="subhead" tone="secondary" style={{ fontWeight: '700', fontSize: 13 }}>
-                        ✕
-                      </Txt>
+                      <Icon name="xmark" size={12} />
                     </Pressable>
                   </View>
                 ) : null}
               </View>
             ) : null}
-            {pickError ? (
-              <Txt variant="footnote" color={c.danger} shadow>
-                {pickError}
-              </Txt>
-            ) : null}
+            {pickError ? <FieldError>{pickError}</FieldError> : null}
             <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm }}>
-              <PressScale onPress={pick} accessibilityLabel="Add a photo" scale={0.92}>
-                <Glass tone="light" radius={24} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name={sym('photo.on.rectangle', 'add_photo_alternate')} size={20} />
-                </Glass>
-              </PressScale>
-              <View
-                style={{
-                  flex: 1,
-                  flexDirection: 'row',
-                  alignItems: 'flex-end',
-                  minHeight: 48,
-                  paddingLeft: space.lg,
-                  paddingRight: 4,
-                  paddingVertical: 4,
-                  borderRadius: 24,
-                  backgroundColor: c.input,
-                  borderWidth: 0.5,
-                  borderColor: 'rgba(255, 255, 255, 0.16)',
-                  boxShadow: '0px 8px 24px rgba(4, 12, 18, 0.18)',
-                }}>
-                <TextInput
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={name ? `Ask about ${name}…` : 'Ask about your people…'}
-                  placeholderTextColor={c.placeholder}
-                  multiline
-                  numberOfLines={Platform.OS === 'web' ? 1 : undefined}
-                  onSubmitEditing={() => send(draft, photo)}
-                  onKeyPress={(e) => {
-                    const key = e.nativeEvent as { key: string; shiftKey?: boolean };
-                    if (Platform.OS === 'web' && key.key === 'Enter' && !key.shiftKey) {
-                      e.preventDefault?.();
-                      send(draft, photo);
-                    }
-                  }}
-                  style={[{ flex: 1, alignSelf: 'center', maxHeight: 110, paddingVertical: 9, fontFamily: fonts.ui, fontSize: 16, lineHeight: 21, color: c.text }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
-                />
-                <SendButton enabled={canSend} onPress={() => send(draft, photo)} />
-              </View>
+              <IconButton icon="photo.badge.plus" label="Add a photo" size={46} onPress={pick} />
+              <Glass tone="light" radius={23} style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 46, paddingLeft: space.lg, paddingRight: 4, paddingVertical: 3 }}>
+                  <TextInput
+                    value={draft}
+                    onChangeText={setDraft}
+                    placeholder={name ? `Ask about ${name}…` : 'Ask about your people…'}
+                    placeholderTextColor={c.placeholder}
+                    multiline
+                    numberOfLines={Platform.OS === 'web' ? 1 : undefined}
+                    onSubmitEditing={() => send(draft, photo)}
+                    onKeyPress={(e) => {
+                      const key = e.nativeEvent as { key: string; shiftKey?: boolean };
+                      if (Platform.OS === 'web' && key.key === 'Enter' && !key.shiftKey) {
+                        e.preventDefault?.();
+                        send(draft, photo);
+                      }
+                    }}
+                    style={[{ flex: 1, alignSelf: 'center', maxHeight: 110, paddingVertical: 9, fontFamily: fonts.ui, fontSize: 16, lineHeight: 21, color: c.text }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+                  />
+                  <SendButton enabled={canSend} onPress={() => send(draft, photo)} />
+                </View>
+              </Glass>
             </View>
           </View>
         </KeyboardAvoidingView>
-        {!inTab ? (
-          <>
-            <LinearGradient pointerEvents="none" colors={['rgba(8, 23, 33, 0.78)', 'rgba(8, 23, 33, 0.5)', 'rgba(8, 23, 33, 0)']} locations={[0, 0.6, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top + 96 }} />
-            <TopBar title={name ? `Ask about ${name}` : 'Ask'} trailing={newChat} />
-          </>
-        ) : null}
       </View>
     </DesignFonts>
   );
 }
 
-/** An assistant turn: the pink hedgehog avatar beside its bubble, iMessage-style, so the bubble needs no name. */
-function Theirs({ children }: { children: ReactNode }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.sm }}>
-      <AskAvatar size={28} />
-      <View style={{ flex: 1 }}>{children}</View>
-    </View>
-  );
-}
-
-/** The empty chat: the avatar glowing over the sky, a Spencer prompt and the greeting. */
-function Hero({ name, greeting }: { name?: string; greeting: string }) {
-  return (
-    <FadeIn style={{ alignItems: 'center', gap: space.md, paddingTop: space.xxl, paddingBottom: space.lg, paddingHorizontal: space.lg }}>
-      <AskAvatar size={72} glow />
-      <Txt variant="title1" style={{ textAlign: 'center', marginTop: space.sm }}>
-        {name ? `What about ${name}?` : 'Ask your chats anything'}
-      </Txt>
-      <Txt variant="callout" tone="secondary" shadow style={{ textAlign: 'center', maxWidth: 300 }}>
-        {greeting}
-      </Txt>
-    </FadeIn>
-  );
-}
-
-/** A starter question as a white-glass row: emoji, the question, and what it finds. */
-function Starter({ emoji, question, detail, onPress }: { emoji: string; question: string; detail: string; onPress: () => void }) {
+/** A starter question as a FAQ row: the question, what it finds, and a pink chevron. */
+function Starter({ question, detail, onPress }: { question: string; detail: string; onPress: () => void }) {
   return (
     <PressScale onPress={onPress} accessibilityLabel={question + '. ' + detail} scale={0.98}>
-      <Glass tone="light" radius={radii.lg} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md, paddingHorizontal: space.lg }}>
-        <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.16)' }}>
-          <Txt style={{ fontSize: 17, lineHeight: 22 }}>{emoji}</Txt>
-        </View>
-        <View style={{ flex: 1, gap: 1 }}>
-          <Txt variant="subhead" style={{ fontWeight: '700', fontSize: 15 }}>
-            {question}
-          </Txt>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: space.md, paddingHorizontal: space.md }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt variant="body">{question}</Txt>
           <Txt variant="footnote" tone="secondary">
             {detail}
           </Txt>
         </View>
-        <Txt variant="title3" tone="tertiary" style={{ fontWeight: '400' }}>
-          ›
-        </Txt>
-      </Glass>
+        <Chevron />
+      </View>
     </PressScale>
   );
 }
 
-/** Ditto's hot action: a pink circle with a white arrow; glass and dim until there is something to send. */
+/** Send: the frontpage's white key as a circle with a navy arrow; faint until there is something to send. */
 function SendButton({ enabled, onPress }: { enabled: boolean; onPress: () => void }) {
-  const { c, shadow } = useDesign();
   return (
     <Pressable
       accessibilityRole="button"
@@ -416,18 +348,27 @@ function SendButton({ enabled, onPress }: { enabled: boolean; onPress: () => voi
       accessibilityState={{ disabled: !enabled }}
       disabled={!enabled}
       onPress={onPress}
-      style={({ pressed }) => ({
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: enabled ? c.accent : 'rgba(255, 255, 255, 0.1)',
-        boxShadow: enabled ? shadow.glow : undefined,
-        transform: [{ scale: pressed ? 0.92 : 1 }],
-      })}>
-      <Icon name={sym('arrow.up', 'arrow_upward')} size={18} color={enabled ? '#FFFFFF' : 'rgba(255, 255, 255, 0.4)'} weight="bold" />
+      style={({ pressed }) => ({ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: enabled ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)', transform: [{ scale: pressed ? 0.92 : 1 }] })}>
+      <Icon name={sym('arrow.up', 'arrow_upward')} size={17} color={enabled ? '#081721' : 'rgba(255, 255, 255, 0.6)'} weight="bold" />
     </Pressable>
+  );
+}
+
+/** Messages' typing indicator: three dots that brighten in turn. */
+function TypingDots() {
+  const reduced = useReducedMotion();
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (reduced) return;
+    const t = setInterval(() => setTick((n) => (n + 1) % 3), 380);
+    return () => clearInterval(t);
+  }, [reduced]);
+  return (
+    <View style={{ flexDirection: 'row', gap: 5, paddingVertical: 7, paddingHorizontal: 2 }}>
+      {[0, 1, 2].map((i) => (
+        <View key={i} style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: i === tick ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.22)' }} />
+      ))}
+    </View>
   );
 }
 
@@ -437,7 +378,6 @@ const LONG_WAIT_S = 28;
 /** A status line that changes every few seconds under the scan line, since live answers take 10-40s. */
 function Waiting({ startedAt, name }: { startedAt: number; name?: string }) {
   const reduced = useReducedMotion();
-  const { c } = useDesign();
   const [now, setNow] = useState(Date.now());
   const fade = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -453,8 +393,8 @@ function Waiting({ startedAt, name }: { startedAt: number; name?: string }) {
     Animated.timing(fade, { toValue: 1, duration: 280, useNativeDriver: nativeDriver }).start();
   }, [line, fade, reduced]);
   return (
-    <Animated.View style={{ opacity: fade, minWidth: 210, paddingVertical: space.sm }}>
-      <Txt aria-live="polite" variant="callout" color={c.bubbleText}>
+    <Animated.View style={{ opacity: fade, paddingLeft: 17 }}>
+      <Txt aria-live="polite" variant="footnote" shadow>
         {line}
       </Txt>
     </Animated.View>

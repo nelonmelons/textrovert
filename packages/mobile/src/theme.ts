@@ -1,6 +1,6 @@
 /**
- * The older screen theme (ported from Emma's SwiftUI app), remapped onto Ditto's design language: white ink on sky
- * photographs, navy glass for cards, Ditto pink for the accent, Spencer for titles and Arial for text. Every colour
+ * The older screen theme (ported from Emma's SwiftUI app), remapped onto Ditto's frontpage: white ink on the scenes,
+ * house glass for cards, pink only as the accent, Spencer for titles and Arial for text. Every colour
  * stays an rgba() string so withAlpha can re-weight it.
  */
 import { fonts } from './design/fonts';
@@ -9,28 +9,28 @@ export type Tone = { ink: string; fill: string };
 
 export const Theme = {
   ink: 'rgba(255, 255, 255, 1)',
-  secondary: 'rgba(255, 255, 255, 0.72)',
-  separator: 'rgba(255, 255, 255, 0.14)',
-  tertiaryFill: 'rgba(255, 255, 255, 0.12)',
-  secondaryBackground: 'rgba(255, 255, 255, 0.12)',
-  /** Cards, bubbles and fields: navy glass. */
-  background: 'rgba(8, 23, 33, 0.45)',
-  /** Page canvas: transparent, so the screen's photograph shows. */
+  secondary: 'rgba(255, 255, 255, 0.8)',
+  separator: 'rgba(255, 255, 255, 0.1)',
+  tertiaryFill: 'rgba(255, 255, 255, 0.1)',
+  secondaryBackground: 'rgba(255, 255, 255, 0.1)',
+  /** Cards and panels: the frontpage's house glass (#011E2C at 40%). */
+  background: 'rgba(1, 30, 44, 0.4)',
+  /** Page canvas: transparent, so the screen's scene shows. */
   paper: 'rgba(8, 23, 33, 0)',
-  /** Docked panels and overlays: near-opaque navy (#081721). */
-  panel: 'rgba(8, 23, 33, 0.82)',
-  /** Solid navy for full overlays that must hide what is under them. */
+  panel: 'rgba(1, 30, 44, 0.9)',
   solid: 'rgba(8, 23, 33, 1)',
   gridLine: 'rgba(255, 255, 255, 0)',
-  gridMajor: 'rgba(255, 255, 255, 0.12)',
-  deadline: 'rgba(255, 44, 171, 1)',
-  accent: 'rgba(255, 44, 171, 1)',
-  accentTone: { ink: 'rgba(255, 123, 203, 1)', fill: 'rgba(255, 44, 171, 0.24)' } as Tone,
-  plansTone: { ink: 'rgba(156, 200, 255, 1)', fill: 'rgba(92, 156, 242, 0.26)' } as Tone,
-  celebrateTone: { ink: 'rgba(255, 224, 138, 1)', fill: 'rgba(242, 193, 78, 0.24)' } as Tone,
-  repliesTone: { ink: 'rgba(201, 184, 255, 1)', fill: 'rgba(159, 135, 245, 0.26)' } as Tone,
-  coralTone: { ink: 'rgba(255, 157, 174, 1)', fill: 'rgba(242, 106, 132, 0.24)' } as Tone,
-  activitiesTone: { ink: 'rgba(143, 227, 196, 1)', fill: 'rgba(76, 198, 155, 0.24)' } as Tone,
+  gridMajor: 'rgba(255, 255, 255, 0.1)',
+  /** Pink, for the one urgent thing. */
+  deadline: 'rgba(247, 72, 177, 1)',
+  accent: 'rgba(247, 72, 177, 1)',
+  /** Section tones collapse to the frontpage's white-on-glass; only the accent keeps its pink. */
+  accentTone: { ink: 'rgba(247, 72, 177, 1)', fill: 'rgba(247, 72, 177, 0.2)' } as Tone,
+  plansTone: { ink: 'rgba(255, 255, 255, 0.8)', fill: 'rgba(255, 255, 255, 0.1)' } as Tone,
+  celebrateTone: { ink: 'rgba(255, 255, 255, 0.8)', fill: 'rgba(255, 255, 255, 0.1)' } as Tone,
+  repliesTone: { ink: 'rgba(255, 255, 255, 0.8)', fill: 'rgba(255, 255, 255, 0.1)' } as Tone,
+  coralTone: { ink: 'rgba(255, 255, 255, 0.8)', fill: 'rgba(255, 255, 255, 0.1)' } as Tone,
+  activitiesTone: { ink: 'rgba(255, 255, 255, 0.8)', fill: 'rgba(255, 255, 255, 0.1)' } as Tone,
 };
 
 export const sectionTone = (section: 'reply' | 'plans' | 'together' | 'memories' | 'gifts'): Tone =>
@@ -62,8 +62,8 @@ export const Type = {
   caption2: { fontSize: 11, lineHeight: 13, ...ui },
 };
 
-/** Ditto's title shadow for white serif on bright sky. */
-export const titleShadow = { textShadowColor: 'rgba(0, 0, 0, 0.25)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 4 };
+/** The frontpage's navy title shadow. */
+export const titleShadow = { textShadowColor: 'rgba(14, 40, 96, 0.38)', textShadowOffset: { width: 2, height: 4 }, textShadowRadius: 8 };
 
 export const radius = { bubble: 20, tile: 16, card: 24, sheet: 32, capsule: 999 };
 

@@ -80,8 +80,8 @@ export default function NoteEditor() {
           </Txt>
         ) : status === 'saved' ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center', boxShadow: '0px 0px 18px rgba(255, 44, 171, 0.55)' }}>
-              <Icon name={sym('checkmark', 'check')} size={18} weight="bold" />
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name={sym('checkmark', 'check')} size={18} weight="bold" color="#081721" />
             </View>
             <Txt variant="headline" shadow>
               Saved

@@ -8,7 +8,7 @@ import { blockLength, parseAnswer, type Block, type Segment } from '@/lib/answer
 const FOLD_AT = 360;
 const FOLD_MIN_HIDDEN = 160;
 
-/** An assistant answer as light markdown in white on glass, with its [n] markers drawn as small raised pink pills that open the receipt. */
+/** An assistant answer as light markdown in a grey Messages bubble (black SF), its [n] markers as small raised pink pills that open the receipt. */
 export function AnswerText({ answer, known, onCite }: { answer: string; known: Set<number>; onCite: (n: number) => void }) {
   const { c } = useDesign();
   const [expanded, setExpanded] = useState(false);
@@ -57,7 +57,7 @@ export function AnswerText({ answer, known, onCite }: { answer: string; known: S
       {shown.map(render)}
       {hidden > 0 || expanded ? (
         <Pressable accessibilityRole="button" onPress={() => setExpanded((e) => !e)} hitSlop={8} style={styles.more}>
-          <Txt variant="footnote" style={{ fontWeight: '700', textDecorationLine: 'underline' }}>
+          <Txt variant="footnote" color="rgba(0, 0, 0, 0.55)" style={{ fontWeight: '600', textDecorationLine: 'underline' }}>
             {expanded ? 'Show less ▲' : 'Show more ▼'}
           </Txt>
         </Pressable>
@@ -85,15 +85,15 @@ function Cite({ n, onPress }: { n: number; onPress: () => void }) {
 
 const styles = StyleSheet.create({
   blocks: { gap: 7 },
-  text: { fontFamily: fonts.ui, fontSize: 16, lineHeight: 23 },
-  heading: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 16, marginTop: 4 },
-  bold: { fontFamily: fonts.ui, fontWeight: '700' },
+  text: { fontFamily: fonts.sf, fontSize: 17, lineHeight: 22, letterSpacing: -0.43 },
+  heading: { fontFamily: fonts.sf, fontWeight: '600', fontSize: 17, marginTop: 4 },
+  bold: { fontFamily: fonts.sf, fontWeight: '600' },
   item: { flexDirection: 'row', gap: 8, paddingLeft: 2 },
-  marker: { width: 10, textAlign: 'center', fontFamily: fonts.ui, fontWeight: '700' },
+  marker: { width: 10, textAlign: 'center', fontFamily: fonts.sf, fontWeight: '600' },
   number: { width: 18, textAlign: 'right', fontVariant: ['tabular-nums'], fontSize: 15 },
   flex: { flex: 1 },
   raise: { transform: [{ translateY: Platform.OS === 'web' ? -5 : -4 }], marginRight: 2 },
   pill: { minWidth: 17, height: 17, paddingHorizontal: 5, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  pillText: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 10, lineHeight: 12, fontVariant: ['tabular-nums'] },
+  pillText: { fontFamily: fonts.sf, fontWeight: '700', fontSize: 10, lineHeight: 12, fontVariant: ['tabular-nums'] },
   more: { alignSelf: 'flex-start', paddingTop: 2 },
 });

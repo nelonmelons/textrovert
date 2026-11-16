@@ -73,7 +73,7 @@ function SourceCard({
           {disabled ? null : busy ? (
             <ActivityIndicator size="small" color="#FFFFFF" style={{ marginTop: 2 }} />
           ) : (
-            <View style={[styles.check, selected && styles.checkOn]}>{selected ? <Symbol name="checkmark" size={12} color="#FF2CAB" weight="bold" /> : null}</View>
+            <View style={[styles.check, selected && styles.checkOn]}>{selected ? <Symbol name="checkmark" size={12} color="#081721" weight="bold" /> : null}</View>
           )}
         </View>
       </Glass>
@@ -233,8 +233,8 @@ const styles = StyleSheet.create({
   sourceTitleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   ink: { color: Theme.ink },
   secondary: { color: Theme.secondary },
-  statusPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(255, 255, 255, 0.14)' },
-  status: { color: '#FFFFFF', fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.45)' },
+  status: { color: '#FFFFFF', fontWeight: '600' },
   check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(255, 255, 255, 0.45)', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
   checkOn: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
   detail: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 4 },

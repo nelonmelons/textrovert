@@ -4,20 +4,22 @@ import { useFonts } from 'expo-font';
 import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 
 /**
- * Ditto's faces (dodo-world/ditto apps/frontpage): Spencer for titles, Bitter Sour for the hand-lettered accent, Argent
- * Pixel for decorative numbers, and the Arial-first UI stack for everything else. Arial leads on purpose, as in Ditto's --font-ui: a Helvetica-first stack
+ * Ditto's frontpage faces (dodo-world/ditto apps/frontpage): Spencer for titles and big numbers, Bitter Sour for the
+ * hand-lettered accent, SF for Messages, and the Arial-first UI stack for everything else. Arial leads on purpose, as in Ditto's --font-ui: a Helvetica-first stack
  * can resolve to an oblique-only face on some machines.
  */
 export const fontFiles = {
   Spencer: require('../../assets/fonts/Spencer-Regular.ttf'),
-  ArgentPixel: require('../../assets/fonts/ArgentPixel-Regular.ttf'),
   BitterSour: require('../../assets/fonts/BitterSour-Regular.ttf'),
   Nunito_800ExtraBold,
 };
 
 export const fonts = {
   serif: 'Spencer',
-  pixel: 'ArgentPixel',
+  /** No pixel face on the frontpage: big numbers are Spencer. Kept for older call sites. */
+  pixel: 'Spencer',
+  /** Messages' face, for chat bubbles and contact headers. */
+  sf: Platform.select({ web: '-apple-system, "SF Pro Text", system-ui, sans-serif', ios: undefined, default: 'sans-serif' }) as string | undefined,
   /** The frontpage's hand-lettered accent ("@Austin", "Date without Swiping"). */
   script: 'BitterSour',
   /** The wordmark: a rounded heavy sans, like Ditto's. */

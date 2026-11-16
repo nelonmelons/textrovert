@@ -13,7 +13,7 @@ import { sectionTone } from '../../theme';
 import { DeadlineBadge, ServiceIcon } from '../../components/Paper';
 import { MilestoneRow } from '../../components/MilestoneRow';
 import { WrappedEntry } from '../../components/WrappedEntry';
-import { Backdrop, EmojiAvatar, Glass, Icon, IconButton, PillButton, PressScale, space, TopBar, Txt, useDesign } from '@/design';
+import { Backdrop, Chevron, EmojiAvatar, Field, FormCard, Glass, Icon, IconButton, PillButton, PressScale, TopBar, Txt, space, useDesign } from '@/design';
 
 const openSource = (friend: Friend, messageID: string) => router.push({ pathname: '/source', params: { friend: friend.id, message: messageID } });
 const openEditor = (friend: Friend, section: NoteSection, id?: string) => router.push({ pathname: '/note', params: { friend: friend.id, section, ...(id ? { id } : {}) } });
@@ -48,7 +48,7 @@ function NoteRow({ friend, note }: { friend: Friend; note: Note }) {
           {source && note.edited ? <Provenance symbol="pencil" text="Edited by you" /> : null}
           {!source ? <Provenance symbol="person.crop.circle" text="Added by you" /> : null}
         </View>
-        {source ? <Icon name="chevron.right" size={12} color="rgba(255, 255, 255, 0.45)" /> : null}
+        {source ? <Chevron /> : null}
       </PressScale>
       <IconButton icon="pencil" size={34} label={`Edit ${note.title}`} onPress={() => openEditor(friend, note.section, note.id)} />
     </View>
@@ -127,15 +127,14 @@ function Notepad({ friend }: { friend: Friend }) {
         multiline
         placeholder={`Anything else about ${firstName(friend)}: sizes, allergies, inside jokes…`}
         placeholderTextColor={c.placeholder}
-        style={[{ minHeight: 104, padding: space.md, fontSize: 15, lineHeight: 21, color: '#FFFFFF', backgroundColor: c.input, borderRadius: 18, textAlignVertical: 'top' }, uiFont]}
+        style={[{ minHeight: 104, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, lineHeight: 22, color: '#FFFFFF', backgroundColor: 'rgba(0, 0, 0, 0.1)', borderRadius: 16, textAlignVertical: 'top' }, uiFont]}
       />
     </ProfileCard>
   );
 }
 
-/** The ask field for this one person: a Ditto input pill with Ditto's pink send key, the one hot action on the page. */
+/** The ask field for this one person: the Enroll card's field with a white send key. */
 function AskAbout({ friend }: { friend: Friend }) {
-  const { c } = useDesign();
   const [text, setText] = useState('');
   const first = firstName(friend);
   const trimmed = text.trim();
@@ -146,25 +145,26 @@ function AskAbout({ friend }: { friend: Friend }) {
     router.push({ pathname: '/chat', params: { friend: friend.id, q: trimmed } });
   };
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 52, paddingLeft: space.lg, paddingRight: 6, borderRadius: 999, backgroundColor: c.input, borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.18)' }}>
-      <Icon name="sparkles" size={15} color={c.accentText} />
-      <TextInput
+    <FormCard>
+      <Field
         value={text}
         onChangeText={setText}
         onSubmitEditing={send}
         returnKeyType="send"
         placeholder={`Ask anything about ${first}…`}
-        placeholderTextColor={c.placeholder}
-        style={[{ flex: 1, height: 52, fontSize: 16, color: '#FFFFFF' }, uiFont]}
+        trailing={
+          <PressScale onPress={trimmed ? send : undefined} accessibilityLabel={`Ask about ${first}`} scale={0.92}>
+            <View style={{ width: 34, height: 34, borderRadius: 17, marginRight: -10, alignItems: 'center', justifyContent: 'center', backgroundColor: trimmed ? '#FFFFFF' : 'rgba(255, 255, 255, 0.2)' }}>
+              <Icon name="arrow.up" size={15} weight="bold" color={trimmed ? '#081721' : 'rgba(255, 255, 255, 0.6)'} />
+            </View>
+          </PressScale>
+        }
       />
-      <View style={{ opacity: trimmed ? 1 : 0.45 }}>
-        <IconButton icon="arrow.up" size={40} kind="pink" label={`Ask about ${first}`} onPress={send} />
-      </View>
-    </View>
+    </FormCard>
   );
 }
 
-/** Opens this friend's Wrapped: a glass row with a sparkle tile. */
+/** Opens this friend's Wrapped: a house-glass row with a Spencer title and a pink chevron. */
 function WrappedButton({ conversationId, first }: { conversationId: string | null | undefined; first: string }) {
   const ready = !!conversationId;
   return (
@@ -180,19 +180,14 @@ function WrappedButton({ conversationId, first }: { conversationId: string | nul
       }
       style={{ opacity: ready ? 1 : 0.6 }}
     >
-      <Glass tone="light" radius={24} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md, paddingRight: space.lg }}>
-        <View style={{ width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 44, 171, 0.9)', boxShadow: '0px 0px 18px rgba(255, 44, 171, 0.45)' }}>
-          <Icon name="sparkles" size={20} />
-        </View>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Txt variant="headline" shadow>
-            Your Wrapped with {first}
-          </Txt>
-          <Txt variant="subhead" tone="secondary" shadow>
+      <Glass tone="dark" radius={24} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Txt variant="title2">Your Wrapped with {first}</Txt>
+          <Txt variant="footnote" tone="secondary">
             {conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
           </Txt>
         </View>
-        <Icon name="chevron.right" size={13} color="rgba(255, 255, 255, 0.7)" />
+        <Chevron />
       </Glass>
     </PressScale>
   );
@@ -252,9 +247,7 @@ export default function FriendProfile() {
   return (
     <Page>
       <View style={{ alignItems: 'center', gap: space.sm, paddingTop: space.sm, paddingBottom: space.sm }}>
-        <View style={{ padding: 4, borderRadius: 64, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.55)', backgroundColor: 'rgba(255, 255, 255, 0.1)' }}>
-          <EmojiAvatar name={friend.name} size={104} />
-        </View>
+        <EmojiAvatar name={friend.name} size={96} />
         <Txt accessibilityRole="header" variant="display" numberOfLines={2} adjustsFontSizeToFit style={{ textAlign: 'center', marginTop: space.sm }}>
           {friend.name}
         </Txt>

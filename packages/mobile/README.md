@@ -6,19 +6,25 @@ states otherwise, so the app runs with no backend.
 
 ## Design
 
-The look is Ditto's frontpage design language (austincupid.com; dodo-world/ditto `apps/frontpage`) on a different app.
-Each screen sits on one of the frontpage's scenes (`Backdrop`, art in `assets/ditto/`): the painted, dithered sky for
-Today, the moonlit beach for Ask, the blue-duotone aquarium for People, the blue-duotone couple for You, and the
-blurred painted landscape (teal) for pushed screens. On top of that:
+Ditto's frontpage design (austincupid.com; dodo-world/ditto `apps/frontpage`), and only its elements:
 
-- type: white Spencer titles with the frontpage's soft navy shadow, a Bitter Sour script accent, Argent Pixel for big
-  numbers, the Arial-first stack for body, and a heavy rounded wordmark;
-- labels: black stickers with one word in Ditto pink (`Sticker`; `Eyebrow` and `SectionTitle` render one);
-- surfaces: the hero phone's clear liquid glass (`Glass`), deep-blue sections with scalloped edges (`Scallop`);
-- actions: the white pill with ink text (`BigButton`), clear glass pills with a white rim for secondary actions.
+- **Scenes** (`Backdrop`, art in `assets/ditto/`): the painted, dithered sky for Today and onboarding, the moonlit
+  beach for Ask, the blue-duotone aquarium for People, the blue-duotone couple for You, the blurred painted landscape
+  for pushed screens.
+- **Type**: white Spencer titles and big numbers with the navy title shadow, a Bitter Sour script accent, Arial for
+  text, SF inside Messages bubbles, and a heavy rounded wordmark.
+- **Labels**: black stickers with one pink word (`Sticker`; `Eyebrow` and `SectionTitle` render one).
+- **Surfaces**: the FAQ's house glass for lists and cards (`Glass tone="dark"`: #011E2C at 40%, blur 24, a slate
+  rim), the Enroll card's form glass for forms, pills and the tab bar (`Glass tone="light"`, `FormCard`), and
+  deep-blue sections under a scalloped edge (`Scallop`).
+- **Fields and actions**: the Enroll field (`Field`: 46pt, black/10, white text), the white pill with navy ink
+  (`BigButton`), and form-glass pills with white ink (`PillButton`, `IconButton`).
+- **Chat**: the hero phone's Messages thread (`ContactHeader`, `Stamp`, `Bubble`: grey received, blue sent, with
+  tails) and grey contact avatars (`Avatar`).
+- **Pink** (#F748B1) only for accent words, chevrons (`Chevron`), counts and the one highlighted bar.
 
-Pushed screens have no native header: they draw a glass back button (`Screen back` / `TopBar`). On wide web windows
-the app sits in a liquid-glass phone over the painted sky. Tokens live in `src/design/tokens.ts`; the older screens'
+Pushed screens draw a glass back button (`Screen back` / `TopBar`) instead of a native header. On wide web windows
+the app sits in a glass phone over the painted sky. Tokens live in `src/design/tokens.ts`; the older screens'
 `src/theme.ts` maps onto the same palette.
 
 ## Navigation

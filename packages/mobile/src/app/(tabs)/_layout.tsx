@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Glass } from '../../design/Backdrop';
 import { SymbolView, type SymbolViewProps } from 'expo-symbols';
 import { fonts } from '../../design/fonts';
 import { ditto } from '../../design/tokens';
@@ -11,8 +11,8 @@ const icon = (name: SymbolViewProps['name']) =>
   };
 
 /**
- * Ditto's tab bar: no surface, just white icons and 11px labels floating over the photograph (35% white at rest, solid
- * white when active), with a soft navy fade underneath so they stay legible on bright sky.
+ * The tab bar as a floating capsule of the frontpage's form glass (white/10, blur 10, a white lit rim), white icons and
+ * labels, the active tab solid white.
  */
 export default function TabLayout() {
   return (
@@ -20,15 +20,22 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#FFFFFF',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.45)',
+        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.55)',
         tabBarStyle: {
           position: 'absolute',
+          left: 16,
+          right: 16,
+          marginHorizontal: 16,
+          bottom: Platform.OS === 'web' ? 12 : 24,
+          height: 64,
+          paddingTop: 6,
+          paddingBottom: 8,
+          borderRadius: 32,
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,
-          ...(Platform.OS === 'web' ? { height: 68, paddingBottom: 10, paddingTop: 6 } : null),
         },
-        tabBarBackground: () => <LinearGradient colors={['rgba(8, 23, 33, 0)', 'rgba(8, 23, 33, 0.6)', 'rgba(8, 23, 33, 0.82)']} locations={[0, 0.45, 1]} style={[StyleSheet.absoluteFill, { top: -36 }]} pointerEvents="none" />,
+        tabBarBackground: () => <Glass tone="light" radius={32} style={StyleSheet.absoluteFill} />,
         tabBarLabelStyle: { fontFamily: fonts.ui, fontWeight: '700', fontSize: 11 },
         tabBarHideOnKeyboard: Platform.OS === 'android',
         sceneStyle: { backgroundColor: ditto.nu7 },

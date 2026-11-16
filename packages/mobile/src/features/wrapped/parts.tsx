@@ -6,6 +6,8 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, RadialGradient, Stop, Text as SvgText, TSpan } from 'react-native-svg';
+import { Bubble as KitBubble } from '@/design/Kit';
+import { Sticker } from '@/design/Backdrop';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -112,15 +114,9 @@ function GlowBlob({ color, index, clock, w, h }: { color: string; index: number;
   );
 }
 
-/** Slowly drifting colour fields behind a slide. Static under Reduce Motion or when the slide isn't active. */
-export function Glow({ colors, active = true }: { colors: string[]; active?: boolean }) {
-  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
-  const clock = useRepeat(3_600_000, { active, loop: true });
-  return (
-    <View pointerEvents="none" aria-hidden style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
-      {size ? colors.map((c, i) => <GlowBlob key={i} color={c} index={i} clock={clock} w={size.w} h={size.h} />) : null}
-    </View>
-  );
+/** The frontpage's scenes carry their own light: no colour fields over them. Kept for callers, draws nothing. */
+export function Glow(_: { colors: string[]; active?: boolean }) {
+  return null;
 }
 
 /** Twinkling stars for the ghost scene. */
@@ -145,28 +141,9 @@ function Star({ i, color, active }: { i: number; color: string; active: boolean 
   );
 }
 
-/** A ring of the rainbow, rotating once a minute (static under Reduce Motion). */
-export function RainbowRing({ size, stroke, active = true }: { size: number; stroke: number; active?: boolean }) {
-  const turn = useRepeat(60_000, { active, loop: true });
-  const style = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value * 360}deg` }] }));
-  const r = (size - stroke) / 2;
-  const c = size / 2;
-  const segments = 72;
-  const colorAt = (t: number) => {
-    const x = t * (rainbowRing.length - 1);
-    const i = Math.min(Math.floor(x), rainbowRing.length - 2);
-    return mixHex(rainbowRing[i], rainbowRing[i + 1], x - i);
-  };
-  const arcs = Array.from({ length: segments }, (_, k) => {
-    const a0 = (k / segments) * Math.PI * 2 - Math.PI / 2, a1 = ((k + 1.6) / segments) * Math.PI * 2 - Math.PI / 2;
-    const d = `M ${c + r * Math.cos(a0)} ${c + r * Math.sin(a0)} A ${r} ${r} 0 0 1 ${c + r * Math.cos(a1)} ${c + r * Math.sin(a1)}`;
-    return <Path key={k} d={d} stroke={colorAt(k / segments)} strokeWidth={stroke} fill="none" />;
-  });
-  return (
-    <Animated.View style={[{ width: size, height: size }, style]}>
-      <Svg width={size} height={size}>{arcs}</Svg>
-    </Animated.View>
-  );
+/** No decorative rings on the frontpage. Kept for callers, draws nothing. */
+export function RainbowRing(_: { size: number; stroke: number; active?: boolean }) {
+  return null;
 }
 
 function mixHex(a: string, b: string, t: number) {
@@ -175,8 +152,9 @@ function mixHex(a: string, b: string, t: number) {
   return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
 }
 
-export function Eyebrow({ text: label, color }: { text: string; color: string }) {
-  return <Text style={{ ...text.caption, fontFamily: fonts.rounded, fontWeight: '700', letterSpacing: 2.2, color, textTransform: 'uppercase', ...lift }}>{label}</Text>;
+/** A slide's label: the frontpage's black sticker, last word in pink. color is kept for callers. */
+export function Eyebrow({ text: label }: { text: string; color?: string }) {
+  return <Sticker text={label} size={17} />;
 }
 
 /** Ditto's primary key with a tap glyph: the white/95 pill with bold pink ink. color and ink are ignored. */
@@ -262,19 +240,16 @@ export function GradientText({ lines, colors, size, family, weight, italic = fal
   );
 }
 
-/** One verified message as a chat bubble, its source line beneath, read as one element. */
-export function Bubble({ quote, story, fill, color, caption }: { quote: WrappedQuote; story: Story; fill: string; color: string; caption: string }) {
+/**
+ * One verified message as a Messages bubble (the frontpage hero phone's: grey with black ink, or blue with white when
+ * it is yours), its source line beneath, read as one element. fill, color and caption are kept for callers.
+ */
+export function Bubble({ quote, story }: { quote: WrappedQuote; story: Story; fill?: string; color?: string; caption?: string }) {
   const mine = isOwner(story, quote);
   return (
     <View accessible accessibilityLabel={`${who(story, quote)} said, ${quote.text}. ${attribution(story, quote)}`} style={{ alignItems: mine ? 'flex-end' : 'flex-start', gap: 6 }}>
-      <View
-        style={{
-          backgroundColor: fill, paddingHorizontal: 16, paddingVertical: 12, maxWidth: '88%', boxShadow: '0px 6px 18px rgba(4, 12, 18, 0.18)',
-          borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: mine ? 20 : 6, borderBottomRightRadius: mine ? 6 : 20,
-        }}>
-        <Text style={{ ...text.title3, fontFamily: fonts.rounded, fontWeight: '400', color }}>{quote.text}</Text>
-      </View>
-      <Text style={{ ...text.caption, fontFamily: fonts.rounded, fontWeight: '700', color: caption, ...lift }}>{attribution(story, quote)}</Text>
+      <KitBubble mine={mine} text={quote.text} maxWidth="88%" />
+      <Text style={{ ...text.caption, fontFamily: fonts.rounded, fontWeight: '600', color: 'rgba(255, 255, 255, 0.88)', paddingHorizontal: 17, ...lift }}>{attribution(story, quote)}</Text>
     </View>
   );
 }
@@ -321,19 +296,20 @@ export function tangentPath(w: number, h: number) {
   return `M0 ${h * 0.22} L${w * 0.44} ${h * 0.22} C${w * 0.74} ${h * 0.22} ${w * 0.42} ${h * 0.72} ${w * 0.6} ${h * 0.88} C${w * 0.8} ${h * 1.02} ${w * 0.82} ${h * 0.45} ${w * 0.97} ${h * 0.45}`;
 }
 
-const DITTO_PINK = '#FF2CAB';
+/** The white key's ink: the frontpage's navy. */
+const DITTO_PINK = '#081721';
 
 const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 10, paddingHorizontal: 22, paddingVertical: 14, minHeight: 48, borderRadius: 999 },
   wide: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 15, minHeight: 52, borderRadius: 999, alignSelf: 'stretch' },
-  key: { backgroundColor: 'rgba(255, 255, 255, 0.95)', boxShadow: '0px 2px 8px rgba(4, 12, 18, 0.18)' },
+  key: { backgroundColor: '#FFFFFF' },
   glass: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    boxShadow: 'inset 0px 0px 8px 0px rgba(255, 255, 255, 0.15)',
+    boxShadow: 'inset 0px 1px 4px 0px rgba(255, 255, 255, 0.25)',
     borderWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.5)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.32)',
-    borderRightColor: 'rgba(255, 255, 255, 0.1)',
-    borderBottomColor: 'rgba(255, 255, 255, 0.16)',
+    borderTopColor: 'rgba(255, 255, 255, 0.8)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.45)',
+    borderRightColor: 'rgba(255, 255, 255, 0.14)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.3)',
   },
 });

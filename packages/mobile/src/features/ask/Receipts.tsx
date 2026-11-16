@@ -28,9 +28,9 @@ export function Receipts({ citations, focus, onOpenChat }: { citations: Citation
       <ChatPanel style={{ gap: space.md }}>
         {groups.map((g, gi) => (
           <Fragment key={g.chatId}>
-            <View style={{ alignSelf: 'center', maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, backgroundColor: c.fill, borderWidth: 0.5, borderColor: c.edge, marginTop: gi ? space.sm : 0 }}>
+            <View style={{ alignSelf: 'center', maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.45)', marginTop: gi ? space.sm : 0 }}>
               <Txt variant="caption" tone="secondary" numberOfLines={1} style={{ letterSpacing: 0.3 }}>
-                {(g.isDm ? '💬 ' : '👥 ') + chatName(g)}
+                {chatName(g)}
               </Txt>
             </View>
             {g.citations.map((x, i) => (
@@ -47,7 +47,7 @@ export function Receipts({ citations, focus, onOpenChat }: { citations: Citation
             key={g.chatId}
             title={chatName(g)}
             subtitle={(g.isDm ? 'Your DM' : 'Group chat') + ' · ' + g.citations.length + (g.citations.length === 1 ? ' message' : ' messages')}
-            leading={g.isDm ? <EmojiAvatar name={chatName(g)} size={36} /> : <EmojiAvatar emoji="👥" name={g.chatId} size={36} />}
+            leading={<EmojiAvatar name={g.isDm ? chatName(g) : ''} size={36} />}
             onPress={() => onOpenChat(g.citations[0])}
           />
         ))}

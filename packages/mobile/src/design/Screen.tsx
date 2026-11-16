@@ -53,7 +53,7 @@ export function TopBar({ title, trailing, leading }: { title?: string; trailing?
 /** A page title in Spencer with Ditto's title shadow, optional eyebrow, sub-copy and a trailing accessory. */
 export function LargeTitle({ title, eyebrow, subtitle, trailing, center = false, size = 'largeTitle' }: { title: string; eyebrow?: string; subtitle?: string; trailing?: ReactNode; center?: boolean; size?: 'largeTitle' | 'display' }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: space.md }}>
+    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: space.md }}>
       <View style={{ flex: 1, gap: space.sm, alignItems: center ? 'center' : 'flex-start' }}>
         {eyebrow ? <Eyebrow text={eyebrow} /> : null}
         <Txt accessibilityRole="header" variant={size} style={{ textAlign: center ? 'center' : 'left' }}>

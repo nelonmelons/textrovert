@@ -6,7 +6,7 @@ import { Friend } from '../../people';
 import { useDataMode } from '../../api/mode';
 import { useFriends } from '../../api/people';
 import { haptics } from '../../lib/haptics';
-import { EmojiAvatar, Eyebrow, Glass, Icon, PillButton, PressScale, space, TAB_BAR_SPACE, Txt, useDesign } from '@/design';
+import { Chevron, EmojiAvatar, Eyebrow, Glass, Icon, PillButton, PressScale, space, TAB_BAR_SPACE, Txt, useDesign } from '@/design';
 
 /** Everyone you text (GET /people when live, Emma's friends in demo mode), searchable; a tap opens their profile. */
 export function PeopleList() {
@@ -122,7 +122,7 @@ function Row({ friend }: { friend: Friend }) {
           {friend.handle}
         </Txt>
       </View>
-      <Icon name="chevron.right" size={13} color="rgba(255, 255, 255, 0.45)" />
+      <Chevron />
     </PressScale>
   );
 }

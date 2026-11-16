@@ -5,7 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import type { SymbolViewProps } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Backdrop, ditto, Eyebrow, fill, fonts, Glass, Icon, PillButton, PressScale, Scallop, Sticker, TAB_BAR_SPACE, Txt, useDesign, Wordmark } from '@/design';
+import { Chevron, Backdrop, ditto, Eyebrow, fill, fonts, Glass, Icon, PillButton, PressScale, Scallop, Sticker, TAB_BAR_SPACE, Txt, useDesign, Wordmark } from '@/design';
 import { Friend, firstName, upcomingMilestones } from '../../people';
 import { DeadlineBadge, Face, HedgehogMark } from '../../components/Paper';
 import { useDataMode } from '../../api/mode';
@@ -83,7 +83,7 @@ function Row({ friend, source, children }: { friend: Friend; source?: string; ch
         <Face initials={friend.initials} />
       </Pressable>
       <View style={{ flex: 1, gap: 4 }}>{children}</View>
-      <Icon name="chevron.right" size={13} color={c.textTertiary} />
+      <Chevron />
     </PressScale>
   );
 }
@@ -116,7 +116,7 @@ export default function Today() {
   const replies = friends.flatMap((friend) => items(friend, 'reply').map((item) => ({ friend, item })));
   const plans = friends.flatMap((friend) => items(friend, 'plans').map((item) => ({ friend, item })));
   const searching = mode !== 'idle';
-  const dock = TAB_BAR_SPACE - 18;
+  const dock = TAB_BAR_SPACE - 14;
 
   useEffect(() => {
     if (q === undefined) return;
@@ -339,7 +339,7 @@ export default function Today() {
             {photoError}
           </Txt>
         ) : null}
-        <Glass tone="navy" radius={999} style={{ boxShadow: '0px 12px 30px rgba(4, 12, 18, 0.35)' }}>
+        <Glass tone="navy" radius={999} style={{ boxShadow: '0px 12px 30px rgba(12, 34, 80, 0.28)' }}>
           <View style={styles.field}>
             <Pressable onPress={startSearch} accessibilityRole="search" accessibilityLabel="Search or ask me anything" style={styles.fieldTap}>
               <Icon name="magnifyingglass" size={17} color={c.textSecondary} />
@@ -422,7 +422,11 @@ export default function Today() {
                 <SearchResults query={query} />
               </View>
             ) : (
-              <LiveResults query={query} onSearch={submit} />
+              <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
+                <Glass tone="dark" radius={24} style={{ paddingVertical: 6 }}>
+                  <LiveResults query={query} onSearch={submit} />
+                </Glass>
+              </View>
             )}
           </ScrollView>
         </Animated.View>

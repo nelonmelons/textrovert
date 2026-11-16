@@ -8,7 +8,7 @@ export type Tone = 'primary' | 'secondary' | 'tertiary' | 'accent' | 'onAccent' 
 
 /**
  * Text on Ditto's scale: Spencer for display through title2 and Bitter Sour for script (both with the frontpage's navy
- * title shadow), Argent Pixel for stat, Arial for the rest. Tone picks a semantic colour; color overrides it. shadow adds a soft lift for body copy sitting directly
+ * title shadow; stat is Spencer too), Arial for the rest. Tone picks a semantic colour; color overrides it. shadow adds a soft lift for body copy sitting directly
  * on the sky.
  */
 export function Txt({ variant = 'body', tone = 'primary', color, shadow, style, ...rest }: TextProps & { variant?: TypeName; tone?: Tone; color?: string; shadow?: boolean }) {
@@ -24,7 +24,7 @@ export function Txt({ variant = 'body', tone = 'primary', color, shadow, style, 
   };
   const serif = serifVariants.includes(variant);
   const script = variant === 'script';
-  const family = serif ? fonts.serif : script ? fonts.script : variant === 'stat' ? fonts.pixel : fonts.ui;
+  const family = serif ? fonts.serif : script ? fonts.script : fonts.ui;
   const flat = StyleSheet.flatten([type[variant], serif || script ? titleShadow : shadow ? softShadow : null, { color: color ?? tones[tone] }, style]) ?? {};
-  return <Text {...rest} style={{ fontFamily: family, ...flat, ...(serif || script || variant === 'stat' ? { fontWeight: 'normal' } : null) }} />;
+  return <Text {...rest} style={{ fontFamily: family, ...flat, ...(serif || script ? { fontWeight: 'normal' } : null) }} />;
 }

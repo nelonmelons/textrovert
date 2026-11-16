@@ -79,7 +79,7 @@ export function TopicTiles({ live }: { live: boolean }) {
   const row = (art: 'map' | 'sleepy', text: string, busy = false) => (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingVertical: space.md }}>
       {busy ? <ActivityIndicator color="#FFFFFF" /> : <GlassBadge emoji={art === 'map' ? '🗺️' : '🌙'} size={40} />}
-      <Txt variant="subhead" tone="onDarkMuted" style={{ flex: 1 }}>
+      <Txt variant="subhead" tone="onDarkMuted" shadow style={{ flex: 1 }}>
         {text}
       </Txt>
     </View>
@@ -99,7 +99,7 @@ export function TopicTiles({ live }: { live: boolean }) {
   return (
     <View style={{ gap: space.lg }}>
       <TileGrid items={items} header={row('map', topics.length + ' topics you and your people keep coming back to. Tap one to find it on the map.')} footer={rest > 0 ? 'And ' + rest + ' smaller ' + (rest === 1 ? 'topic.' : 'topics.') : undefined} />
-      <BigButton title="Open the atlas" emoji="🗺️" onPress={() => openAtlas()} />
+      <BigButton title="Open the atlas" onPress={() => openAtlas()} />
     </View>
   );
 }

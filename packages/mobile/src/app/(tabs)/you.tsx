@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Eyebrow, Glass, IconButton, LargeTitle, ListRow, ListSection, Screen, SectionTitle, SegmentedControl, space, sym, TAB_BAR_SPACE, Txt } from '@/design';
+import { Glass, IconButton, LargeTitle, ListRow, ListSection, Screen, SectionTitle, SegmentedControl, space, sym, TAB_BAR_SPACE, Txt } from '@/design';
 import { useDataMode } from '../../api/mode';
 import { HeadlineStats, RANGES, rangeTotals, StatsBreakdown, StatsLoading, useStats } from '../../features/stats/LiveStats';
-import { count, GlassBadge } from '../../features/stats/parts';
+import { count } from '../../features/stats/parts';
 import { TopicTiles } from '../../features/stats/Topics';
 
 const TITLES = ['Your month in texts', 'Your year in texts', 'All your texts'];
@@ -24,12 +24,8 @@ export default function You() {
   }
   return (
     <Screen scene="twilight" bottomInset={TAB_BAR_SPACE}>
-      <View style={{ gap: space.lg, paddingTop: space.md }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Eyebrow text="Your texting" />
-          <IconButton icon={sym('gearshape.fill', 'settings')} label="Settings" size={40} onPress={() => router.push('/settings')} />
-        </View>
-        <LargeTitle size="display" title={TITLES[range]} subtitle={subtitle} />
+      <View style={{ paddingTop: space.xs, paddingHorizontal: space.xs }}>
+        <LargeTitle title={TITLES[range]} subtitle={subtitle} trailing={<IconButton icon={sym('gearshape.fill', 'settings')} label="Settings" size={40} onPress={() => router.push('/settings')} />} />
       </View>
       <SegmentedControl segments={[...RANGES]} value={range} onChange={setRange} />
       {!live ? (
@@ -45,7 +41,7 @@ export default function You() {
       <TopicTiles live={live} />
       {ready ? <StatsBreakdown stats={ready} /> : null}
       <ListSection header="From your Mac">
-        <ListRow title="Your iMessage stats" subtitle="Import the file Textrovert on your Mac saves" leading={<GlassBadge emoji="💻" />} onPress={() => router.push('/stats')} />
+        <ListRow title="Your iMessage stats" subtitle="Import the file Textrovert on your Mac saves" onPress={() => router.push('/stats')} />
       </ListSection>
       <Txt variant="footnote" tone="tertiary" shadow style={{ textAlign: 'center' }}>
         Counted from your own chats.

@@ -22,7 +22,7 @@ export function Segmented<T extends string>({ options, value, onChange }: { opti
               }}
               style={[styles.option, on && styles.on]}
             >
-              <Text style={[Type.subheadline, { fontWeight: '700', color: on ? '#FF2CAB' : '#FFFFFF' }]}>{o.label}</Text>
+              <Text style={[Type.subheadline, { fontWeight: '700', color: on ? '#081721' : '#FFFFFF' }]}>{o.label}</Text>
             </Pressable>
           );
         })}
@@ -34,5 +34,5 @@ export function Segmented<T extends string>({ options, value, onChange }: { opti
 const styles = StyleSheet.create({
   track: { flexDirection: 'row', padding: 4 },
   option: { flex: 1, minHeight: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 999 },
-  on: { backgroundColor: 'rgba(255, 255, 255, 0.95)', boxShadow: '0px 2px 8px rgba(4, 12, 18, 0.18)' },
+  on: { backgroundColor: 'rgba(255, 255, 255, 0.95)', boxShadow: '0px 2px 8px rgba(12, 34, 80, 0.18)' },
 });

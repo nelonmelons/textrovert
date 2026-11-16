@@ -14,7 +14,7 @@ export interface TabItem {
 }
 
 /** Height a screen should leave clear at the bottom for the floating tab bar. */
-export const TAB_BAR_SPACE = 96;
+export const TAB_BAR_SPACE = 104;
 
 /**
  * The floating glass tab bar: a frosted capsule (system material blur on native, CSS backdrop blur on web) with emoji tabs; the

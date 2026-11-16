@@ -298,7 +298,7 @@ function Segment({ filled, reduced }: { filled: boolean; reduced: boolean }) {
   const style = useAnimatedStyle(() => ({ width: withTiming(filled ? '100%' : '0%', { duration: reduced ? 0 : 300 }) }));
   return (
     <View style={styles.segment}>
-      <Animated.View style={[{ height: 4, borderRadius: 2, backgroundColor: '#FFFFFF', boxShadow: '0px 0px 6px rgba(255, 255, 255, 0.6)' }, style]} />
+      <Animated.View style={[{ height: 4, borderRadius: 2, backgroundColor: '#FFFFFF' }, style]} />
     </View>
   );
 }
@@ -314,7 +314,7 @@ function NavButton({ label, testID, symbol, enabled, onPress }: { label: string;
 /** Ditto's white/10 glass with the top-left highlight hairline, for the story chrome. */
 const glass = {
   backgroundColor: 'rgba(255, 255, 255, 0.12)',
-  boxShadow: 'inset 0px 0px 8px 0px rgba(255, 255, 255, 0.15), 0px 6px 20px rgba(4, 12, 18, 0.2)',
+  boxShadow: 'inset 0px 1px 4px 0px rgba(255, 255, 255, 0.25)',
   borderWidth: 1,
   borderTopColor: 'rgba(255, 255, 255, 0.5)',
   borderLeftColor: 'rgba(255, 255, 255, 0.32)',

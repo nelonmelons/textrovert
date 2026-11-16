@@ -64,7 +64,7 @@ export function ReelButton({ episodeId }: { episodeId: number }) {
   return (
     <View style={{ gap: 6 }}>
       <PillButton small title={reel?.status === 'failed' ? 'Try the reel again' : 'Make a reel'} icon={<Icon name="film" size={12} />} onPress={make} />
-      {reel?.status === 'failed' || error ? <Text style={[Type.caption, { color: '#FF7BCB' }]}>{error ?? (reel?.status === 'failed' ? reel.error : '')}</Text> : null}
+      {reel?.status === 'failed' || error ? <Text style={[Type.caption, { color: '#FFB4B4' }]}>{error ?? (reel?.status === 'failed' ? reel.error : '')}</Text> : null}
     </View>
   );
 }
@@ -78,6 +78,6 @@ function ReelPlayer({ url }: { url: string }) {
 }
 
 const styles = StyleSheet.create({
-  note: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, backgroundColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.14)' },
+  note: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, backgroundColor: 'rgba(0, 0, 0, 0.1)', borderWidth: 0, borderColor: 'transparent' },
   video: { width: '100%', aspectRatio: 9 / 16, maxHeight: 420, borderRadius: 20, backgroundColor: '#081721', overflow: 'hidden' },
 });
