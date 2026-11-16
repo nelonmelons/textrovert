@@ -46,13 +46,16 @@ export function parseAskRequest(body: unknown): AskRequest {
   return { question, person, history };
 }
 
-/** Everyone in the chats except the user, people with a DM first by DM volume, then by messages in shared chats. */
+/**
+ * Everyone in the chats except the user and business senders (Apple's "urn:biz:" handles), people with a DM first by
+ * DM volume, then by messages in shared chats.
+ */
 export function listPeople(conversations: ConversationRef[]): ApiPerson[] {
   const selfNames = new Set(conversations.map((c) => c.selfName).filter((s): s is string => !!s));
   const byName = new Map<string, Omit<ApiPerson, "lastAt"> & { lastAt: number; dmMessages: number }>();
   for (const c of conversations) {
     for (const name of c.participants) {
-      if (selfNames.has(name) || name === "Instagram User") continue;
+      if (selfNames.has(name) || name === "Instagram User" || name.startsWith("urn:biz:")) continue;
       const p = byName.get(name) ?? { name, dm: false, chats: 0, messages: 0, lastAt: 0, dmMessages: 0 };
       p.chats++;
       p.messages += c.messageCount;

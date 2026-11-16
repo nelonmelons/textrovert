@@ -1,13 +1,13 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File, Paths } from 'expo-file-system';
-import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 
-import { BigButton, DesignFonts, EmojiAvatar, LargeTitle, ListRow, ListSection, PillButton, Screen, space, StatCard, Txt, useDesign, type FillName } from '@/design';
+import { BigButton, Eyebrow, LargeTitle, ListRow, ListSection, PillButton, Screen, space, StatCard, Txt, useDesign, type FillName } from '@/design';
 import { FadeIn } from '@/components/FadeIn';
 import { haptics } from '@/lib/haptics';
 import { readMessagesFile, textingStats, type MessagesFile, type TextingStats } from '@/lib/messagesFile';
+import { Initials } from './parts';
 
 type State =
   | { status: 'empty' }
@@ -66,57 +66,63 @@ export function StatsScreen() {
   };
 
   const { c } = useDesign();
-  const art = state.status === 'reading' ? SLEEPY : state.status === 'ready' ? CHART : WAVE;
   return (
-    <DesignFonts>
-      <Stack.Screen options={{ headerTitle: '', headerStyle: { backgroundColor: c.background }, headerTintColor: c.accentText }} />
-      <Screen contentStyle={{ paddingTop: space.sm }}>
-        <View style={{ alignItems: 'center', gap: space.md }}>
-          <EmojiAvatar image={art} color="mint" size={96} name="Your iMessage stats" />
-          {state.status === 'ready' ? null : <LargeTitle center title="Your iMessage stats" subtitle="See your real texting stats, counted on this phone. Nothing is uploaded." />}
+    <Screen back scene="twilight">
+      {state.status === 'ready' ? null : (
+        <View style={{ gap: space.md }}>
+          <Eyebrow text="From your Mac" />
+          <LargeTitle size="display" title="Your iMessage stats" subtitle="See your real texting stats, counted on this phone. Nothing is uploaded." />
         </View>
-        {state.status === 'ready' ? (
-          <Ready file={state.file} stats={state.stats} onImport={importFile} onRemove={remove} />
-        ) : (
-          <FadeIn style={{ gap: space.xxl }}>
-            <ListSection header="How it works" inset={64}>
-              {STEPS.map((step) => (
-                <ListRow key={step.title} title={step.title} subtitle={step.detail} leading={<EmojiAvatar emoji={step.emoji} color={step.color} size={36} />} />
-              ))}
-            </ListSection>
-            {state.status === 'reading' ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.md, paddingVertical: space.lg }}>
-                <ActivityIndicator color={c.accent} />
-                <Txt variant="callout" tone="secondary">
-                  Reading your messages…
-                </Txt>
-              </View>
-            ) : (
-              <BigButton title="Import messages file" emoji="📥" onPress={importFile} />
-            )}
-            {state.status === 'error' ? (
-              <Txt variant="footnote" color={c.danger} style={{ textAlign: 'center' }}>
-                {state.message}
+      )}
+      {state.status === 'ready' ? (
+        <Ready file={state.file} stats={state.stats} onImport={importFile} onRemove={remove} />
+      ) : (
+        <FadeIn style={{ gap: space.xxl }}>
+          <ListSection header="How it works" inset={64}>
+            {STEPS.map((step, i) => (
+              <ListRow key={step.title} title={step.title} subtitle={step.detail} leading={<StepNumber n={i + 1} />} />
+            ))}
+          </ListSection>
+          {state.status === 'reading' ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.md, paddingVertical: space.lg }}>
+              <ActivityIndicator color="#FFFFFF" />
+              <Txt variant="callout" tone="secondary" shadow>
+                Reading your messages…
               </Txt>
-            ) : null}
-          </FadeIn>
-        )}
-      </Screen>
-    </DesignFonts>
+            </View>
+          ) : (
+            <BigButton title="Import messages file" icon={{ ios: 'square.and.arrow.down', android: 'download', web: 'download' }} onPress={importFile} />
+          )}
+          {state.status === 'error' ? (
+            <Txt variant="footnote" color={c.danger} shadow style={{ textAlign: 'center' }}>
+              {state.message}
+            </Txt>
+          ) : null}
+        </FadeIn>
+      )}
+    </Screen>
   );
 }
 
-const WAVE = require('../../../assets/art/hedgehog-wave.png');
-const SLEEPY = require('../../../assets/art/hedgehog-sleepy.png');
-const CHART = require('../../../assets/art/hedgehog-chart.png');
+/** A step number in Argent Pixel on a glass circle. */
+function StepNumber({ n }: { n: number }) {
+  return (
+    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255, 255, 255, 0.14)', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.32)', alignItems: 'center', justifyContent: 'center' }}>
+      <Txt variant="stat" style={{ fontSize: 18, lineHeight: 22 }}>
+        {n}
+      </Txt>
+    </View>
+  );
+}
 
-const STEPS: { title: string; detail: string; emoji: string; color: FillName }[] = [
-  { title: 'Save for iPhone', detail: 'On your Mac, open Textrovert and click it', emoji: '💻', color: 'blue' },
-  { title: 'Send it here', detail: 'AirDrop the file, or save it to Files', emoji: '📲', color: 'lilac' },
-  { title: 'Import', detail: 'Tap the button below and pick the file', emoji: '📥', color: 'mint' },
+const STEPS: { title: string; detail: string }[] = [
+  { title: 'Save for iPhone', detail: 'On your Mac, open Textrovert and click it' },
+  { title: 'Send it here', detail: 'AirDrop the file, or save it to Files' },
+  { title: 'Import', detail: 'Tap the button below and pick the file' },
 ];
 
-const CARD_COLORS: FillName[] = ['mint', 'pink', 'lilac', 'yellow', 'peach', 'blue', 'coral', 'lime'];
+/** The first tile's number is Ditto pink; the rest are white. */
+const CARD_COLORS: FillName[] = ['pink', 'white', 'white', 'white', 'white', 'white', 'white', 'white'];
 
 interface Tile {
   value: string;
@@ -127,7 +133,7 @@ interface Tile {
 function Ready({ file, stats, onImport, onRemove }: { file: MessagesFile; stats: TextingStats; onImport: () => void; onRemove: () => void }) {
   if (stats.messages === 0) {
     return (
-      <Txt variant="callout" tone="secondary" style={{ textAlign: 'center' }}>
+      <Txt variant="callout" tone="secondary" shadow style={{ textAlign: 'center' }}>
         That file has no messages in it.
       </Txt>
     );
@@ -148,8 +154,14 @@ function Ready({ file, stats, onImport, onRemove }: { file: MessagesFile; stats:
 
   return (
     <>
-      <FadeIn>
-        <LargeTitle center size="display" title={count(stats.messages)} subtitle={'messages across ' + count(stats.chats) + (stats.chats === 1 ? ' chat' : ' chats') + since} />
+      <FadeIn style={{ gap: space.sm }}>
+        <Eyebrow text="Your iMessage stats" />
+        <Txt variant="stat" accessibilityRole="header" style={{ fontSize: 64, lineHeight: 70 }}>
+          {count(stats.messages)}
+        </Txt>
+        <Txt variant="callout" tone="secondary" shadow>
+          {'messages across ' + count(stats.chats) + (stats.chats === 1 ? ' chat' : ' chats') + since}
+        </Txt>
       </FadeIn>
       <View style={{ gap: space.md }}>
         {pairs.map((pair, r) => (
@@ -168,17 +180,17 @@ function Ready({ file, stats, onImport, onRemove }: { file: MessagesFile; stats:
               key={p.id}
               title={p.name}
               subtitle={percent(p.fromYou / p.messages) + ' from you' + (p.streak >= 2 ? ' · ' + p.streak + '-day streak' : '') + ' · since ' + new Date(p.since * 1000).getFullYear()}
-              leading={<EmojiAvatar name={p.name} size={40} />}
+              leading={<Initials name={p.name} />}
               value={count(p.messages)}
             />
           ))}
         </ListSection>
       ) : null}
-      <Txt variant="footnote" tone="tertiary" style={{ textAlign: 'center' }}>
+      <Txt variant="footnote" tone="tertiary" shadow style={{ textAlign: 'center' }}>
         From your Mac · saved {day(new Date(file.exportedAt * 1000))}
       </Txt>
       <View style={{ flexDirection: 'row', justifyContent: 'center', gap: space.md }}>
-        <PillButton title="Import a newer file" emoji="📥" onPress={onImport} />
+        <PillButton title="Import a newer file" kind="primary" onPress={onImport} />
         <PillButton title="Remove" kind="secondary" onPress={onRemove} />
       </View>
     </>

@@ -1,25 +1,24 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { Tactile } from './Tactile';
+import { Glass } from './Backdrop';
+import { PressScale } from './Tactile';
 import { Txt } from './Txt';
-import { fills, lip, radii, space, type FillName } from './tokens';
+import { radii, space, type FillName } from './tokens';
 
-/** A saturated tile with a big number, an emoji and a label, sitting on a lip of its edge colour. */
-export function StatCard({ value, label, emoji, color = 'mint', onPress, style }: { value: string; label: string; emoji?: string; color?: FillName; onPress?: () => void; style?: StyleProp<ViewStyle> }) {
-  const f = fills[color];
+/** A house-glass tile: a big Spencer number over a short label. emoji and color are kept for callers and not drawn. */
+export function StatCard({ value, label, onPress, style }: { value: string; label: string; emoji?: string; color?: FillName; onPress?: () => void; style?: StyleProp<ViewStyle> }) {
   return (
-    <View style={[{ flex: 1 }, style]}>
-      <Tactile face={f.fill} edge={f.edge} radius={radii.xl} lip={lip.card} ring={2} onPress={onPress} accessibilityLabel={`${value} ${label}`} faceStyle={{ padding: space.lg, paddingTop: space.md, minHeight: 132, justifyContent: 'space-between' }}>
-        <Txt style={{ fontSize: 28, lineHeight: 36 }}>{emoji ?? ' '}</Txt>
+    <PressScale onPress={onPress} accessibilityLabel={`${value} ${label}`} outerStyle={[{ flex: 1 }, style]}>
+      <Glass tone="dark" radius={radii.xl} style={{ padding: space.lg, minHeight: 112, justifyContent: 'flex-end', gap: 6 }}>
         <View>
-          <Txt variant="stat" color={f.ink} numberOfLines={1} adjustsFontSizeToFit>
+          <Txt variant="stat" numberOfLines={1} adjustsFontSizeToFit>
             {value}
           </Txt>
-          <Txt variant="subhead" color={f.ink} style={{ fontWeight: '600', opacity: 0.72 }}>
-            {label}
-          </Txt>
         </View>
-      </Tactile>
-    </View>
+        <Txt variant="footnote" tone="secondary">
+          {label}
+        </Txt>
+      </Glass>
+    </PressScale>
   );
 }

@@ -157,8 +157,9 @@ struct ChatParser {
             mode = .body
             return
         }
+        // A threaded reply can follow the tapbacks; its indented timestamp ends them, or "(Read by you after ...)" reads as a reaction.
         if mode == .tapbacks {
-            if line.hasPrefix(Self.indent) {
+            if line.hasPrefix(Self.indent), Self.timeMatch(String(line.dropFirst(Self.indent.count))) == nil {
                 if let tapback = Self.tapback.match(line), let kind = tapback[1], let who = tapback[2] {
                     pending?.reactions.append([who, Self.tapbackEmoji[kind] ?? kind])
                 }

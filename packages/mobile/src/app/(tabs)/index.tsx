@@ -1,13 +1,17 @@
-import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { Animated, Image, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ComponentRef, ReactNode, useEffect, useRef, useState } from 'react';
+import { Animated, Image, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import type { SymbolViewProps } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Rounded, Theme, Type } from '../../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Chevron, Backdrop, ditto, Eyebrow, fill, fonts, Glass, Icon, PillButton, PressScale, Scallop, Sticker, TAB_BAR_SPACE, Txt, useDesign, Wordmark } from '@/design';
 import { Friend, firstName, upcomingMilestones } from '../../people';
-import { art, DeadlineBadge, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
+import { DeadlineBadge, Face, HedgehogMark } from '../../components/Paper';
 import { useDataMode } from '../../api/mode';
-import { useFriends } from '../../api/people';
+import { useFriends, useToday } from '../../api/people';
+import { openLiveSource } from '../../api/sources';
+import { formatAgo } from '../../lib/answer';
 import { MilestoneRow } from '../../components/MilestoneRow';
 import { useNotes } from '../../store';
 import { SearchResults } from '../../components/SearchResults';
@@ -21,29 +25,87 @@ const openSource = (friend: Friend, message: string) => router.push({ pathname: 
 
 type Mode = 'idle' | 'live' | 'final';
 
-function Row({ friend, source, children }: { friend: Friend; source?: string; children: React.ReactNode }) {
+/** One row of the replies or plans card: from GET /today when live, or a note saved on the phone. */
+type Item = { key: string; friend: Friend; headline: string; detail?: string; deadline?: Date; open: () => void };
+
+
+const today = () => new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+function greeting() {
+  const h = new Date().getHours();
+  return h < 5 ? 'Up late' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+}
+
+/**
+ * A liquid-glass card under a black sticker label that overlaps its top edge, the way the frontpage labels its
+ * sections; an optional pink count and a glass action pill sit on the right.
+ */
+function Card({ title, accent, count, action, onAction, children }: { title: string; icon?: SymbolViewProps['name']; accent?: string; count?: number; action?: string; onAction?: () => void; children: ReactNode }) {
   return (
-    <View style={styles.row}>
-      <Pressable onPress={() => openProfile(friend)} accessibilityLabel={`Open ${firstName(friend)}’s profile`}>
-        <Face initials={friend.initials} />
-      </Pressable>
-      <Pressable onPress={() => (source ? openSource(friend, source) : openProfile(friend))} style={({ pressed }) => [styles.rowBody, pressed && styles.pressed]}>
-        <View style={{ flex: 1, gap: 6 }}>{children}</View>
-        <RowChevron />
-      </Pressable>
+    <View>
+      <View style={styles.cardHead}>
+        <View style={styles.inline}>
+          <Sticker text={title} accent={accent} size={20} />
+          {count ? (
+            <View style={styles.count}>
+              <Txt variant="caption" color="#FFFFFF" style={{ fontSize: 11, letterSpacing: 0 }}>
+                {count}
+              </Txt>
+            </View>
+          ) : null}
+        </View>
+        {action ? <PillButton title={action} small onPress={onAction} /> : null}
+      </View>
+      <Glass tone="dark" radius={24}>
+        <View style={{ padding: 16, paddingTop: 26, gap: 14 }}>{children}</View>
+      </Glass>
     </View>
   );
 }
 
+function Rows({ children }: { children: ReactNode[] }) {
+  const { c } = useDesign();
+  return (
+    <View>
+      {children.map((child, i) => (
+        <View key={i}>
+          {i ? <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: c.separator, marginVertical: 12, marginLeft: 66 }} /> : null}
+          {child}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function Row({ friend, onPress, children }: { friend: Friend; onPress?: () => void; children: ReactNode }) {
+  const { c } = useDesign();
+  return (
+    <PressScale onPress={onPress ?? (() => openProfile(friend))} scale={0.98} style={styles.row}>
+      <Pressable onPress={() => openProfile(friend)} accessibilityLabel={`Open ${firstName(friend)}’s profile`}>
+        <Face initials={friend.initials} />
+      </Pressable>
+      <View style={{ flex: 1, gap: 4 }}>{children}</View>
+      <Chevron />
+    </PressScale>
+  );
+}
+
+function Empty({ text }: { text: string }) {
+  return (
+    <Txt variant="subhead" tone="secondary">
+      {text}
+    </Txt>
+  );
+}
+
 export default function Today() {
+  const { c } = useDesign();
   const insets = useSafeAreaInsets();
   const { q } = useLocalSearchParams<{ q?: string }>();
   const [query, setQuery] = useState(q ?? '');
   const [mode, setMode] = useState<Mode>(q ? 'final' : 'idle');
   const [photo, setPhoto] = useState<string>();
   const [photoError, setPhotoError] = useState<string>();
-  const [panelHeight, setPanelHeight] = useState(100);
-  const [contentSize, setContentSize] = useState({ width: 440, height: 1200 });
   const input = useRef<ComponentRef<typeof TextInput>>(null);
   const reveal = useRef(new Animated.Value(q ? 1 : 0)).current;
   const { items } = useNotes();
@@ -53,9 +115,38 @@ export default function Today() {
   const people = useFriends();
   const friends = people.friends;
   const recent = [...friends].sort((a, b) => (b.person?.lastAt ?? '').localeCompare(a.person?.lastAt ?? '')).slice(0, 4);
-  const replies = friends.flatMap((friend) => items(friend, 'reply').map((item) => ({ friend, item })));
-  const plans = friends.flatMap((friend) => items(friend, 'plans').map((item) => ({ friend, item })));
+  const day = useToday(live && firstRun.done);
+  const byName = new Map(friends.map((f) => [f.id, f]));
+  const noted = (section: 'reply' | 'plans') =>
+    friends.flatMap((friend) =>
+      items(friend, section).map((item): Item => ({
+        key: friend.id + item.id,
+        friend,
+        headline: `${item.title} with ${firstName(friend)}`,
+        detail: item.detail,
+        deadline: item.deadline,
+        open: () => (item.sourceID ? openSource(friend, item.sourceID) : openProfile(friend)),
+      })),
+    );
+  const fetched = day.status === 'ready' ? day.today : { replies: [], plans: [] };
+  const replies: Item[] = [
+    ...fetched.replies.flatMap(({ person, message }) => {
+      const friend = byName.get(person);
+      return friend ? [{ key: 'reply' + message.messageId, friend, headline: friend.name, detail: `“${message.text}” · ${formatAgo(message.sentAt)}`, open: () => openLiveSource(message) }] : [];
+    }),
+    ...noted('reply'),
+  ];
+  const plans: Item[] = [
+    ...fetched.plans.flatMap((plan) => {
+      const friend = byName.get(plan.person);
+      const detail = [plan.when, plan.source.isDm ? null : plan.source.chat].filter(Boolean).join(' · ');
+      return friend ? [{ key: 'plan' + plan.source.messageId + plan.what, friend, headline: `${plan.what} with ${firstName(friend)}`, detail, open: () => openLiveSource(plan.source) }] : [];
+    }),
+    ...noted('plans'),
+  ];
+  const pending = live && day.status === 'loading' ? 'Checking your chats…' : live && day.status === 'error' ? `Couldn’t load this. ${day.message}` : null;
   const searching = mode !== 'idle';
+  const dock = TAB_BAR_SPACE - 14;
 
   useEffect(() => {
     if (q === undefined) return;
@@ -64,7 +155,7 @@ export default function Today() {
   }, [q]);
 
   useEffect(() => {
-    Animated.timing(reveal, { toValue: searching ? 1 : 0, duration: 220, useNativeDriver: nativeDriver }).start();
+    Animated.timing(reveal, { toValue: searching ? 1 : 0, duration: 250, useNativeDriver: nativeDriver }).start();
   }, [searching, reveal]);
 
   if (!firstRun.done) return <Redirect href="/onboarding" />;
@@ -107,177 +198,194 @@ export default function Today() {
   };
 
   const photoButton = photo ? (
-    <Pressable onPress={askWithPhoto} accessibilityLabel="Ask about this photo" style={styles.send}>
-      <Symbol name="arrow.up" size={15} color="#FFFFFF" weight="bold" />
+    <Pressable onPress={askWithPhoto} accessibilityLabel="Ask about this photo" style={[styles.round, { backgroundColor: c.accent }]}>
+      <Icon name="arrow.up" size={15} />
     </Pressable>
   ) : (
-    <Pressable onPress={pickPhoto} accessibilityLabel="Add a photo" hitSlop={8} style={styles.photoButton}>
-      <Symbol name="photo.badge.plus" size={19} color={Theme.accent} />
+    <Pressable onPress={pickPhoto} accessibilityLabel="Add a photo" hitSlop={8} style={[styles.round, { backgroundColor: 'rgba(255, 255, 255, 0.14)' }]}>
+      <Icon name="photo.badge.plus" size={16} />
     </Pressable>
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: Theme.paper }}>
-      <ScrollView
-        keyboardDismissMode="interactive"
-        contentContainerStyle={{ paddingTop: insets.top + 24, paddingHorizontal: 24, paddingBottom: panelHeight + 40 }}
-        onContentSizeChange={(width, height) => setContentSize({ width, height })}
-      >
-        <GridPaper width={contentSize.width} height={contentSize.height + 800} />
-        <View style={{ gap: 24 }}>
-          <View style={styles.header}>
-            <View style={styles.inlineWide}>
-              <HedgehogMark height={30} />
-              <Text style={[Type.title2, { fontFamily: Rounded.heavy, color: Theme.accent }]}>textrovert</Text>
+    <View style={{ flex: 1 }}>
+      <Backdrop scene="clouds" />
+      <ScrollView keyboardDismissMode="interactive" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: insets.top + 12 }}>
+        <View style={[styles.header, { paddingHorizontal: 16 }]}>
+          <View style={styles.inline}>
+            <HedgehogMark height={22} />
+            <Wordmark size={24} />
+          </View>
+          <PressScale onPress={() => router.push('/settings')} accessibilityLabel="Settings" scale={0.94}>
+            <Glass tone="light" radius={999}>
+              <View style={{ height: 40, paddingHorizontal: 16, justifyContent: 'center' }}>
+                <Txt variant="subhead" style={{ fontWeight: '700' }}>
+                  Emma
+                </Txt>
+              </View>
+            </Glass>
+          </PressScale>
+        </View>
+
+        <View style={styles.hero}>
+          <Eyebrow text={today()} plain />
+          <Txt variant="display" style={styles.heroTitle}>
+            {greeting().toLowerCase()}
+          </Txt>
+          <Txt variant="display" style={styles.heroTitle}>
+            emma
+          </Txt>
+          <Txt variant="callout" shadow style={{ textAlign: 'center', marginTop: 10, opacity: 0.92 }}>
+            {replies.length ? `${replies.length} ${replies.length === 1 ? 'person is' : 'people are'} waiting on you.` : 'Here’s who and what matters today.'}
+          </Txt>
+        </View>
+
+        <View style={[styles.section, { paddingBottom: dock + 96 }]}>
+
+        {people.status === 'loading' ? (
+          <Txt variant="subhead" tone="secondary" shadow style={{ paddingHorizontal: 4 }}>
+            Loading your people…
+          </Txt>
+        ) : null}
+        {people.status === 'error' ? (
+          <Pressable onPress={people.retry}>
+            <Glass tone="dark" style={{ padding: 16 }}>
+              <Txt variant="subhead">Couldn’t load your people. {people.message} Tap to try again.</Txt>
+            </Glass>
+          </Pressable>
+        ) : null}
+
+        {people.status !== 'ready' ? null : friends.length === 0 ? (
+          <Glass tone="dark">
+            <View style={{ padding: 24, gap: 10, alignItems: 'center' }}>
+              <HedgehogMark height={40} />
+              <Txt variant="title2" style={{ textAlign: 'center' }}>
+                No people yet
+              </Txt>
+              <Txt variant="callout" tone="secondary" style={{ textAlign: 'center' }}>
+                Your people, replies and plans show up here once your messages are synced.
+              </Txt>
             </View>
-            <Pressable accessibilityLabel="Emma, Settings" onPress={() => router.push('/settings')}>
-              <Face initials="ED" />
-            </Pressable>
-          </View>
+          </Glass>
+        ) : (
+          <>
+            <Card title="Waiting on your reply" accent="reply" count={replies.length}>
+              {replies.length === 0 ? (
+                <Empty text={pending ?? 'Nothing waiting on you.'} />
+              ) : (
+                <Rows>
+                  {replies.map((item) => (
+                    <Row key={item.key} friend={item.friend} onPress={item.open}>
+                      <Txt variant="headline">
+                        {item.headline}
+                      </Txt>
+                      {item.detail ? (
+                        <Txt variant="subhead" tone="secondary">
+                          {item.detail}
+                        </Txt>
+                      ) : null}
+                      {item.deadline ? <DeadlineBadge deadline={item.deadline} /> : null}
+                    </Row>
+                  ))}
+                </Rows>
+              )}
+            </Card>
 
-          <View style={{ gap: 22 }}>
-            <Text style={[Type.largeTitle, { fontFamily: Rounded.bold, color: Theme.ink }]}>Today</Text>
-
-            {people.status === 'loading' ? <Text style={[Type.subheadline, styles.secondary]}>Loading your people…</Text> : null}
-            {people.status === 'error' ? (
-              <Pressable onPress={people.retry}>
-                <Text style={[Type.subheadline, styles.secondary]}>Couldn’t load your people. {people.message} Tap to try again.</Text>
-              </Pressable>
+            {milestones.length > 0 ? (
+              <Card title="Coming up" accent="up">
+                <Rows>
+                  {milestones.map((milestone) => (
+                    <PressScale key={milestone.id} onPress={() => openProfile(milestone.friend)} scale={0.98}>
+                      <MilestoneRow milestone={milestone} />
+                    </PressScale>
+                  ))}
+                </Rows>
+              </Card>
             ) : null}
-            {people.status !== 'ready' ? null : friends.length === 0 ? (
-              <SectionCard tone={Theme.accentTone}>
-                <View style={{ alignItems: 'center', gap: 10, paddingVertical: 8 }}>
-                  <Image source={art.wave} style={{ width: 160, height: 160 }} resizeMode="contain" accessibilityIgnoresInvertColors />
-                  <Text style={[Type.title3, { fontFamily: Rounded.bold, color: Theme.ink, textAlign: 'center' }]}>No people yet</Text>
-                  <Text style={[Type.body, styles.secondary, { textAlign: 'center' }]}>
-                    Your people, replies and plans show up here once your messages are synced.
-                  </Text>
-                </View>
-              </SectionCard>
-            ) : (
-              <>
-                <SectionCard tone={Theme.repliesTone}>
-                  <View style={{ gap: 14 }}>
-                    <ToneTab title="Waiting on your reply" symbol="arrowshape.turn.up.left.fill" tone={Theme.repliesTone} />
-                    {replies.length === 0 ? <Text style={[Type.subheadline, styles.secondary]}>Nothing waiting on you.</Text> : null}
-                    {replies.map(({ friend, item }, index) => (
-                      <View key={friend.id + item.id} style={{ gap: 14 }}>
-                        {index > 0 ? <Divider /> : null}
-                        <Row friend={friend} source={item.sourceID}>
-                          <Text style={[Type.headline, styles.ink]}>
-                            {item.title} with {firstName(friend)}
-                          </Text>
-                          {item.detail ? <Text style={[Type.subheadline, styles.secondary]}>{item.detail}</Text> : null}
-                          {item.deadline ? <DeadlineBadge deadline={item.deadline} /> : null}
-                        </Row>
-                      </View>
-                    ))}
-                  </View>
-                </SectionCard>
 
-                {milestones.length > 0 ? (
-                  <SectionCard tone={Theme.celebrateTone} fillOpacity={0.55}>
-                    <View style={{ gap: 14 }}>
-                      <View style={[styles.header, { alignItems: 'flex-start' }]}>
-                        <ToneTab title="Coming up" symbol="sparkles" tone={Theme.celebrateTone} />
-                        <Image source={art.toast} style={{ height: 44, width: 88 }} resizeMode="contain" />
-                      </View>
-                      {milestones.map((milestone, index) => (
-                        <View key={milestone.id} style={{ gap: 14 }}>
-                          {index > 0 ? <Divider /> : null}
-                          <Pressable onPress={() => openProfile(milestone.friend)} style={({ pressed }) => [{ paddingVertical: 4 }, pressed && styles.pressed]}>
-                            <MilestoneRow milestone={milestone} />
-                          </Pressable>
-                        </View>
-                      ))}
-                    </View>
-                  </SectionCard>
-                ) : null}
+            <Card title="Upcoming plans" accent="plans">
+              {plans.length === 0 ? (
+                <Empty text={pending ?? 'No plans coming up.'} />
+              ) : (
+                <Rows>
+                  {plans.map((item) => (
+                    <Row key={item.key} friend={item.friend} onPress={item.open}>
+                      <Txt variant="headline">
+                        {item.headline}
+                      </Txt>
+                      {item.detail ? (
+                        <Txt variant="subhead" tone="secondary">
+                          {item.detail}
+                        </Txt>
+                      ) : null}
+                    </Row>
+                  ))}
+                </Rows>
+              )}
+            </Card>
 
-                <SectionCard tone={Theme.plansTone}>
-                  <View style={{ gap: 14 }}>
-                    <ToneTab title="Upcoming plans" symbol="calendar" tone={Theme.plansTone} />
-                    {plans.length === 0 ? <Text style={[Type.subheadline, styles.secondary]}>No plans yet.</Text> : null}
-                    {plans.map(({ friend, item }, index) => (
-                      <View key={friend.id + item.id} style={{ gap: 14 }}>
-                        {index > 0 ? <Divider /> : null}
-                        <Row friend={friend} source={item.sourceID}>
-                          <Text style={[Type.headline, styles.ink]}>
-                            {item.title} with {firstName(friend)}
-                          </Text>
-                          {item.detail ? <Text style={[Type.subheadline, styles.secondary, { marginTop: -2 }]}>{item.detail}</Text> : null}
-                        </Row>
-                      </View>
-                    ))}
-                  </View>
-                </SectionCard>
+            <Card title="Your people" accent="people" action="See all" onAction={() => router.navigate('/people')}>
+              <Rows>
+                {recent.map((friend) => (
+                  <Row key={friend.id} friend={friend}>
+                    <Txt variant="headline" numberOfLines={1}>
+                      {friend.name}
+                    </Txt>
+                    <Txt variant="subhead" tone="secondary" numberOfLines={1}>
+                      {friend.handle}
+                    </Txt>
+                  </Row>
+                ))}
+              </Rows>
+            </Card>
+          </>
+        )}
 
-                <SectionCard tone={Theme.accentTone}>
-                  <View style={{ gap: 14 }}>
-                    <View style={styles.header}>
-                      <ToneTab title="Your people" symbol="person.2.fill" tone={Theme.accentTone} />
-                      <Pressable onPress={() => router.navigate('/people')} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
-                        <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>See all</Text>
-                      </Pressable>
-                    </View>
-                    {recent.map((friend, index) => (
-                      <View key={friend.id} style={{ gap: 14 }}>
-                        {index > 0 ? <Divider /> : null}
-                        <Pressable onPress={() => openProfile(friend)} style={({ pressed }) => [styles.rowBody, pressed && styles.pressed]}>
-                          <Face initials={friend.initials} />
-                          <View style={{ flex: 1, gap: 2 }}>
-                            <Text style={[Type.headline, styles.ink]} numberOfLines={1}>{friend.name}</Text>
-                            <Text style={[Type.subheadline, styles.secondary]} numberOfLines={1}>{friend.handle}</Text>
-                          </View>
-                          <RowChevron />
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
-                </SectionCard>
-              </>
-            )}
-
-            <Pressable onPress={() => router.navigate('/you')} style={({ pressed }) => pressed && { opacity: 0.8 }}>
-              <SectionCard tone={Theme.celebrateTone} fillOpacity={0.4}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                  <View style={{ flex: 1, gap: 8 }}>
-                    <ToneTab title="Your texting stats" symbol="chart.bar.fill" tone={Theme.celebrateTone} />
-                    <Text style={[Type.subheadline, styles.ink]}>{live ? 'Who texts first, reply times, your busiest hours and your closest people.' : 'Import the file from Textrovert on your Mac to see your texting stats.'}</Text>
-                  </View>
-                  <RowChevron />
-                </View>
-              </SectionCard>
-            </Pressable>
-          </View>
+        <PressScale onPress={() => router.navigate('/you')} scale={0.98}>
+          <Glass tone="light" radius={24}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18 }}>
+              <View style={{ flex: 1, gap: 6 }}>
+                <Sticker text="Your texting stats" accent="stats" size={18} />
+                <Txt variant="title2">{live ? 'Who texts first, and who keeps it going' : 'See your year in texts'}</Txt>
+                <Txt variant="subhead" tone="secondary">
+                  {live ? 'Reply times, your busiest hours and your closest people.' : 'Import the file from Textrovert on your Mac to see your stats.'}
+                </Txt>
+              </View>
+              <View style={[styles.round, { width: 40, height: 40, borderRadius: 20, backgroundColor: c.key }]}>
+                <Icon name="arrow.right" size={16} color={c.keyInk} />
+              </View>
+            </View>
+          </Glass>
+        </PressScale>
         </View>
       </ScrollView>
-      <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: Theme.paper }} />
 
-      <View style={[styles.panel, { paddingBottom: 10 }]} onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)}>
-        {photoError && !searching ? <Text style={[Type.caption, { color: Theme.deadline, paddingHorizontal: 4 }]}>{photoError}</Text> : null}
-        <View style={styles.field}>
-          <Pressable onPress={startSearch} accessibilityRole="search" accessibilityLabel="Search or ask me anything" style={styles.fieldTap}>
-            <View style={styles.searchIcon}>
-              <Symbol name="magnifyingglass" size={16} color={Theme.accent} weight="bold" />
-            </View>
-            <Text style={[Type.body, { flex: 1, color: Theme.secondary }]}>Search or ask me anything</Text>
-          </Pressable>
-          {photoButton}
-        </View>
+      <View style={[styles.dock, { bottom: dock }]}>
+        {photoError && !searching ? (
+          <Txt variant="caption" color={c.accentText} shadow style={{ paddingHorizontal: 8, letterSpacing: 0 }}>
+            {photoError}
+          </Txt>
+        ) : null}
+        <Glass tone="light" radius={999}>
+          <View style={styles.field}>
+            <Pressable onPress={startSearch} accessibilityRole="search" accessibilityLabel="Search or ask me anything" style={styles.fieldTap}>
+              <Icon name="magnifyingglass" size={17} color={c.textSecondary} />
+              <Txt variant="body" color={c.placeholder} style={{ flex: 1 }}>
+                Search or ask me anything
+              </Txt>
+            </Pressable>
+            {photoButton}
+          </View>
+        </Glass>
       </View>
 
       {searching ? (
-        <Animated.View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: Theme.paper, opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] },
-          ]}
-        >
-          <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-            <View style={styles.inlineWide}>
-              <View style={[styles.field, styles.topField]}>
-                <Symbol name="magnifyingglass" size={16} color={Theme.accent} weight="bold" />
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: reveal, transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }] }]}>
+          <Backdrop scene="clouds" scrim={0.62} />
+          <View style={[styles.topBar, { paddingTop: insets.top + 12 }]}>
+            <View style={styles.inline}>
+              <View style={[styles.field, styles.topField, { backgroundColor: c.input }]}>
+                <Icon name="magnifyingglass" size={16} color={c.textSecondary} />
                 <TextInput
                   ref={input}
                   value={query}
@@ -288,12 +396,12 @@ export default function Today() {
                   }}
                   onFocus={() => setMode('live')}
                   placeholder={photo ? 'Ask about this photo' : 'Search or ask me anything'}
-                  placeholderTextColor={Theme.secondary}
+                  placeholderTextColor={c.placeholder}
                   autoCapitalize="none"
                   autoCorrect={false}
                   returnKeyType={photo ? 'send' : 'search'}
                   onSubmitEditing={submit}
-                  style={[Type.body, { flex: 1, color: Theme.ink, paddingVertical: 10 }]}
+                  style={styles.input}
                 />
                 {query.length > 0 ? (
                   <Pressable
@@ -305,33 +413,47 @@ export default function Today() {
                     accessibilityLabel="Clear search"
                     hitSlop={12}
                   >
-                    <Symbol name="xmark.circle.fill" size={17} color={Theme.secondary} />
+                    <Icon name="xmark.circle.fill" size={17} color={c.textTertiary} />
                   </Pressable>
                 ) : null}
                 {photoButton}
               </View>
               <Pressable onPress={cancel} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
-                <Text style={[Type.body, { color: Theme.ink, fontWeight: '600' }]}>Cancel</Text>
+                <Txt variant="body" style={{ fontWeight: '700' }}>
+                  Cancel
+                </Txt>
               </Pressable>
             </View>
             {photo ? (
-              <View style={styles.photoChip}>
-                <Image source={{ uri: photo }} style={{ width: 32, height: 32, borderRadius: 8 }} accessibilityLabel="Attached photo" />
-                <Text style={[Type.subheadline, { flex: 1, color: Theme.ink, fontWeight: '600' }]}>1 photo · ask me about it</Text>
-                <Pressable onPress={() => setPhoto(undefined)} accessibilityLabel="Remove photo" hitSlop={10}>
-                  <Symbol name="xmark.circle.fill" size={18} color={Theme.secondary} />
-                </Pressable>
-              </View>
+              <Glass tone="light" radius={16}>
+                <View style={styles.photoChip}>
+                  <Image source={{ uri: photo }} style={{ width: 32, height: 32, borderRadius: 8 }} accessibilityLabel="Attached photo" />
+                  <Txt variant="subhead" style={{ flex: 1, fontWeight: '700' }}>
+                    1 photo · ask me about it
+                  </Txt>
+                  <Pressable onPress={() => setPhoto(undefined)} accessibilityLabel="Remove photo" hitSlop={10}>
+                    <Icon name="xmark.circle.fill" size={18} color={c.textSecondary} />
+                  </Pressable>
+                </View>
+              </Glass>
             ) : null}
-            {photoError ? <Text style={[Type.caption, { color: Theme.deadline }]}>{photoError}</Text> : null}
+            {photoError ? (
+              <Txt variant="caption" color={c.accentText} style={{ letterSpacing: 0 }}>
+                {photoError}
+              </Txt>
+            ) : null}
           </View>
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: insets.bottom + TAB_BAR_SPACE + 24 }}>
             {mode === 'final' ? (
-              <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
+              <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
                 <SearchResults query={query} />
               </View>
             ) : (
-              <LiveResults query={query} onSearch={submit} />
+              <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
+                <Glass tone="dark" radius={24} style={{ paddingVertical: 6 }}>
+                  <LiveResults query={query} onSearch={submit} />
+                </Glass>
+              </View>
             )}
           </ScrollView>
         </Animated.View>
@@ -341,50 +463,20 @@ export default function Today() {
 }
 
 const styles = StyleSheet.create({
-  ink: { color: Theme.ink },
-  secondary: { color: Theme.secondary },
-  pressed: { backgroundColor: 'rgba(244, 227, 226, 0.6)', opacity: 0.75, borderRadius: 12 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  inlineWide: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
-  rowBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  panel: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    backgroundColor: Theme.panel,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -3 },
-  },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    minHeight: 54,
-    paddingLeft: 12,
-    paddingRight: 8,
-    borderRadius: 27,
-    borderWidth: 1.5,
-    borderColor: Theme.accent,
-    backgroundColor: Theme.background,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  fieldTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 50 },
-  topBar: { gap: 10, paddingHorizontal: 16, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Theme.separator, backgroundColor: Theme.paper },
-  topField: { flex: 1, minHeight: 46, paddingLeft: 14, gap: 10, borderRadius: 23, shadowOpacity: 0 },
-  searchIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  photoButton: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accentTone.fill },
-  send: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accent },
-  photoChip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 4, paddingRight: 12, paddingVertical: 4, borderRadius: 14, backgroundColor: Theme.plansTone.fill },
+  inline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  cardHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: -14, zIndex: 2 },
+  count: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: '#F748B1', alignItems: 'center', justifyContent: 'center', boxShadow: '0px 2px 8px rgba(8, 16, 34, 0.3)' },
+  hero: { alignItems: 'center', gap: 2, paddingTop: 56, paddingBottom: 72, paddingHorizontal: 16 },
+  heroTitle: { textAlign: 'center', fontSize: 58, lineHeight: 56 },
+  section: { paddingHorizontal: 16, paddingTop: 8, gap: 26 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  dock: { position: 'absolute', left: 16, right: 16, gap: 8 },
+  field: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 54, paddingLeft: 18, paddingRight: 8, borderRadius: 999 },
+  fieldTap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50 },
+  topBar: { gap: 10, paddingHorizontal: 16, paddingBottom: 12 },
+  topField: { flex: 1, minHeight: 46, paddingLeft: 16 },
+  input: { flex: 1, color: '#FFFFFF', fontSize: 16, fontFamily: fonts.ui, paddingVertical: 10, outlineStyle: 'none' } as object,
+  round: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  photoChip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 6, paddingRight: 12, paddingVertical: 6 },
 });

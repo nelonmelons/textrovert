@@ -1,31 +1,43 @@
 import type { ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { useFonts } from 'expo-font';
-import { Geist_400Regular } from '@expo-google-fonts/geist/400Regular';
-import { Geist_500Medium } from '@expo-google-fonts/geist/500Medium';
-import { Geist_600SemiBold } from '@expo-google-fonts/geist/600SemiBold';
-import { Geist_700Bold } from '@expo-google-fonts/geist/700Bold';
-import { Geist_800ExtraBold } from '@expo-google-fonts/geist/800ExtraBold';
+import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 
-/** Geist faces by weight. Each weight is its own family, so text picks a face instead of synthesising bold. */
-export const geist = {
-  '400': 'Geist_400Regular',
-  '500': 'Geist_500Medium',
-  '600': 'Geist_600SemiBold',
-  '700': 'Geist_700Bold',
-  '800': 'Geist_800ExtraBold',
-} as const;
+/**
+ * Ditto's frontpage faces (dodo-world/ditto apps/frontpage): Spencer for titles and big numbers, Bitter Sour for the
+ * hand-lettered accent, SF for Messages, and the Arial-first UI stack for everything else. Arial leads on purpose, as in Ditto's --font-ui: a Helvetica-first stack
+ * can resolve to an oblique-only face on some machines.
+ */
+export const fontFiles = {
+  Spencer: require('../../assets/fonts/Spencer-Regular.ttf'),
+  BitterSour: require('../../assets/fonts/BitterSour-Regular.ttf'),
+  Nunito_800ExtraBold,
+};
 
+export const fonts = {
+  serif: 'Spencer',
+  /** No pixel face on the frontpage: big numbers are Spencer. Kept for older call sites. */
+  pixel: 'Spencer',
+  /** Messages' face, for chat bubbles and contact headers. */
+  sf: Platform.select({ web: '-apple-system, "SF Pro Text", system-ui, sans-serif', ios: undefined, default: 'sans-serif' }) as string | undefined,
+  /** The frontpage's hand-lettered accent ("@Austin", "Date without Swiping"). */
+  script: 'BitterSour',
+  /** The wordmark: a rounded heavy sans, like Ditto's. */
+  wordmark: 'Nunito_800ExtraBold',
+  ui: Platform.select({ web: 'Arial, "Helvetica Neue", Helvetica, "Liberation Sans", sans-serif', ios: 'Arial', default: 'sans-serif' }) as string,
+};
+
+/** Kept for older call sites: every weight is the UI face now, with the weight carried by fontWeight. */
+export const geist = { '400': fonts.ui, '500': fonts.ui, '600': fonts.ui, '700': fonts.ui, '800': fonts.ui } as const;
 export type Weight = keyof typeof geist;
+export const geistFor = (_weight?: string | number) => fonts.ui;
 
-/** The face for a fontWeight, rounding to the nearest loaded weight. */
-export function geistFor(weight: string | number | undefined): string {
-  const n = weight === 'bold' ? 700 : Number(weight) || 400;
-  const w = Math.min(800, Math.max(400, Math.round(n / 100) * 100));
-  return geist[String(w) as Weight];
+export function useDittoFonts() {
+  const [loaded, error] = useFonts(fontFiles);
+  return loaded || !!error;
 }
 
-/** Loads Geist and renders children once it is ready (or failed, falling back to the system face). */
+/** Loads Ditto's faces and renders children once they are ready (or failed, falling back to the system face). */
 export function DesignFonts({ children }: { children: ReactNode }) {
-  const [loaded, error] = useFonts({ Geist_400Regular, Geist_500Medium, Geist_600SemiBold, Geist_700Bold, Geist_800ExtraBold });
-  return loaded || error ? <>{children}</> : null;
+  return useDittoFonts() ? <>{children}</> : null;
 }

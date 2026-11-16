@@ -499,6 +499,82 @@ export async function portraitJson(ctx: FriendContext): Promise<RawJson> {
   return new RawJson(text);
 }
 
+// ---------- today ----------
+
+/** A DM whose last message is theirs: the friend is waiting on you. */
+export interface ApiReply {
+  person: string;
+  /** Their last message. */
+  message: ApiSource;
+}
+
+/** A plan from any chat with the friend it is with. */
+export interface ApiTodayPlan extends ApiPlan {
+  person: string;
+}
+
+/** GET /today: who is waiting on a reply, most recent first, and upcoming plans, soonest first. */
+export interface ApiToday {
+  replies: ApiReply[];
+  plans: ApiTodayPlan[];
+}
+
+const DAY_MS = 86_400_000;
+const REPLY_WINDOW_MS = 14 * DAY_MS;
+const UNDATED_PLAN_WINDOW_MS = 7 * DAY_MS;
+const PLAN_LOOKBACK_MS = 30 * DAY_MS;
+const REPLY_CHATS = 50;
+const SHOWN_TODAY = 10;
+
+/**
+ * Who is waiting on you and what is coming up. Windows count back from the newest message rather than the clock, so
+ * an export from a few weeks ago still shows what was open when it was taken. Plans with a day keep it if it is on or
+ * after that day; plans without one keep it while their episode is recent.
+ */
+export async function today(ctx: FriendContext): Promise<ApiToday> {
+  const { owner, store, conversations } = ctx;
+  const latest = Math.min(Date.now(), conversations.reduce((max, c) => Math.max(max, c.lastAt), 0));
+  const other = (ref: ConversationRef) => ref.participants.find((p) => p !== ref.selfName && p !== "Instagram User") ?? null;
+
+  const dms = conversations
+    .filter((c) => isDm(c) && c.lastAt >= latest - REPLY_WINDOW_MS)
+    .sort((a, b) => b.lastAt - a.lastAt)
+    .slice(0, REPLY_CHATS);
+  const lasts = await Promise.all(dms.map(async (ref) => ({ ref, m: (await store.page(owner, ref.key, 5, null)).find((m) => m.sender !== "") })));
+  const replies = lasts.flatMap(({ ref, m }) => {
+    const person = other(ref);
+    return m && person && m.sender !== ref.selfName ? [{ person, message: toSource(m, ref) }] : [];
+  });
+
+  const parts = new LocalTime(ctx.timeZone).parts(latest);
+  const day = [parts.year, String(parts.month).padStart(2, "0"), String(parts.day).padStart(2, "0")].join("-");
+  const refByKey = new Map(conversations.map((c) => [c.key, c]));
+  const seen = new Set<string>();
+  const found = (await ctx.episodes.find(owner, { after: latest - PLAN_LOOKBACK_MS }, 500)).flatMap((e) => {
+    const ref = refByKey.get(e.conversation);
+    if (!ref) return [];
+    return e.plans.flatMap((plan) => {
+      const key = plan.what.toLowerCase().slice(0, 40);
+      if (!plan.sources.length || seen.has(key)) return [];
+      if (plan.date ? plan.date < day : e.endTs < latest - UNDATED_PLAN_WINDOW_MS) return [];
+      const named = new Set(plan.who.flatMap(words));
+      const person = isDm(ref) ? other(ref) : ref.participants.find((p) => p !== ref.selfName && words(p).some((w) => named.has(w)));
+      if (!person) return [];
+      seen.add(key);
+      return [{ plan, episode: e, person, ref }];
+    });
+  });
+  found.sort((a, b) => (a.plan.date ?? "9999").localeCompare(b.plan.date ?? "9999") || b.episode.endTs - a.episode.endTs);
+  const shown = found.slice(0, SHOWN_TODAY);
+  const messages = new Map((await store.byIds(owner, shown.map((f) => f.plan.sources[0]))).map((m) => [m.id, m]));
+  const plans = shown.flatMap(({ plan, episode, person, ref }) => {
+    const m = messages.get(plan.sources[0]);
+    return m ? [{ what: plan.what, date: plan.date, when: plan.when, who: plan.who, episodeId: episode.id, person, source: toSource(m, ref) }] : [];
+  });
+
+  return { replies: replies.slice(0, SHOWN_TODAY), plans };
+}
+
 // ---------- reels ----------
 
 /** A reel of one episode: rendered on a Mac running the local server; the hosted API answers "unavailable". */
@@ -529,6 +605,7 @@ function episodeIdOf(value: unknown): number {
  *   GET /story?name=&refresh=1 → {story: ApiStory | null}
  *   GET /portrait            → Portrait (packages/history/pipeline/portrait/types.ts)
  *   GET /stats               → ApiStats (pipeline/analyze.ts + pipeline/insights.ts over every chat)
+ *   GET /today               → ApiToday
  *   GET /reel?episodeId=     → ApiReel
  *   POST /reel {episodeId}   → ApiReel, starting a render when there is none
  * Returns null for any other route.
@@ -539,6 +616,7 @@ export async function friendRoute(method: string, path: string, query: URLSearch
   if (method === "GET" && path === "/story") return friendStory(name(), ctx, query.get("refresh") === "1");
   if (method === "GET" && path === "/portrait") return portraitJson(ctx);
   if (method === "GET" && path === "/stats") return overallStats(ctx);
+  if (method === "GET" && path === "/today") return today(ctx);
   if (path === "/reel" && (method === "GET" || method === "POST")) {
     if (!reels) return REELS_ON_DESKTOP;
     if (method === "GET") return reels.status(episodeIdOf(query.get("episodeId")));

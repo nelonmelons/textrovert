@@ -6,7 +6,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { Complete, ConversationRef } from "../assistant/agent";
-import { answerRequest, ApiError, friendProfile, friendRoute, friendStory, overallStats, portraitJson, REELS_ON_DESKTOP, type ApiStats, type FriendContext } from "../assistant/api";
+import { answerRequest, ApiError, friendProfile, friendRoute, friendStory, overallStats, portraitJson, REELS_ON_DESKTOP, type ApiStats, type ApiToday, type FriendContext } from "../assistant/api";
 import { EpisodeIndex, type Episode } from "../assistant/episodes";
 import { FactIndex, type Fact } from "../assistant/facts";
 import type { Embed } from "../assistant/memory";
@@ -112,6 +112,25 @@ describe("GET /friend", () => {
     await expect(friendProfile("Nobody", ctx)).rejects.toMatchObject({ status: 404 });
     await expect(friendRoute("GET", "/friend", new URLSearchParams(), null, ctx, null)).rejects.toBeInstanceOf(ApiError);
     expect(await friendRoute("GET", "/elsewhere", new URLSearchParams(), null, ctx, null)).toBeNull();
+  });
+});
+
+describe("GET /today", () => {
+  it("lists DMs whose last message is theirs and upcoming plans, counted back from the newest message", async () => {
+    const atRooftop = { ...ctx, conversations: conversations.map((c) => ({ ...c, lastAt: Math.min(c.lastAt, T0 + 2 * DAY) })) };
+    const day = (await friendRoute("GET", "/today", new URLSearchParams(), null, atRooftop, null)) as ApiToday;
+    expect(day.replies.map((r) => [r.person, r.message.messageId, r.message.isDm])).toEqual([["Juno Reyes", id.back, true], ["Kit Malone", id.kit, true]]);
+    expect(day.plans.map((p) => [p.what, p.person, p.date, p.source.messageId])).toEqual([
+      ["Kayaking", "Juno Reyes", "2026-09-05", id.kayak],
+      ["Rooftop party", "Juno Reyes", null, id.loft1],
+      ["Kit's dentist", "Kit Malone", null, id.loft1],
+    ]);
+  });
+
+  it("drops past plans, stale undated ones and DMs quiet for two weeks", async () => {
+    const day = (await friendRoute("GET", "/today", new URLSearchParams(), null, ctx, null)) as ApiToday;
+    expect(day.replies.map((r) => r.person)).toEqual(["Juno Reyes"]);
+    expect(day.plans).toEqual([]);
   });
 });
 

@@ -114,9 +114,11 @@ function toMessage(m: FileMessage | null | undefined): MessageInput | null {
   const sender = typeof m.from === "string" && m.from ? m.from : SELF;
   if (kind === "deleted") return { ts, sender, kind: "deleted", text: null };
 
+  // Mac apps before the threaded-reply fix wrote a reply's lines as reactions, e.g. ["you after 2 minutes)", "May 17, 2024  5:35:00 PM (Read"];
+  // a real reaction is an emoji, never words.
   const reactions = Array.isArray(m.reactions)
     ? m.reactions.flatMap((r) =>
-        Array.isArray(r) && typeof r[0] === "string" && typeof r[1] === "string" && r[0] ? [{ sender: r[0], emoji: r[1] }] : [],
+        Array.isArray(r) && typeof r[0] === "string" && typeof r[1] === "string" && r[0] && !/[A-Za-z]/.test(r[1]) ? [{ sender: r[0], emoji: r[1] }] : [],
       )
     : [];
   const meta: MessageMeta = {};

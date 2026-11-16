@@ -1,11 +1,11 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useNotes } from '../store';
 import { useFriends } from '../api/people';
 import { activityMatches, ActivityMatch, friendMatches } from '../search';
 import { looksLikeQuestion } from '../chat';
-import { Rounded, Theme, Type, withAlpha } from '../theme';
-import { art, Divider, Face, HedgehogAvatar, SectionCard, ServiceIcon, Symbol, ToneTab } from './Paper';
+import { Rounded, Theme, titleShadow, Type, withAlpha } from '../theme';
+import { Divider, Face, HedgehogAvatar, HedgehogMark, SectionCard, ServiceIcon, Symbol, ToneTab } from './Paper';
 
 const openProfile = (id: string) => router.push({ pathname: '/friend/[id]', params: { id } });
 
@@ -41,7 +41,7 @@ function ActivityRow({ match }: { match: ActivityMatch }) {
           accessibilityLabel={`See ${match.friend.name.split(' ')[0]}’s message about ${match.item.title.toLowerCase()}`}
           style={styles.quote}
         >
-          <Symbol name="quote.bubble" size={17} color={Theme.accent} weight="semibold" />
+          <Symbol name="quote.bubble" size={17} color="#FFFFFF" weight="semibold" />
         </Pressable>
       ) : null}
     </View>
@@ -75,17 +75,17 @@ export function SearchResults({ query }: { query: string }) {
       >
         <HedgehogAvatar />
         <View style={{ flex: 1, gap: 2 }}>
-          <Text style={[Type.headline, { color: question ? '#FFFFFF' : Theme.ink }]}>Ask me</Text>
-          <Text style={[Type.subheadline, { color: question ? '#FFFFFF' : Theme.secondary }]} numberOfLines={2}>
+          <Text style={[Type.headline, { color: question ? '#081721' : Theme.ink }]}>Ask me</Text>
+          <Text style={[Type.subheadline, { color: question ? 'rgba(8, 23, 33, 0.7)' : Theme.secondary }]} numberOfLines={2}>
             “{query.trim()}”
           </Text>
         </View>
-        <Symbol name="arrow.up.circle.fill" size={24} color={question ? '#FFFFFF' : Theme.accent} />
+        <Symbol name="arrow.up.circle.fill" size={24} color={question ? '#081721' : '#FFFFFF'} />
       </Pressable>
       {people.length === 0 && activities.length === 0 ? (
         <View style={{ gap: 12, paddingVertical: 24 }}>
-          <Image source={art.bird} style={{ width: 260, height: 180, alignSelf: 'center' }} resizeMode="contain" />
-          <Text style={[Type.title3, { fontFamily: Rounded.bold, color: Theme.ink }]}>No matches</Text>
+          <HedgehogMark height={36} />
+          <Text style={[Type.title2, titleShadow, { fontFamily: Rounded.bold, color: Theme.ink }]}>No matches</Text>
           <Text style={[Type.body, { color: Theme.secondary }]}>I couldn’t find anyone for that. Try a name, a handle, or something you do together.</Text>
         </View>
       ) : null}
@@ -118,7 +118,7 @@ export function SearchResults({ query }: { query: string }) {
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={[Type.headline, { color: Theme.ink }]}>{friend.name}</Text>
                   <Text style={[Type.subheadline, { color: Theme.secondary }]}>{friend.handle}</Text>
-                  <Text style={[Type.subheadline, { color: Theme.accent }]}>{reason}</Text>
+                  <Text style={[Type.subheadline, { color: Theme.accentTone.ink }]}>{reason}</Text>
                 </View>
                 <Symbol name="chevron.right" size={12} color={Theme.secondary} weight="semibold" />
               </Pressable>
@@ -131,8 +131,8 @@ export function SearchResults({ query }: { query: string }) {
 }
 
 const styles = StyleSheet.create({
-  ask: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: Theme.panel, borderWidth: 1.5, borderColor: withAlpha(Theme.accent, 0.5) },
-  askStrong: { backgroundColor: Theme.accent, borderColor: Theme.accent },
+  ask: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.3)' },
+  askStrong: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
   activityBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6 },
   quote: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(Theme.accentTone.fill, 0.6) },

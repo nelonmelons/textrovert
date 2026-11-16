@@ -1,12 +1,32 @@
-import { API_URL, ApiError, getJson, postJson } from './client';
-import { loadOwnerKey, saveOwnerKey } from './owner';
+import { File, FileMode, Paths } from 'expo-file-system';
+import { Platform } from 'react-native';
 
-/** POST /account once per device; later calls reuse the stored key. */
+import { API_URL, ApiError, getJson, postJson } from './client';
+import { clearOwnerKey, loadOwnerKey, saveOwnerKey } from './owner';
+import { slimZip } from './slimZip';
+
+let checkedOwnerKey: string | null = null;
+
+/**
+ * POST /account once per device; later calls reuse the stored key. A stored key the API no longer knows (its account
+ * was deleted or the backend was reset) would fail every upload, so it's checked once per session and replaced.
+ */
 export async function ensureAccount(): Promise<string> {
   const existing = await loadOwnerKey();
-  if (existing) return existing;
+  if (existing && existing === checkedOwnerKey) return existing;
+  if (existing) {
+    try {
+      await getJson('/status');
+      checkedOwnerKey = existing;
+      return existing;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 401 && /owner key/i.test(e.message))) throw e;
+      await clearOwnerKey();
+    }
+  }
   const { ownerKey } = await postJson<{ ownerKey: string }>('/account', {});
   await saveOwnerKey(ownerKey);
+  checkedOwnerKey = ownerKey;
   return ownerKey;
 }
 
@@ -21,12 +41,15 @@ export async function uploadExport(file: PickedExport, selfName?: string): Promi
   if (!API_URL) throw new ApiError('No API is set up. Set EXPO_PUBLIC_API_URL to upload your chats.');
   await ensureAccount();
   const { uploadUrl } = await postJson<{ uploadUrl: string }>('/upload/url', {});
-  const blob = await (await fetch(file.uri)).blob();
+  const slim = await withoutMedia(file);
   let stored: Response;
   try {
+    const blob = await (await fetch(slim?.uri ?? file.uri)).blob();
     stored = await fetch(uploadUrl, { method: 'POST', headers: { 'content-type': file.mimeType || 'application/octet-stream' }, body: blob });
   } catch {
     throw new ApiError("Couldn't upload the file. Check your connection and try again.");
+  } finally {
+    slim?.delete();
   }
   if (!stored.ok) throw new ApiError('The upload failed (' + stored.status + '). Try again.', stored.status);
   const { storageId } = (await stored.json()) as { storageId: string };
@@ -43,6 +66,43 @@ export async function uploadExport(file: PickedExport, selfName?: string): Promi
     ...(selfName?.trim() ? { selfName: selfName.trim() } : {}),
   });
   return uploadId;
+}
+
+/**
+ * A copy of a picked zip without its photos and videos, in the cache folder, or null to upload the file as picked
+ * (not a zip, nothing to drop, on the web, or the copy failed). Delete it once the upload has read it.
+ */
+async function withoutMedia(file: PickedExport): Promise<File | null> {
+  if (Platform.OS === 'web' || !(/\.zip$/i.test(file.name) || /zip/i.test(file.mimeType ?? ''))) return null;
+  const slim = new File(Paths.cache, 'upload-without-media.zip');
+  let input: ReturnType<File['open']> | undefined;
+  let output: ReturnType<File['open']> | undefined;
+  try {
+    input = new File(file.uri).open(FileMode.ReadOnly);
+    if (slim.exists) slim.delete();
+    slim.create();
+    output = slim.open(FileMode.WriteOnly);
+    const source = input;
+    const sink = output;
+    const size = await slimZip(
+      {
+        size: source.size ?? 0,
+        read: (offset, length) => {
+          source.offset = offset;
+          return source.readBytes(length);
+        },
+      },
+      (bytes) => sink.writeBytes(bytes),
+    );
+    if (size !== null) return slim;
+  } catch {
+    // Upload the original instead.
+  } finally {
+    input?.close();
+    output?.close();
+  }
+  if (slim.exists) slim.delete();
+  return null;
 }
 
 export type StageName = 'stats' | 'search' | 'ask' | 'episodes' | 'facts';

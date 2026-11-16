@@ -83,8 +83,8 @@ export function LiveResults({ query, onSearch }: { query: string; onSearch: () =
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 56, paddingHorizontal: 20, paddingVertical: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14, minHeight: 56, paddingHorizontal: 16, paddingVertical: 8 },
   pressed: { backgroundColor: Theme.tertiaryFill },
   circle: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.tertiaryFill },
-  hint: { color: Theme.secondary, paddingHorizontal: 20, paddingVertical: 16 },
+  hint: { color: Theme.secondary, paddingHorizontal: 16, paddingVertical: 16 },
 });

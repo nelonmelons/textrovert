@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { PORTRAIT_HTML } from './portraitHtml';
+import { DITTO_PORTRAIT_HTML } from './portraitDitto';
 
 const portraitHash = (view?: string) => '#/' + (view || 'orbit');
 
 /** A blob URL rather than srcDoc, so the page has a real location whose hash picks the view. */
 let pageUrl: string | null = null;
-const portraitPage = () => (pageUrl ??= URL.createObjectURL(new Blob([PORTRAIT_HTML], { type: 'text/html' })));
+const portraitPage = () => (pageUrl ??= URL.createObjectURL(new Blob([DITTO_PORTRAIT_HTML], { type: 'text/html' })));
 
 export interface PortraitWebViewProps {
   /** The GET /portrait body as text (fetchPortraitJson in src/api/friend.ts); null while it loads. */
@@ -20,7 +20,10 @@ export interface PortraitWebViewProps {
   style?: StyleProp<ViewStyle>;
 }
 
-/** Web build of PortraitWebView: the same bundled page in an iframe, talking over window.postMessage. */
+/**
+ * Web build of PortraitWebView: the same bundled page in an iframe, talking over window.postMessage. The page is
+ * transparent and the iframe shares its dark color-scheme, or the browser would paint an opaque canvas behind it.
+ */
 export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, style }: PortraitWebViewProps) {
   const frame = useRef<HTMLIFrameElement>(null);
   const ready = useRef(false);
@@ -53,8 +56,8 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, st
   }, []);
 
   return (
-    <View style={[{ flex: 1, backgroundColor: '#0b0810' }, style]}>
-      <iframe ref={frame} title="Portrait" src={portraitPage() + initialHash} style={{ border: 0, width: '100%', height: '100%', display: 'block' }} />
+    <View style={[{ flex: 1, backgroundColor: 'transparent' }, style]}>
+      <iframe ref={frame} title="Portrait" src={portraitPage() + initialHash} style={{ border: 0, width: '100%', height: '100%', display: 'block', background: 'transparent', colorScheme: 'dark' }} />
     </View>
   );
 }

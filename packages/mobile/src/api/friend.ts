@@ -180,6 +180,25 @@ export const fetchPortraitJson = async () => (await call('/portrait', { method: 
 /** Overall texting stats; the first call after new messages analyzes every chat (a few seconds). */
 export const fetchStats = () => getJson<Stats>('/stats', SLOW_TIMEOUT_MS);
 
+/** A DM whose last message is theirs. */
+export interface TodayReply {
+  person: string;
+  message: Source;
+}
+
+export interface TodayPlan extends FriendPlan {
+  /** Who the plan is with: the DM's other person, or someone it names in a group. */
+  person: string;
+}
+
+/** GET /today: who's waiting on a reply (most recent first) and upcoming plans (soonest first). */
+export interface Today {
+  replies: TodayReply[];
+  plans: TodayPlan[];
+}
+
+export const fetchToday = () => getJson<Today>('/today');
+
 export const fetchReel = (episodeId: number) => getJson<Reel>('/reel?episodeId=' + episodeId);
 
 /** Starts rendering a reel (about a minute on a Mac); poll fetchReel until it is ready, failed or unavailable. */

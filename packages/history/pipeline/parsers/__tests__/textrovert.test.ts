@@ -108,6 +108,32 @@ describe(".textrovert messages file", () => {
     expect(run.conversations.get("chat:+15550003333")).toMatchObject({ title: "+15550003333", kind: "dm", participants: ["Me"] });
   });
 
+  it("drops threaded-reply lines older Mac apps wrote as reactions, so the DM stays a DM", async () => {
+    const old = {
+      ...file,
+      chats: [
+        {
+          id: "chat:+15550004444",
+          title: "+15550004444",
+          group: false,
+          people: ["Priya Shah"],
+          messages: [
+            {
+              t: t("2024-05-17T17:29:42Z"),
+              from: "Priya Shah",
+              text: "did you get the tickets",
+              reactions: [["Me", "❤️"], ["you after 2 minutes, 3 seconds)", "May 17, 2024  5:35:00 PM (Read"], ["the store", "    stopped"]],
+            },
+            { t: t("2024-05-17T17:35:00Z"), text: "stopped by the store, got them!" },
+          ],
+        },
+      ],
+    };
+    const run = await runParser(textrovertParser, { "old.textrovert": JSON.stringify(old) });
+    expect(run.conversations.get("chat:+15550004444")).toMatchObject({ kind: "dm", participants: ["Priya Shah", "Me"] });
+    expect(run.messages.get("chat:+15550004444")![0].meta).toEqual({ reactions: [{ sender: "Me", emoji: "❤️" }] });
+  });
+
   it("produces the same conversation and messages as the imessage-exporter path for the same chat", async () => {
     const transcript = [
       "May 17, 2024  5:29:42 PM (Read by you after 5 minutes)",

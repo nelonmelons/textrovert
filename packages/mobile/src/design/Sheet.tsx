@@ -34,10 +34,9 @@ export function Sheet({ visible, onClose, title, emoji, subtitle, children }: { 
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: c.overlay }, scrim]}>
         <Pressable accessibilityRole="button" aria-label="Close" style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
-      <Animated.View aria-modal role="dialog" style={[{ position: 'absolute', left: 8, right: 8, bottom: 8, maxHeight: '86%', backgroundColor: c.surface, borderRadius: radii.sheet, borderCurve: 'continuous', paddingBottom: Math.max(insets.bottom, space.lg), boxShadow: shadow.float }, card]}>
+      <Animated.View aria-modal role="dialog" style={[{ position: 'absolute', left: 8, right: 8, bottom: 8, maxHeight: '86%', backgroundColor: c.sheet, borderWidth: 1, borderColor: 'rgba(83, 105, 121, 0.8)', borderRadius: radii.sheet, borderCurve: 'continuous', paddingBottom: Math.max(insets.bottom, space.lg), boxShadow: shadow.float }, card]}>
         <View style={{ alignSelf: 'center', width: 36, height: 5, borderRadius: 3, marginTop: 8, backgroundColor: c.fillStrong }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.md }}>
-          {emoji ? <Txt style={{ fontSize: 28 }}>{emoji}</Txt> : null}
           <View style={{ flex: 1 }}>
             <Txt accessibilityRole="header" variant="title2">
               {title}

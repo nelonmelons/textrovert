@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Image, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { router } from 'expo-router';
 
 import { BigButton, DarkCard, fillFor, PillButton, space, TileGrid, Txt, type TileItem } from '@/design';
 import { usePortraitJson } from '../portrait/Portrait';
+import { GlassBadge } from './parts';
 
 /** Tags that describe the medium rather than the friendship; the atlas leaves them out too. */
 const GENERIC = new Set([
@@ -39,8 +40,6 @@ const EMOJI: [RegExp, string][] = [
   [/sport|basketball|soccer|football/, '🏀'],
   [/pet|dog|cat/, '🐶'],
 ];
-const MAP = require('../../../assets/art/hedgehog-map.png');
-const SLEEPY = require('../../../assets/art/hedgehog-sleepy.png');
 const FALLBACK = ['💬', '✨', '🧩', '🌀', '🎈', '🪐'];
 
 const emojiFor = (topic: string, i: number) => EMOJI.find(([re]) => re.test(topic.toLowerCase()))?.[1] ?? FALLBACK[i % FALLBACK.length];
@@ -78,10 +77,9 @@ export function TopicTiles({ live }: { live: boolean }) {
     onPress: () => openAtlas(t.topic),
   }));
   const row = (art: 'map' | 'sleepy', text: string, busy = false) => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.sm, paddingTop: space.xs }}>
-      <Image source={art === 'map' ? MAP : SLEEPY} resizeMode="contain" style={{ width: 64, height: 64 }} aria-hidden />
-      {busy ? <ActivityIndicator color="#FFFFFF" /> : null}
-      <Txt variant="subhead" tone="onDarkMuted" style={{ flex: 1, fontWeight: '500' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.md, paddingVertical: space.md }}>
+      {busy ? <ActivityIndicator color="#FFFFFF" /> : <GlassBadge emoji={art === 'map' ? '🗺️' : '🌙'} size={40} />}
+      <Txt variant="subhead" tone="onDarkMuted" shadow style={{ flex: 1 }}>
         {text}
       </Txt>
     </View>
@@ -101,7 +99,7 @@ export function TopicTiles({ live }: { live: boolean }) {
   return (
     <View style={{ gap: space.lg }}>
       <TileGrid items={items} header={row('map', topics.length + ' topics you and your people keep coming back to. Tap one to find it on the map.')} footer={rest > 0 ? 'And ' + rest + ' smaller ' + (rest === 1 ? 'topic.' : 'topics.') : undefined} />
-      <BigButton title="Open the atlas" emoji="🗺️" onPress={() => openAtlas()} />
+      <BigButton title="Open the atlas" onPress={() => openAtlas()} />
     </View>
   );
 }

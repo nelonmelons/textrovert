@@ -1,8 +1,20 @@
 import type { TextStyle } from 'react-native';
 
 /**
- * Textrovert design v2 tokens: white (or near-black) canvas, big tight Geist type, saturated avatar fills with a
- * darker edge, and tactile surfaces that sit on a solid "lip" so they read as pressable.
+ * Textrovert on Ditto's frontpage design (austincupid.com; dodo-world/ditto apps/frontpage). Only the frontpage's
+ * elements, nothing older:
+ *
+ * - scenes: the painted, dithered sky and the blue-duotone photographs;
+ * - type: white Spencer titles with a navy shadow, a Bitter Sour script accent, Arial for text, SF for iMessage;
+ * - labels: black stickers with one pink word;
+ * - surfaces: the FAQ's house glass for lists (#011E2C at 40%, blur 24, a slate rim), the Enroll card's form glass for
+ *   forms and controls (white/10, blur 10, a white lit rim), and deep-blue sections with scalloped edges;
+ * - fields: 46pt, 16pt corners, black/10, white text, white/50 placeholders;
+ * - actions: the white pill with navy ink (48pt, 28pt corners, bold 16), and form-glass pills with white ink;
+ * - chat: Messages' bubbles (grey #E9E9EB with black ink, blue #1F8FFF→#0A7CFF with white) and contact avatars;
+ * - pink #F748B1 only for accent words, chevrons and counts.
+ *
+ * The frontpage is always white-on-scene, so both schemes resolve to the same palette.
  */
 export type Scheme = 'light' | 'dark';
 
@@ -21,170 +33,158 @@ export function withAlpha(color: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const light = {
-  background: '#FFFFFF',
-  grouped: '#F5F5F7',
-  surface: '#FFFFFF',
-  surfaceMuted: '#F4F4F1',
-  fill: 'rgba(120, 120, 128, 0.12)',
-  fillStrong: 'rgba(120, 120, 128, 0.2)',
-  edge: '#E6E6E6',
-  separator: 'rgba(60, 60, 67, 0.12)',
-  text: '#0A0A0A',
-  textSecondary: '#737373',
-  textTertiary: '#A3A3A3',
-  accent: '#4F98F8',
-  accentEdge: '#2F78DC',
-  accentText: '#2F78DC',
-  accentSoft: '#EAF2FE',
-  onAccent: '#FFFFFF',
-  thumb: '#FFFFFF',
-  bubbleTheirs: '#FFFFFF',
-  bubbleMine: '#D9FDD3',
-  bubbleText: '#111B21',
-  bubbleName: '#4F98F8',
-  bubbleTime: 'rgba(17, 27, 33, 0.42)',
-  darkCard: '#111113',
-  darkCell: '#1B1B1E',
-  darkCellEdge: '#26262A',
-  onDark: '#FFFFFF',
-  onDarkMuted: 'rgba(255, 255, 255, 0.58)',
-  tabBar: 'rgba(250, 250, 250, 0.92)',
-  tabBarEdge: 'rgba(0, 0, 0, 0.06)',
-  overlay: 'rgba(0, 0, 0, 0.25)',
-  success: '#34C759',
-  danger: '#FF3B30',
-};
-
-export type Colors = typeof light;
-
-const dark: Colors = {
-  background: '#0A0A0B',
-  grouped: '#161618',
-  surface: '#161618',
-  surfaceMuted: '#141416',
-  fill: 'rgba(120, 120, 128, 0.24)',
-  fillStrong: 'rgba(120, 120, 128, 0.34)',
-  edge: '#2A2A2E',
-  separator: 'rgba(84, 84, 88, 0.45)',
-  text: '#F5F5F7',
-  textSecondary: '#98989F',
-  textTertiary: '#636368',
-  accent: '#4F98F8',
-  accentEdge: '#2F78DC',
-  accentText: '#6EABFA',
-  accentSoft: 'rgba(79, 152, 248, 0.18)',
-  onAccent: '#FFFFFF',
-  thumb: '#5A5A5F',
-  bubbleTheirs: '#222225',
-  bubbleMine: '#1C4A31',
-  bubbleText: '#ECEDEE',
-  bubbleName: '#6EABFA',
-  bubbleTime: 'rgba(236, 237, 238, 0.45)',
-  darkCard: '#161618',
-  darkCell: '#202024',
-  darkCellEdge: '#2D2D32',
-  onDark: '#FFFFFF',
-  onDarkMuted: 'rgba(255, 255, 255, 0.58)',
-  tabBar: 'rgba(28, 28, 30, 0.9)',
-  tabBarEdge: 'rgba(255, 255, 255, 0.08)',
-  overlay: 'rgba(0, 0, 0, 0.55)',
-  success: '#30D158',
-  danger: '#FF453A',
-};
-
-export const palette: Record<Scheme, Colors> = { light, dark };
-
-/**
- * Avatar and tile fills: a saturated face, a darker edge for the ring and lip, and the ink that reads on it.
- * They stay the same in dark mode, where they glow against the near-black canvas.
- */
-export const fills = {
-  pink: { fill: '#FF90E8', edge: '#E070C8', ink: '#0A0A0A' },
-  mint: { fill: '#7EE0B5', edge: '#55C493', ink: '#0A0A0A' },
-  yellow: { fill: '#FFC900', edge: '#DBA800', ink: '#0A0A0A' },
-  peach: { fill: '#FFB38A', edge: '#E8936A', ink: '#0A0A0A' },
-  lilac: { fill: '#C4B5FD', edge: '#A593EF', ink: '#0A0A0A' },
-  blue: { fill: '#5099F9', edge: '#2F78DC', ink: '#FFFFFF' },
-  coral: { fill: '#FF8F8F', edge: '#E26B6B', ink: '#0A0A0A' },
-  lime: { fill: '#C8F07A', edge: '#A0CC4E', ink: '#0A0A0A' },
-  white: { fill: '#FFFFFF', edge: '#E6E6E6', ink: '#0A0A0A' },
+/** The frontpage's colours. */
+export const ditto = {
+  /** Accent words, chevrons, counts. */
+  primary: '#F748B1',
+  pink: '#F748B1',
+  /** Page canvas behind scenes, the footer, and the primary pill's ink. */
+  nu7: '#081721',
+  navy: '#081721',
+  /** The FAQ card's fill (at 40%) and slate rim. */
+  house: '#011E2C',
+  slate: '#536979',
+  /** The hero sky's top colour, and the title shadow's navy. */
+  skyTop: '#557C86',
+  deepBlue: '#0E2860',
+  /** Deep-blue sections under a scalloped edge. */
+  section: '#1B4384',
+  sectionDeep: '#0F2B60',
+  teal: '#759DA7',
+  /** Footer headings. */
+  zinc: '#A1A1AA',
+  /** Validation errors (the Enroll form's). */
+  error: '#FFB4B4',
+  /** Messages. */
+  bubbleIn: '#E9E9EB',
+  bubbleOutTop: '#1F8FFF',
+  bubbleOut: '#0A7CFF',
+  ink: '#081721',
 } as const;
 
+const frontpage = {
+  background: ditto.navy,
+  grouped: ditto.navy,
+  /** House glass: lists and cards of white copy. */
+  surface: 'rgba(8, 23, 33, 0.34)',
+  /** Form glass: forms, controls, pills. */
+  surfaceMuted: 'rgba(255, 255, 255, 0.1)',
+  fill: 'rgba(255, 255, 255, 0.1)',
+  fillStrong: 'rgba(255, 255, 255, 0.2)',
+  edge: 'rgba(255, 255, 255, 0.2)',
+  separator: 'rgba(255, 255, 255, 0.1)',
+  text: '#FFFFFF',
+  textSecondary: 'rgba(255, 255, 255, 0.8)',
+  textTertiary: 'rgba(255, 255, 255, 0.5)',
+  accent: ditto.primary,
+  accentEdge: ditto.primary,
+  accentText: ditto.primary,
+  accentSoft: 'rgba(247, 72, 177, 0.2)',
+  onAccent: '#FFFFFF',
+  /** The primary pill: white with navy ink. */
+  key: '#FFFFFF',
+  keyInk: ditto.navy,
+  thumb: '#FFFFFF',
+  /** Fields: black/10 inside form glass. */
+  input: 'rgba(0, 0, 0, 0.1)',
+  placeholder: 'rgba(255, 255, 255, 0.5)',
+  bubbleTheirs: ditto.bubbleIn,
+  bubbleMine: ditto.bubbleOut,
+  bubbleText: '#000000',
+  bubbleMineText: '#FFFFFF',
+  bubbleName: 'rgba(0, 0, 0, 0.5)',
+  bubbleTime: 'rgba(0, 0, 0, 0.4)',
+  bubbleMineTime: 'rgba(255, 255, 255, 0.7)',
+  darkCard: 'rgba(8, 23, 33, 0.34)',
+  darkCell: 'rgba(255, 255, 255, 0.06)',
+  darkCellEdge: 'rgba(255, 255, 255, 0.1)',
+  onDark: '#FFFFFF',
+  onDarkMuted: 'rgba(255, 255, 255, 0.8)',
+  tabBar: 'rgba(255, 255, 255, 0.1)',
+  tabBarEdge: 'rgba(255, 255, 255, 0.5)',
+  overlay: 'rgba(8, 23, 33, 0.55)',
+  /** Sheets: the house glass, near-opaque. */
+  sheet: 'rgba(1, 30, 44, 0.92)',
+  success: '#FFFFFF',
+  danger: ditto.error,
+};
+
+export type Colors = typeof frontpage;
+
+export const palette: Record<Scheme, Colors> = { light: frontpage, dark: frontpage };
+
+/**
+ * Avatar fills. The frontpage has no colour-coded avatars, so every name lands on Messages' grey contact avatar; the
+ * names stay so older call sites keep compiling.
+ */
+const contact = { fill: '#9AA1AD', edge: '#7E8592', ink: '#FFFFFF' } as const;
+export const fills = { pink: contact, mint: contact, yellow: contact, peach: contact, lilac: contact, blue: contact, coral: contact, lime: contact, white: contact } as const;
 export type FillName = keyof typeof fills;
-/** The fills a name can land on; white is reserved for app and platform icons. */
 export const avatarFills = ['pink', 'mint', 'yellow', 'peach', 'lilac', 'blue', 'coral', 'lime'] as const satisfies readonly FillName[];
-
-/** The same name always gets the same fill. */
-export function fillFor(seed: string): FillName {
-  let h = 5381;
-  for (const ch of seed.trim().toLowerCase()) h = ((h << 5) + h + ch.codePointAt(0)!) >>> 0;
-  return avatarFills[h % avatarFills.length];
+export function fillFor(_seed: string): FillName {
+  return 'blue';
 }
+/** Messages' contact avatar gradient. */
+export const contactGradient = ['#A9AFBB', '#868C98'] as const;
+export const tileGradient = (_name: FillName) => contactGradient;
 
-/** Top-to-bottom gradient for an app-icon tile cut from a fill. */
-export const tileGradient = (name: FillName) => [mix(fills[name].fill, '#FFFFFF', 0.28), fills[name].fill] as const;
-
-/** Big, tight, bold Geist headlines over calm iOS body sizes. Txt maps each weight to its Geist face. */
+/**
+ * Type: Spencer (one weight) for display through title2 and for big numbers, Bitter Sour for script, Arial for the rest.
+ */
 export const type = {
-  display: { fontSize: 40, lineHeight: 44, fontWeight: '700', letterSpacing: -1.2 },
-  largeTitle: { fontSize: 34, lineHeight: 40, fontWeight: '700', letterSpacing: -0.9 },
-  title1: { fontSize: 28, lineHeight: 33, fontWeight: '700', letterSpacing: -0.6 },
-  title2: { fontSize: 22, lineHeight: 27, fontWeight: '700', letterSpacing: -0.4 },
-  title3: { fontSize: 20, lineHeight: 25, fontWeight: '600', letterSpacing: -0.3 },
-  headline: { fontSize: 17, lineHeight: 22, fontWeight: '600', letterSpacing: -0.2 },
-  body: { fontSize: 17, lineHeight: 24, fontWeight: '400', letterSpacing: -0.2 },
-  callout: { fontSize: 16, lineHeight: 22, fontWeight: '400', letterSpacing: -0.15 },
-  subhead: { fontSize: 15, lineHeight: 20, fontWeight: '400', letterSpacing: -0.1 },
-  footnote: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
-  stat: { fontSize: 44, lineHeight: 48, fontWeight: '800', letterSpacing: -1.6, fontVariant: ['tabular-nums'] },
+  display: { fontSize: 48, lineHeight: 46, fontWeight: '400', letterSpacing: -0.4 },
+  largeTitle: { fontSize: 38, lineHeight: 38, fontWeight: '400', letterSpacing: -0.3 },
+  title1: { fontSize: 30, lineHeight: 31, fontWeight: '400', letterSpacing: -0.2 },
+  title2: { fontSize: 24, lineHeight: 26, fontWeight: '400', letterSpacing: -0.1 },
+  title3: { fontSize: 18, lineHeight: 23, fontWeight: '700' },
+  headline: { fontSize: 16, lineHeight: 21, fontWeight: '700' },
+  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  callout: { fontSize: 15, lineHeight: 22, fontWeight: '400' },
+  subhead: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
+  footnote: { fontSize: 13, lineHeight: 19.5, fontWeight: '400' },
+  caption: { fontSize: 11, lineHeight: 14, fontWeight: '600', letterSpacing: 0 },
+  /** Big numbers, in Spencer. */
+  stat: { fontSize: 40, lineHeight: 40, fontWeight: '400', letterSpacing: -0.4 },
+  script: { fontSize: 34, lineHeight: 40, fontWeight: '400' },
 } satisfies Record<string, TextStyle>;
 
 export type TypeName = keyof typeof type;
+export const serifVariants: readonly TypeName[] = ['display', 'largeTitle', 'title1', 'title2', 'stat'];
 
-/** 4pt grid. Screens use a 20pt gutter. */
-export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32, huge: 48, gutter: 20 };
+/** The frontpage title shadow, lit from the top left and falling down-right in navy. */
+export const titleShadow = { textShadowColor: 'rgba(14, 40, 96, 0.38)', textShadowOffset: { width: 2, height: 4 }, textShadowRadius: 8 } as const;
+/** The frontpage's small-text lift (0 1px 2px rgba(12, 34, 80, .35)). */
+export const softShadow = { textShadowColor: 'rgba(12, 34, 80, 0.35)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 } as const;
 
-/** Continuous-corner radii. App icons use the iOS icon ratio of their size. */
-export const radii = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32, sheet: 36, pill: 999, bubble: 18, bubbleTail: 6 };
-export const iconRadius = (size: number) => Math.round(size * 0.2237);
+/** 4pt grid. Screens use a 16pt gutter, as the frontpage's phone layouts do. */
+export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32, huge: 48, gutter: 16 };
 
-/** Solid lip under tactile surfaces, in points. */
-export const lip = { button: 4, pill: 3, card: 5, tile: 4 };
+/** Radii from the frontpage: fields 16, cards 24, form cards 32, pills 28 or round. */
+export const radii = { xs: 8, sm: 12, md: 16, lg: 20, xl: 24, xxl: 32, sheet: 32, pill: 999, field: 16, button: 28, bubble: 18, bubbleTail: 18 };
+export const iconRadius = (size: number) => size / 2;
 
-/** CSS-style box shadows (React Native's boxShadow), per scheme. */
-export const shadows: Record<Scheme, Record<'avatar' | 'bubble' | 'card' | 'float' | 'thumb' | 'glow', string>> = {
-  light: {
-    avatar: '0px 8px 20px rgba(28, 25, 23, 0.1)',
-    bubble: '0px 1px 0.5px rgba(11, 20, 26, 0.13)',
-    card: '0px 1px 2px rgba(0, 0, 0, 0.04), 0px 10px 28px rgba(0, 0, 0, 0.06)',
-    float: '0px 24px 48px rgba(0, 0, 0, 0.16)',
-    thumb: '0px 3px 8px rgba(0, 0, 0, 0.12), 0px 3px 1px rgba(0, 0, 0, 0.04)',
-    glow: '0px 0px 18px rgba(79, 152, 248, 0.55)',
-  },
-  dark: {
-    avatar: '0px 8px 20px rgba(0, 0, 0, 0.5)',
-    bubble: '0px 1px 0.5px rgba(0, 0, 0, 0.4)',
-    card: '0px 10px 28px rgba(0, 0, 0, 0.4)',
-    float: '0px 24px 48px rgba(0, 0, 0, 0.6)',
-    thumb: '0px 3px 8px rgba(0, 0, 0, 0.3)',
-    glow: '0px 0px 20px rgba(79, 152, 248, 0.7)',
-  },
+/** No lips: the frontpage is flat glass. Kept for older call sites. */
+export const lip = { button: 0, pill: 0, card: 0, tile: 0 };
+
+const shadowSet = {
+  avatar: '0px 1px 4px rgba(12, 34, 80, 0.3)',
+  bubble: 'none',
+  card: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+  float: '0px 30px 90px rgba(12, 34, 80, 0.28)',
+  thumb: '0px 1px 2px rgba(0, 0, 0, 0.05)',
+  glow: 'none',
+  /** Form glass's inner light (0 1px 4px 0 rgba(255,255,255,.25) inset). */
+  inset: 'inset 0px 1px 4px 0px rgba(255, 255, 255, 0.25)',
 };
+export const shadows: Record<Scheme, typeof shadowSet> = { light: shadowSet, dark: shadowSet };
 
-/** Reanimated spring configs. */
 export const springs = {
-  /** Finger down: quick and firm. */
   press: { damping: 20, stiffness: 520, mass: 0.6 },
-  /** Finger up: a little bounce back. */
   release: { damping: 12, stiffness: 320, mass: 0.7 },
-  /** Thumbs and selections sliding into place. */
   snappy: { damping: 22, stiffness: 300, mass: 0.8 },
-  /** Sheets rising. */
   sheet: { damping: 26, stiffness: 240, mass: 1 },
-  /** Ambient bobbing. */
   gentle: { damping: 14, stiffness: 120, mass: 1 },
 };
 
-export const durations = { fast: 140, base: 220, slow: 360, scan: 2800 };
+/** The frontpage's motion: 200-300ms ease-out. */
+export const durations = { fast: 200, base: 300, slow: 500, scan: 2800 };

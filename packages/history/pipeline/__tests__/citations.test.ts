@@ -171,4 +171,9 @@ describe("Ask API helpers", () => {
     ]);
     expect(chatsWith(conversations, "rory vance").map((c) => c.id)).toEqual(["id-crew"]);
   });
+
+  it("leaves business senders out of people", () => {
+    const shop: ConversationRef = { ...conversations[1], id: "id-shop", key: "k-shop", title: "Shop", participants: ["urn:biz:0000", "Alex"] };
+    expect(listPeople([...conversations, shop]).map((p) => p.name)).toEqual(["Tam Okafor", "Rory Vance"]);
+  });
 });
