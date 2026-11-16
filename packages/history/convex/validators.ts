@@ -1,5 +1,7 @@
 import { v, type Infer } from "convex/values";
 
+import { INTEREST_CATEGORIES } from "../pipeline/interests";
+
 export const platformV = v.union(
   v.literal("whatsapp"),
   v.literal("imessage"),
@@ -173,3 +175,47 @@ export const insightsV = v.object({
   ),
 });
 export type Insights = Infer<typeof insightsV>;
+
+export const interestCategoryV = v.union(...INTEREST_CATEGORIES.map((category) => v.literal(category)));
+
+/** One interest in a user's profile, found in messages they sent (see pipeline/interests.ts). */
+export const interestV = v.object({
+  id: v.string(),
+  name: v.string(),
+  category: interestCategoryV,
+  summary: v.string(),
+  specifics: v.array(v.string()),
+  keywords: v.array(v.string()),
+  mentions: v.number(),
+  firstAt: nullableNumber,
+  lastAt: nullableNumber,
+});
+
+export const sharedSideV = v.object({ detail: v.string(), mentions: v.number(), since: nullableNumber });
+
+/** Something two matched users have in common (see pipeline/commonGround.ts). */
+export const sharedInterestV = v.object({
+  title: v.string(),
+  category: interestCategoryV,
+  match: v.union(v.literal("same"), v.literal("activity"), v.literal("related")),
+  hidden: v.boolean(),
+  betweenYou: v.number(),
+  starter: v.string(),
+  a: sharedSideV,
+  b: sharedSideV,
+});
+
+export const commonGroundV = v.object({
+  items: v.array(sharedInterestV),
+  sharedChats: v.object({ a: v.number(), b: v.number() }),
+  builtAt: v.number(),
+});
+
+export const matchStatusV = v.union(
+  v.literal("waiting"),
+  v.literal("analyzing"),
+  v.literal("comparing"),
+  v.literal("ready"),
+  v.literal("failed"),
+);
+export type MatchStatus = Infer<typeof matchStatusV>;

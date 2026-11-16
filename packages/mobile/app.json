@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "Textrovert",
+    "slug": "textrovert",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "textrovert",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.textrovert.app",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsLocalNetworking": true
+        }
+      }
+    },
+    "android": {
+      "package": "com.textrovert.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Textrovert"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}

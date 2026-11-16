@@ -90,6 +90,56 @@ Messenger, Telegram), chat titles (a WhatsApp DM is named after the other person
 uploads, and the participant present in nearly every chat. A chat it can't resolve has `selfName: null`; pass
 `selfName` when uploading (for example, ask "what's your name in your chats?") to settle it.
 
+## Matching: what two people have in common
+
+Two users who have each uploaded their history can compare them. One creates an invite and sends the code; the other
+joins with it. Each person's interests are built only from messages they sent themselves, and neither person ever sees
+the other's messages or full profile: a match shows only the overlap, with the things that never came up between the
+two of them first.
+
+```ts
+// Kevin: start a match. His interest profile starts building right away.
+const { matchId, code } = await convex.mutation(api.matches.create, { ownerKey, name: "Kevin" }); // code: "MZP62X"
+// Emma: join with the code Kevin sent her (case-insensitive).
+const matchId = await convex.mutation(api.matches.join, { ownerKey, code, name: "Emma" });
+
+// Either of them, live: status is waiting → analyzing → comparing → ready | failed (with `error`).
+const match = useQuery(api.matches.get, { ownerKey, matchId });
+// match.you / match.them: { name, state } where state is uploading | needs_upload | analyzing | ready | failed.
+// match.result.items, things that never came up between you (hidden: true) first:
+//   { title, category, match: "same" | "activity" | "related", hidden, betweenYou, starter,
+//     you: { detail, mentions, since }, them: { detail, mentions, since } }
+// match.result.sharedChats: how many of your chats the other person is in (your DM and shared groups).
+
+const matches = useQuery(api.matches.list, { ownerKey }); // [{ _id, them, status, shared, hidden, ... }]
+await convex.mutation(api.matches.rerun, { ownerKey, matchId }); // retry after a failure
+await convex.mutation(api.matches.remove, { ownerKey, matchId }); // deletes it for both people
+
+const mine = useQuery(api.interests.mine, { ownerKey }); // your own interest profile, strongest first
+```
+
+How it works:
+
+- **Interest profiles** (`pipeline/interests.ts`): the model reads the texts you sent to people (not AI chats, not what
+  others sent you) in batches and lists interests. Words you use rarely but keep coming back to are grouped and read
+  first, so a hobby mentioned 50 times in 60,000 texts isn't lost among the small talk. Everyday routines (running late,
+  plans, Venmo) and private topics (health, sexuality, dating, religion, politics, money, legal trouble, drugs) are
+  flagged by the model and dropped in code. Every interest is then checked against your whole history: one that fewer
+  than 3 of your messages mention is dropped, and the counts and first-mention dates come from that check. Histories
+  over about 1.6M characters of your own texts are read as an even sample, but the check still covers every message.
+- **The comparison** (`pipeline/commonGround.ts`) sees only the two profiles, never messages. It names each overlap and
+  whether it's the same thing, the same activity, or just related.
+- **"Didn't know" vs. "already talked about"**: the two people's chats with each other are found without names or
+  numbers, by texts one sent that show up among the other's received texts within 5 minutes. An overlap that came up
+  fewer than 3 times in those chats is `hidden`.
+- A profile is rebuilt after each new upload, and every match the person is in re-runs with it.
+
+It needs an OpenAI key on the deployment (`npx convex env set OPENAI_API_KEY <key>`; `OPENAI_MODEL` overrides the
+default `gpt-5-mini`). Building a profile takes about 30 seconds for a few hundred sent texts and 2 to 3 minutes for 60,000 (longer when
+OpenAI is slow).
+To try it without Convex, `OPENAI_API_KEY=... pnpm common-ground --a kevin/chat.db --b emma/chat.db --tz America/Los_Angeles`
+prints both profiles and the comparison.
+
 ## Getting exports (what to tell users)
 
 | App | How | Upload |
@@ -168,6 +218,28 @@ It exits with a message naming the missing variable or file. Endpoints (all date
   messages go to OpenAI (`WRAPPED_MODEL`, default gpt-5-mini) and its picks pass the same gate; `"model": false` is
   rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
 - `GET /health` → `{"ok": true, "chats"}`.
+
+The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, shared with
+the hosted API below, so both servers answer identically.
+
+## Hosted Ask API
+
+`convex/http.ts` serves the same `POST /ask`, `GET /people` and `GET /health` from the deployment's site URL
+(`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
+chats and is off until both of these are set on the deployment:
+
+```sh
+npx convex env set ASK_OWNER_KEY <owner key whose chats it serves>
+npx convex env set ASK_API_KEY "$(openssl rand -hex 24)"
+```
+
+`/ask` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
+`/health` is open and returns `{"ok", "chats"}`. The app sends the header from `EXPO_PUBLIC_API_KEY`.
+
+Trade-off: the key is inlined into the app bundle, so anyone with the build can extract it. It keeps the URL from
+being an open OpenAI proxy for passers-by, not from a determined user; there is no per-client rate limit. Only point
+`ASK_OWNER_KEY` at data you're fine exposing to whoever holds the build, and rotate `ASK_API_KEY` (and rebuild) if it
+leaks.
 
 ## Limits
 

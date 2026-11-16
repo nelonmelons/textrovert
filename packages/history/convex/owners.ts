@@ -54,7 +54,18 @@ export const deleteBatch = internalMutation({
       if (u.storageId) await ctx.storage.delete(u.storageId);
       await ctx.db.delete("uploads", u._id);
     }
-    if (people.length + conversations.length + uploads.length > 0) return true;
+    const interestProfiles = await ctx.db
+      .query("interestProfiles")
+      .withIndex("by_ownerKey", (q) => q.eq("ownerKey", ownerKey))
+      .take(10);
+    for (const p of interestProfiles) await ctx.db.delete("interestProfiles", p._id);
+    // A match holds both people's overlap, so leaving deletes it for the other person too.
+    const matches = [
+      ...(await ctx.db.query("matches").withIndex("by_aOwnerKey", (q) => q.eq("aOwnerKey", ownerKey)).take(100)),
+      ...(await ctx.db.query("matches").withIndex("by_bOwnerKey", (q) => q.eq("bOwnerKey", ownerKey)).take(100)),
+    ];
+    for (const m of matches) await ctx.db.delete("matches", m._id);
+    if (people.length + conversations.length + uploads.length + interestProfiles.length + matches.length > 0) return true;
     const profile = await findProfile(ctx, ownerKey);
     if (profile) await ctx.db.delete("profiles", profile._id);
     return false;
