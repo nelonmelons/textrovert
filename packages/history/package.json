@@ -9,6 +9,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p convex",
     "analyze": "tsx scripts/analyze-export.ts",
+    "ask-server": "tsx scripts/ask-server.ts",
     "beeper-export": "tsx scripts/beeper-export.ts",
     "common-ground": "tsx scripts/common-ground.ts"
   },
