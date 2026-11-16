@@ -40,3 +40,5 @@ yarn-error.*
 
 # Copied from packages/wrapped/src by scripts/vendor-wrapped.js
 /vendor
+.vercel
+.env*
