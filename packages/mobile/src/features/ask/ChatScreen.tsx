@@ -1,5 +1,5 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,13 +8,12 @@ import { turn, Turn, unavailableReply } from '../../chat';
 import { ask, type Citation, type Person, type Turn as ApiTurn } from '../../api/client';
 import { useDataMode } from '../../api/mode';
 import { useFriend } from '../../api/people';
-import { Rounded, Theme, Type, withAlpha } from '../../theme';
-import { GridPaper, HedgehogAvatar, Symbol } from '../../components/Paper';
-import { useSheet } from '../../components/Sheet';
-import { TypingDots } from '../../components/TypingDots';
+import { openLiveSource } from '../../api/sources';
+import { ChatBubble, ChatPanel, Chip, DesignFonts, EmojiAvatar, geist, Header, PillButton, radii, ScanHighlight, Sheet, space, Txt, useDesign } from '@/design';
+import { askHedgehog } from './hedgehog';
 import { FadeIn } from '../../components/FadeIn';
 import { AnswerText } from './AnswerText';
-import { Sources } from './Sources';
+import { groupByChat, Sources } from './Sources';
 import { Receipts } from './Receipts';
 import { PeoplePicker } from './PeoplePicker';
 import { starters } from './starters';
@@ -24,18 +23,22 @@ import { nativeDriver, useReducedMotion } from '../../lib/motion';
 const greeting = (name?: string) =>
   turn({ fromMe: false, text: name ? `Hi! Ask me anything about your chats with ${name}, or add a photo.` : 'Hi! Ask me anything about your friends, plans or chats, or add a photo.' });
 
+const clock = (at?: number) => (at ? new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : undefined);
+
 /** The last few question and answer turns, as context for a follow-up. */
 const historyOf = (turns: Turn[]): ApiTurn[] =>
   turns
     .flatMap((t): ApiTurn[] => (t.fromMe && t.text && !t.image ? [{ role: 'user', content: t.text }] : t.kind === 'answer' ? [{ role: 'assistant', content: t.text }] : []))
     .slice(-6);
 
-/** Emma's chat, answering from /ask when live. In the Ask tab it draws its own title; pushed as /chat, the stack header does. */
+type SheetState = { kind: 'receipts'; citations: Citation[]; focus?: number } | { kind: 'picker' };
+
+/** Ask, answering from /ask when live. In the Ask tab it draws its own header; pushed as /chat, the stack header does. */
 export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
   const params = useLocalSearchParams<{ friend?: string; q?: string; image?: string }>();
   const { live } = useDataMode();
   const { friend } = useFriend(params.friend || undefined);
-  const sheet = useSheet();
+  const { c } = useDesign();
   const insets = useSafeAreaInsets();
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const scopeKey = params.friend ?? '';
@@ -45,9 +48,10 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
   const [threads, setThreads] = useState<Record<string, Turn[]>>({});
   const turns = threads[scopeKey] ?? [greeting(name)];
   const [draft, setDraft] = useState('');
-  const [useHistory, setUseHistory] = useState(true);
   const [photo, setPhoto] = useState<string>();
   const [pickError, setPickError] = useState<string>();
+  const [sheet, setSheet] = useState<SheetState>();
+  const [sheetOpen, setSheetOpen] = useState(false);
   const started = useRef(false);
   const busy = turns.some((t) => t.kind === 'pending');
 
@@ -59,9 +63,9 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
     let next: Turn;
     try {
       const result = await ask(question, scope, history);
-      next = { ...waiting, kind: 'answer', text: result.answer || 'I couldn’t find anything about that in your chats.', citations: result.citations };
+      next = { ...waiting, at: Date.now(), kind: 'answer', text: result.answer || 'I couldn’t find anything about that in your chats.', citations: result.citations };
     } catch (error) {
-      next = { ...waiting, kind: 'error', text: error instanceof Error ? error.message : String(error) };
+      next = { ...waiting, at: Date.now(), kind: 'error', text: error instanceof Error ? error.message : String(error) };
     }
     update(key, (t) => t.map((x) => (x.id === waiting.id ? next : x)));
   };
@@ -88,6 +92,11 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
     void askLive(failed.question ?? '', scopeKey, person, historyOf(before.slice(0, -1)));
   };
 
+  const startOver = () => {
+    haptics.select();
+    setThreads((all) => ({ ...all, [scopeKey]: [greeting(name)] }));
+  };
+
   useEffect(() => {
     if (started.current || (!params.q && !params.image)) return;
     started.current = true;
@@ -104,159 +113,210 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
     }
   };
 
-  const openReceipts = (citations: Citation[], focus?: number) => {
+  const openSheet = (next: SheetState) => {
     haptics.select();
-    sheet.open({ title: citations.length === 1 ? 'Source' : citations.length + ' sources', content: <Receipts citations={citations} focus={focus} /> });
+    setSheet(next);
+    setSheetOpen(true);
   };
-
-  const openPicker = () =>
-    sheet.open({
-      title: 'Ask about',
-      content: (
-        <PeoplePicker
-          current={person}
-          onPick={(p: Person | null) => {
-            haptics.select();
-            router.setParams({ friend: p?.name ?? '' });
-            sheet.close();
-          }}
-        />
-      ),
-    });
 
   const canSend = (draft.trim().length > 0 || !!photo) && !busy;
   const fresh = turns.length === 1;
+  const title = name ? `Ask about ${name}` : 'Ask';
+  const receipts = sheet?.kind === 'receipts' ? sheet.citations : [];
+  const receiptChats = groupByChat(receipts).length;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: Theme.paper }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={inTab ? 0 : 100}>
-      {inTab ? (
-        <View style={[styles.tabTitle, { paddingTop: insets.top + 12 }]}>
-          <HedgehogAvatar />
-          <Text style={[Type.title2, { flex: 1, color: Theme.ink, fontFamily: Rounded.bold }]}>{name ? `Ask about ${name}` : 'Ask me'}</Text>
-        </View>
-      ) : (
-        <Stack.Screen options={{ headerTitle: name ? `Ask about ${name}` : 'Ask me', headerTitleStyle: { color: Theme.ink, fontWeight: '600' } }} />
-      )}
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <GridPaper width={440} height={1400} />
-      </View>
-      <ScrollView
-        ref={scroll}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, gap: 14 }}
-        onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
-        keyboardDismissMode="interactive"
-        keyboardShouldPersistTaps="handled"
-      >
-        {turns.map((t) =>
-          t.fromMe ? (
-            <FadeIn key={t.id} style={{ alignItems: 'flex-end', gap: 6, paddingLeft: 48 }}>
-              {t.image ? <Image source={{ uri: t.image }} style={{ width: 140, height: 140, borderRadius: 16 }} accessibilityLabel="Your photo" /> : null}
-              {t.text ? (
-                <View style={styles.mine}>
-                  <Text style={[Type.body, { color: '#FFFFFF' }]}>{t.text}</Text>
-                </View>
-              ) : null}
-            </FadeIn>
-          ) : (
-            <FadeIn key={t.id} delay={t.kind === 'pending' ? 120 : 0} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingRight: t.kind === 'answer' ? 0 : 24 }}>
-              <HedgehogAvatar />
-              <View style={[styles.theirs, t.kind === 'answer' && { flex: 1 }]}>
-                {t.kind === 'pending' ? (
-                  <Waiting startedAt={t.startedAt ?? Date.now()} name={name} />
-                ) : t.kind === 'answer' ? (
-                  <>
-                    <AnswerText answer={t.text} known={new Set((t.citations ?? []).map((c) => c.n))} onCite={(n) => openReceipts(t.citations ?? [], n)} />
-                    {t.citations?.length ? (
-                      <Sources citations={t.citations} onOpen={(n) => openReceipts(t.citations ?? [], n)} />
-                    ) : (
-                      <Text style={[Type.caption, { color: Theme.secondary }]}>No messages cited for this one.</Text>
-                    )}
-                  </>
-                ) : t.kind === 'error' ? (
-                  <>
-                    <Text style={[Type.headline, { color: Theme.deadline }]}>I couldn’t answer that.</Text>
-                    <Text style={[Type.subheadline, { color: Theme.secondary }]}>{t.text}</Text>
-                    <Pressable accessibilityRole="button" onPress={() => retry(t)} style={styles.choice}>
-                      <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Try again</Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <>
-                    <Text style={[Type.body, { color: Theme.ink }]}>{t.text}</Text>
-                    {t.detail ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>{t.detail}</Text> : null}
-                  </>
-                )}
-              </View>
-            </FadeIn>
-          ),
+    <DesignFonts>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: c.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={inTab ? 0 : 100}>
+        {inTab ? (
+          <View style={{ paddingTop: insets.top + space.sm, paddingHorizontal: space.gutter, paddingBottom: space.sm }}>
+            <Header
+              leading={<EmojiAvatar {...askHedgehog} size={40} />}
+              title={title}
+              trailing={<PillButton title="New" emoji="✏️" kind="secondary" small disabled={fresh} accessibilityLabel="New chat" onPress={startOver} />}
+            />
+          </View>
+        ) : (
+          <Stack.Screen
+            options={{
+              headerTitle: title,
+              headerStyle: { backgroundColor: c.background },
+              headerTintColor: c.accentText,
+              headerTitleStyle: { color: c.text, fontFamily: geist['600'] },
+              headerRight: () => <EmojiAvatar {...askHedgehog} size={32} />,
+            }}
+          />
         )}
-        {live && fresh
-          ? starters(person).map((s, i) => (
-              <FadeIn key={s.question} delay={120 + i * 60}>
-                <Pressable onPress={() => send(s.question)} style={({ pressed }) => [styles.suggestion, pressed && { opacity: 0.75 }]}>
-                  <Text style={{ fontSize: 17 }}>{s.emoji}</Text>
-                  <View style={{ flex: 1, gap: 2 }}>
-                    <Text style={[Type.subheadline, { color: Theme.ink, fontWeight: '500' }]}>{s.question}</Text>
-                    <Text style={[Type.caption, { color: Theme.secondary }]}>{s.detail}</Text>
-                  </View>
-                </Pressable>
-              </FadeIn>
-            ))
-          : null}
-      </ScrollView>
-      <View style={[styles.composer, { paddingBottom: inTab ? 10 : insets.bottom + 6 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {live ? (
-            <Pressable onPress={openPicker} accessibilityLabel={(name ? `Asking about ${name}` : 'Asking about all your chats') + '. Change'} style={[styles.chip, { backgroundColor: Theme.accentTone.fill }]}>
-              <Symbol name="checkmark.circle.fill" size={12} color={Theme.accentTone.ink} weight="semibold" />
-              <Text style={[Type.caption, { fontWeight: '600', color: Theme.accentTone.ink }]}>{name ? `${name}’s chats` : 'All your chats'}</Text>
-              <Symbol name="chevron.down" size={10} color={Theme.accentTone.ink} weight="bold" />
-            </Pressable>
-          ) : (
-            <Pressable onPress={() => setUseHistory((v) => !v)} style={[styles.chip, { backgroundColor: useHistory ? Theme.accentTone.fill : Theme.tertiaryFill }]}>
-              <Symbol name={useHistory ? 'checkmark.circle.fill' : 'circle'} size={12} color={useHistory ? Theme.accentTone.ink : Theme.secondary} weight="semibold" />
-              <Text style={[Type.caption, { fontWeight: '600', color: useHistory ? Theme.accentTone.ink : Theme.secondary }]}>{friend ? `${firstName(friend)}’s chat history` : 'All your chats'}</Text>
-            </Pressable>
-          )}
-          {photo ? (
-            <View style={[styles.chip, { backgroundColor: Theme.plansTone.fill, paddingLeft: 4 }]}>
-              <Image source={{ uri: photo }} style={{ width: 28, height: 28, borderRadius: 6 }} />
-              <Text style={[Type.caption, { fontWeight: '600', color: Theme.ink }]}>1 photo</Text>
-              <Pressable onPress={() => setPhoto(undefined)} accessibilityLabel="Remove photo" hitSlop={8}>
-                <Symbol name="xmark.circle.fill" size={14} color={Theme.secondary} />
-              </Pressable>
+        <ScrollView
+          ref={scroll}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: space.gutter, paddingTop: space.sm, paddingBottom: space.lg, gap: space.lg }}
+          onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}>
+          <ChatPanel style={{ gap: space.md }}>
+            {turns.map((t) =>
+              t.fromMe ? (
+                <FadeIn key={t.id}>
+                  <ChatBubble mine text={t.text || undefined} time={clock(t.at)}>
+                    {t.image ? <Image source={{ uri: t.image }} style={{ width: 160, height: 160, borderRadius: radii.md, marginTop: 6 }} accessibilityLabel="Your photo" /> : null}
+                  </ChatBubble>
+                </FadeIn>
+              ) : t.kind === 'pending' ? (
+                <FadeIn key={t.id} delay={120}>
+                  <ScanHighlight avatar={askHedgehog} rest={0.5}>
+                    <View style={{ paddingVertical: space.sm }}>
+                      <ChatBubble name="Textrovert">
+                        <Waiting startedAt={t.startedAt ?? Date.now()} name={name} />
+                      </ChatBubble>
+                    </View>
+                  </ScanHighlight>
+                </FadeIn>
+              ) : (
+                <FadeIn key={t.id}>
+                  <ChatBubble name="Textrovert" time={clock(t.at)}>
+                    {t.kind === 'answer' ? (
+                      <>
+                        <AnswerText answer={t.text} known={new Set((t.citations ?? []).map((x) => x.n))} onCite={(n) => openSheet({ kind: 'receipts', citations: t.citations ?? [], focus: n })} />
+                        {t.citations?.length ? (
+                          <Sources citations={t.citations} onOpen={(n) => openSheet({ kind: 'receipts', citations: t.citations ?? [], focus: n })} />
+                        ) : (
+                          <Txt variant="footnote" color={c.bubbleTime} style={{ marginTop: space.xs }}>
+                            No messages cited for this one.
+                          </Txt>
+                        )}
+                      </>
+                    ) : t.kind === 'error' ? (
+                      <View style={{ gap: space.xs, alignItems: 'flex-start' }}>
+                        <Txt variant="headline" color={c.danger}>
+                          I couldn’t answer that.
+                        </Txt>
+                        <Txt variant="subhead" tone="secondary">
+                          {t.text}
+                        </Txt>
+                        <View style={{ marginTop: space.xs }}>
+                          <PillButton title="Try again" emoji="🔁" kind="secondary" small onPress={() => retry(t)} />
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <Txt variant="callout" color={c.bubbleText}>
+                          {t.text}
+                        </Txt>
+                        {t.detail ? (
+                          <Txt variant="footnote" tone="secondary" style={{ marginTop: 2 }}>
+                            {t.detail}
+                          </Txt>
+                        ) : null}
+                      </>
+                    )}
+                  </ChatBubble>
+                </FadeIn>
+              ),
+            )}
+          </ChatPanel>
+          {live && fresh ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
+              {starters(person).map((s, i) => (
+                <FadeIn key={s.question} delay={120 + i * 60}>
+                  <Chip label={s.question} emoji={s.emoji} accessibilityLabel={s.question + '. ' + s.detail} onPress={() => send(s.question)} />
+                </FadeIn>
+              ))}
             </View>
           ) : null}
+        </ScrollView>
+        <View style={{ gap: space.sm, paddingHorizontal: space.gutter, paddingTop: space.xs, paddingBottom: inTab ? space.md : insets.bottom + space.sm }}>
+          {live || photo ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' }}>
+              {live ? (
+                <Chip
+                  emoji={name ? '💬' : '👯'}
+                  label={(name ? `${name}’s chats` : 'All your chats') + '  ▾'}
+                  tint={name ? 'mint' : 'lilac'}
+                  accessibilityLabel={(name ? `Asking about ${name}` : 'Asking about all your chats') + '. Change'}
+                  onPress={() => openSheet({ kind: 'picker' })}
+                />
+              ) : null}
+              {photo ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingLeft: 3, paddingRight: 10, borderRadius: radii.pill, backgroundColor: c.fill }}>
+                  <Image source={{ uri: photo }} style={{ width: 26, height: 26, borderRadius: 13 }} />
+                  <Txt variant="subhead" style={{ fontWeight: '600', fontSize: 14 }}>
+                    1 photo
+                  </Txt>
+                  <Pressable onPress={() => setPhoto(undefined)} accessibilityLabel="Remove photo" hitSlop={8}>
+                    <Txt variant="subhead" tone="secondary" style={{ fontWeight: '700', fontSize: 13 }}>
+                      ✕
+                    </Txt>
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          {pickError ? (
+            <Txt variant="footnote" color={c.danger}>
+              {pickError}
+            </Txt>
+          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs, minHeight: 52, paddingLeft: space.xs, paddingRight: 6, paddingVertical: 4, borderRadius: 26, backgroundColor: c.fill }}>
+            <Pressable onPress={pick} accessibilityLabel="Add a photo" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+              <Txt style={{ fontSize: 20 }}>📷</Txt>
+            </Pressable>
+            <TextInput
+              value={draft}
+              onChangeText={setDraft}
+              placeholder={name ? `Ask about ${name}…` : 'Ask about your people…'}
+              placeholderTextColor={c.textTertiary}
+              multiline
+              numberOfLines={Platform.OS === 'web' ? 1 : undefined}
+              onSubmitEditing={() => send(draft, photo)}
+              style={[{ flex: 1, alignSelf: 'center', maxHeight: 100, paddingVertical: 8, fontFamily: geist['400'], fontSize: 17, lineHeight: 22, color: c.text }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+            />
+            <PillButton title="Ask" emoji="↑" small disabled={!canSend} accessibilityLabel="Send" onPress={() => send(draft, photo)} />
+          </View>
         </View>
-        {pickError ? <Text style={[Type.caption, { color: Theme.deadline }]}>{pickError}</Text> : null}
-        <View style={styles.field}>
-          <Pressable onPress={pick} accessibilityLabel="Add a photo" style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-            <Symbol name="photo.badge.plus" size={20} color={Theme.accent} />
-          </Pressable>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={name ? `Ask about ${name}…` : 'Ask me anything…'}
-            placeholderTextColor={Theme.secondary}
-            multiline
-            style={[Type.body, { flex: 1, color: Theme.ink, maxHeight: 100, paddingVertical: 8 }]}
-          />
-          <Pressable onPress={() => send(draft, photo)} disabled={!canSend} accessibilityLabel="Send" style={[styles.send, { opacity: canSend ? 1 : 0.4 }]}>
-            <Symbol name="arrow.up" size={14} color="#FFFFFF" weight="bold" />
-          </Pressable>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
+        <Sheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          emoji={sheet?.kind === 'picker' ? '🔎' : '🧾'}
+          title={sheet?.kind === 'picker' ? 'Ask about' : 'Receipts'}
+          subtitle={
+            sheet?.kind === 'picker'
+              ? 'Everyone, or one friend’s chats'
+              : `${receipts.length} ${receipts.length === 1 ? 'message' : 'messages'} from ${receiptChats} ${receiptChats === 1 ? 'chat' : 'chats'}`
+          }>
+          {sheet?.kind === 'picker' ? (
+            <PeoplePicker
+              current={person}
+              onPick={(p: Person | null) => {
+                haptics.select();
+                router.setParams({ friend: p?.name ?? '' });
+                setSheetOpen(false);
+              }}
+            />
+          ) : sheet?.kind === 'receipts' ? (
+            <Receipts
+              citations={sheet.citations}
+              focus={sheet.focus}
+              onOpenChat={(source) => {
+                setSheetOpen(false);
+                openLiveSource(source, source.quote);
+              }}
+            />
+          ) : null}
+        </Sheet>
+      </KeyboardAvoidingView>
+    </DesignFonts>
   );
 }
 
 const STATUS_EVERY_MS = 3800;
 const LONG_WAIT_S = 28;
 
-/** Typing dots with a status line that changes every few seconds, since live answers take 10-40s. */
+/** A status line that changes every few seconds under the scan line, since live answers take 10-40s. */
 function Waiting({ startedAt, name }: { startedAt: number; name?: string }) {
   const reduced = useReducedMotion();
+  const { c } = useDesign();
   const [now, setNow] = useState(Date.now());
   const fade = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -272,34 +332,10 @@ function Waiting({ startedAt, name }: { startedAt: number; name?: string }) {
     Animated.timing(fade, { toValue: 1, duration: 280, useNativeDriver: nativeDriver }).start();
   }, [line, fade, reduced]);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <TypingDots color={Theme.accent} />
-      <Animated.Text aria-live="polite" style={[Type.footnote, { flexShrink: 1, color: Theme.secondary, opacity: fade }]}>
+    <Animated.View style={{ opacity: fade, minWidth: 210, paddingVertical: space.sm }}>
+      <Txt aria-live="polite" variant="callout" color={c.bubbleText}>
         {line}
-      </Animated.Text>
-    </View>
+      </Txt>
+    </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  tabTitle: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingBottom: 8, backgroundColor: Theme.paper, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Theme.gridMajor },
-  mine: { paddingHorizontal: 14, paddingVertical: 10, backgroundColor: Theme.accent, borderRadius: 18, borderBottomRightRadius: 4 },
-  theirs: { flexShrink: 1, gap: 8, padding: 14, backgroundColor: Theme.panel, borderRadius: 18, borderTopLeftRadius: 4 },
-  choice: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: withAlpha(Theme.accentTone.fill, 0.8) },
-  suggestion: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, marginLeft: 44, borderRadius: 14, borderWidth: 1, borderColor: withAlpha(Theme.accent, 0.5), backgroundColor: withAlpha(Theme.panel, 0.9) },
-  composer: {
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    backgroundColor: Theme.panel,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: -3 },
-  },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
-  field: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 6, paddingRight: 4, paddingVertical: 4, borderRadius: 26, borderWidth: 1, borderColor: Theme.accent, backgroundColor: Theme.background },
-  send: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accent },
-});

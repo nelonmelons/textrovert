@@ -6,12 +6,12 @@ import { Txt } from './Txt';
 import { fills, radii, withAlpha, type FillName } from './tokens';
 
 /** A small capsule label: an optional emoji, text and count. Selected chips fill with the accent; tinted ones wash a fill. */
-export function Chip({ label, emoji, count, selected, tint, onPress, accessibilityLabel = label }: { label: string; emoji?: string; count?: number; selected?: boolean; tint?: FillName; onPress?: () => void; accessibilityLabel?: string }) {
+export function Chip({ label, emoji, count, selected, tint, onPress, accessibilityLabel }: { label: string; emoji?: string; count?: number; selected?: boolean; tint?: FillName; onPress?: () => void; accessibilityLabel?: string }) {
   const { c } = useDesign();
   const bg = selected ? c.text : tint ? withAlpha(fills[tint].fill, 0.28) : c.fill;
   const ink = selected ? c.background : c.text;
   return (
-    <PressScale onPress={onPress} accessibilityLabel={accessibilityLabel} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: radii.pill, backgroundColor: bg, alignSelf: 'flex-start' }}>
+    <PressScale onPress={onPress} accessibilityLabel={accessibilityLabel ?? label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 12, borderRadius: radii.pill, backgroundColor: bg, alignSelf: 'flex-start' }}>
       {emoji ? <Txt style={{ fontSize: 14 }}>{emoji}</Txt> : null}
       <Txt variant="subhead" color={ink} style={{ fontWeight: '600', fontSize: 14 }}>
         {label}

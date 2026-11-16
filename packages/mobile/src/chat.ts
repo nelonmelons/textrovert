@@ -12,10 +12,12 @@ export type Turn = {
   question?: string;
   citations?: Citation[];
   startedAt?: number;
+  /** When the turn was added, for the bubble's time. */
+  at?: number;
 };
 
 let counter = 0;
-export const turn = (t: Omit<Turn, 'id'>): Turn => ({ id: `t${++counter}`, ...t });
+export const turn = (t: Omit<Turn, 'id'>): Turn => ({ id: `t${++counter}`, at: Date.now(), ...t });
 
 export function looksLikeQuestion(query: string) {
   const text = query.trim().toLowerCase();

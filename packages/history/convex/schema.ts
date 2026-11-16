@@ -125,4 +125,19 @@ export default defineSchema({
     .index("by_code", ["code"])
     .index("by_aOwnerKey", ["aOwnerKey"])
     .index("by_bOwnerKey", ["bOwnerKey"]),
+
+  // Assistant indexing progress per owner, for GET /status. The index walks chats in priority order (recent and busy
+  // first) in three passes; each counter is how many chats that pass has finished out of total.
+  indexing: defineTable({
+    ownerKey: v.string(),
+    total: v.number(),
+    // Ask counts as ready once the first `priority` chats have embeddings.
+    priority: v.number(),
+    chunks: v.number(),
+    episodes: v.number(),
+    facts: v.number(),
+    startedAt: v.number(),
+    finishedAt: v.union(v.number(), v.null()),
+    updatedAt: v.number(),
+  }).index("by_ownerKey", ["ownerKey"]),
 });

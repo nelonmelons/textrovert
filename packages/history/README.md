@@ -261,21 +261,62 @@ The request parsing, people list, person scoping and citation mapping live in `p
 `/wrapped` handler in `pipeline/assistant/wrappedApi.ts`, both shared with the hosted API below, so both servers answer
 identically.
 
-## Hosted Ask API
+## Hosted API
 
-`convex/http.ts` serves the same `POST /ask`, `POST /wrapped`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait`, `GET /stats` and `/reel` from the deployment's site URL
-(`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
-chats and is off until both of these are set on the deployment:
+`convex/http.ts` serves the phone app from the deployment's site URL (`https://<deployment>.convex.site`, team
+deployment `https://wry-bandicoot-379.convex.site`), with CORS. Every route but `/health` needs `x-api-key` equal to
+the deployment's `ASK_API_KEY` (401 otherwise, 503 while unset); the app sends it from `EXPO_PUBLIC_API_KEY`.
+
+**Owner.** Send `x-owner-key: <ownerKey>` (from `POST /account`, kept in SecureStore) to act as that user. Read routes
+(`/ask`, `/people`, `/status`, `/wrapped`, `/friend`, `/story`, `/portrait`, `/stats`, `/reel`) fall back to the demo owner `ASK_OWNER_KEY` when the header is missing, so the demo works
+without an account. Uploads always need a real owner. An unknown owner key answers 401.
 
 ```sh
-npx convex env set ASK_OWNER_KEY <owner key whose chats it serves>
 npx convex env set ASK_API_KEY "$(openssl rand -hex 24)"
+npx convex env set ASK_OWNER_KEY <demo owner key>
 ```
 
-`/ask`, `/wrapped` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
-`/health` is open and returns `{"ok", "chats"}`. The app sends the header from `EXPO_PUBLIC_API_KEY`.
+| Route | Request | Response |
+| --- | --- | --- |
+| `GET /health` | (open) | `{ok, chats}` for the demo owner |
+| `POST /account` | `x-api-key` | `{ownerKey}` (64 hex chars; a new empty account) |
+| `POST /upload` | body = the file bytes, `?fileName=…&timeZone=…&selfName=…` (or `x-file-name`, `x-time-zone`, `x-self-name` headers); or `multipart/form-data` with `file` (+ optional `fileName`, `timeZone`, `selfName` fields). Max 20 MB | `{uploadId}` |
+| `POST /upload/url` | (owner) | `{uploadUrl}`: POST the raw file to it (any size), it answers `{storageId}` |
+| `POST /upload/commit` | JSON `{storageId, fileName, timeZone?, selfName?}` | `{uploadId}` |
+| `GET /status` | optional `?uploadId=` (default: latest upload) | see below |
+| `GET /people` | | `{people: [{name, dm, chats, messages, lastAt}]}` |
+| `POST /ask` | JSON `{question, person?, history?}` | `{answer, person, chats, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}` |
+| `POST /wrapped`, `GET /friend`, `/story`, `/portrait`, `/stats`, `GET`/`POST /reel` | as in the local ask-server above (`pipeline/assistant/api.ts`, `wrappedApi.ts`) | same as the local ask-server, scoped to the owner |
 
-Trade-off: the key is inlined into the app bundle, so anyone with the build can extract it. It keeps the URL from
+Accepted uploads: the Mac app's `.textrovert` file, a WhatsApp export (`.zip`/`.txt`), an Instagram export zip, and
+anything else in "Getting exports" above. `timeZone` is an IANA zone (defaults to Pacific).
+
+`GET /status` (poll every 2-3 s):
+
+```json
+{
+  "owner": "account",
+  "upload": {"id": "...", "fileName": "...", "status": "queued|parsing|analyzing|done|failed", "error": null,
+             "progress": {"messagesParsed": 0, "messagesStored": 0, "conversations": 0, "conversationsAnalyzed": 0}},
+  "stages": {
+    "stats":    {"state": "pending|running|ready|failed", "done": 3, "total": 3},
+    "search":   {"state": "ready", "done": 114, "total": 114},
+    "ask":      {"state": "ready", "done": 3, "total": 3},
+    "episodes": {"state": "running", "done": 1, "total": 3},
+    "facts":    {"state": "pending", "done": 0, "total": 3}
+  }
+}
+```
+
+- `stats`, `search`: conversations analyzed and messages stored for that upload. Stats, people and keyword search work
+  as soon as both are ready.
+- `ask`, `episodes`, `facts`: chats finished by each indexing pass. `assistant.index` walks chats in priority order
+  (active in the last 90 days first, busiest first) in three passes: embeddings, then episodes, then facts. Ask is
+  `ready` once the top 15 chats have embeddings; it already answers from keyword search before that.
+- Measured on wry-bandicoot-379 with a 114-message, 3-chat `.textrovert` file: upload accepted in ~1 s, stats and
+  search ready at 4.5 s, Ask at 8 s, episodes at 34 s, facts at 41 s; `/ask` answers in ~15 s.
+
+Trade-off: the API key is inlined into the app bundle, so anyone with the build can extract it. It keeps the URL from
 being an open OpenAI proxy for passers-by, not from a determined user; there is no per-client rate limit. Only point
 `ASK_OWNER_KEY` at data you're fine exposing to whoever holds the build, and rotate `ASK_API_KEY` (and rebuild) if it
 leaks.
