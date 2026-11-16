@@ -161,6 +161,28 @@ It exits with a message naming the missing variable or file. Endpoints (all date
   Errors are `{"error"}` with a 4xx/5xx status.
 - `GET /health` → `{"ok": true, "chats"}`.
 
+The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, shared with
+the hosted API below, so both servers answer identically.
+
+## Hosted Ask API
+
+`convex/http.ts` serves the same `POST /ask`, `GET /people` and `GET /health` from the deployment's site URL
+(`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
+chats and is off until both of these are set on the deployment:
+
+```sh
+npx convex env set ASK_OWNER_KEY <owner key whose chats it serves>
+npx convex env set ASK_API_KEY "$(openssl rand -hex 24)"
+```
+
+`/ask` and `/people` need an `x-api-key` header equal to `ASK_API_KEY` (401 otherwise, 503 while unconfigured);
+`/health` is open and returns `{"ok", "chats"}`. The app sends the header from `EXPO_PUBLIC_API_KEY`.
+
+Trade-off: the key is inlined into the app bundle, so anyone with the build can extract it. It keeps the URL from
+being an open OpenAI proxy for passers-by, not from a determined user; there is no per-client rate limit. Only point
+`ASK_OWNER_KEY` at data you're fine exposing to whoever holds the build, and rotate `ASK_API_KEY` (and rebuild) if it
+leaks.
+
 ## Limits
 
 - A Convex upload must finish within 2 minutes, so exports should be text-only (no media).

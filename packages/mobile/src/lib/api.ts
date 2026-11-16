@@ -1,5 +1,7 @@
-/** Client for the local Ask API (packages/history/scripts/ask-server.ts). */
+/** Client for the Ask API: local (packages/history/scripts/ask-server.ts) or hosted (packages/history/convex/http.ts). */
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8787').replace(/\/$/, '');
+/** Sent as x-api-key; the hosted API requires it. It ships inside the app bundle, so it gates casual use, not a determined one. */
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
 
 export interface Citation {
   n: number;
@@ -46,7 +48,11 @@ async function request<T>(path: string, init: RequestInit, timeoutMs: number): P
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
-    res = await fetch(API_URL + path, { ...init, signal: controller.signal });
+    res = await fetch(API_URL + path, {
+      ...init,
+      headers: { ...(init.headers as Record<string, string> | undefined), ...(API_KEY ? { 'x-api-key': API_KEY } : {}) },
+      signal: controller.signal,
+    });
   } catch (error) {
     throw new ApiError(
       controller.signal.aborted

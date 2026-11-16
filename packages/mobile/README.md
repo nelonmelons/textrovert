@@ -18,7 +18,10 @@ SwiftUI screens are ported.
 
 The API base comes from `EXPO_PUBLIC_API_URL` (default `http://127.0.0.1:8787`). It is inlined when the JS bundle
 is built, so set it before `expo start` or a native build: `EXPO_PUBLIC_API_URL=https://ask.example.dev pnpm web`.
-A phone or simulator can't reach your laptop's 127.0.0.1, so native builds need a reachable URL.
+A phone or simulator can't reach your laptop's 127.0.0.1, so native builds need a reachable URL: the hosted Ask API
+(`packages/history`, "Hosted Ask API") at `https://<deployment>.convex.site`. It requires an API key, which the app
+sends as `x-api-key` from `EXPO_PUBLIC_API_KEY` (also inlined at build time):
+`EXPO_PUBLIC_API_URL=https://<deployment>.convex.site EXPO_PUBLIC_API_KEY=<key> npm run build:ios`.
 
 ## iOS builds
 
