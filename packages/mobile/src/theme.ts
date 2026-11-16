@@ -1,3 +1,7 @@
+/**
+ * Textrovert's design tokens, ported from the SwiftUI app's Theme and Paper.swift: paper, ink, the section tones and
+ * the type scale. Colors keep the Swift component values (0...1) so they can be diffed against the original.
+ */
 const rgb = (r: number, g: number, b: number, a = 1) =>
   `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
 
@@ -29,6 +33,7 @@ export const Theme = {
 export const sectionTone = (section: 'reply' | 'plans' | 'together' | 'memories' | 'gifts'): Tone =>
   section === 'reply' ? Theme.repliesTone : section === 'plans' ? Theme.plansTone : section === 'together' ? Theme.activitiesTone : Theme.coralTone;
 
+/** The same rgba color at another opacity, for washes and highlights. */
 export const withAlpha = (color: string, alpha: number) => color.replace(/, [\d.]+\)$/, `, ${alpha})`);
 
 export const Rounded = {
@@ -36,6 +41,7 @@ export const Rounded = {
   heavy: 'Nunito_800ExtraBold',
 };
 
+/** iOS Dynamic Type sizes at the default setting. */
 export const Type = {
   largeTitle: { fontSize: 34, lineHeight: 40 },
   title: { fontSize: 28, lineHeight: 33 },
@@ -43,7 +49,16 @@ export const Type = {
   title3: { fontSize: 20, lineHeight: 24 },
   headline: { fontSize: 17, lineHeight: 21, fontWeight: '600' as const },
   body: { fontSize: 17, lineHeight: 21 },
+  callout: { fontSize: 16, lineHeight: 21 },
   subheadline: { fontSize: 15, lineHeight: 19 },
   footnote: { fontSize: 13, lineHeight: 17 },
   caption: { fontSize: 12, lineHeight: 15 },
+  caption2: { fontSize: 11, lineHeight: 13 },
+};
+
+export const radius = { bubble: 18, tile: 14, card: 18, sheet: 24, capsule: 999 };
+
+export const shadow = {
+  soft: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  lifted: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -3 }, elevation: 6 },
 };

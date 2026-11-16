@@ -1,3 +1,5 @@
+import type { Person } from './api/client';
+
 export type SourceMessage = { id: string; service: 'iMessage' | 'Instagram' | 'WhatsApp'; date: string; text: string };
 export type DayMark = { year: number; month: number; day: number; sourceID: string };
 export type NoteSection = 'reply' | 'plans' | 'together' | 'memories' | 'gifts';
@@ -12,6 +14,8 @@ export type Friend = {
   birthday?: DayMark;
   firstMessage?: DayMark;
   notes: NoteItem[];
+  /** Set for people from the live API; they have no fixture messages or notes. */
+  person?: Person;
 };
 
 export const firstName = (friend: Friend) => friend.name.split(' ')[0];

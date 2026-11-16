@@ -1,3 +1,4 @@
+import type { Citation } from './api/client';
 import { Friend, firstName, friends } from './fixtures';
 
 export const MiaConversation = {
@@ -14,8 +15,13 @@ export type Turn = {
   text: string;
   detail?: string;
   image?: string;
-  kind?: 'text' | 'analysis' | 'clarify' | 'noAnswer' | 'photo';
+  /** pending, answer and error come from the live API; the rest are Emma's fixture replies. */
+  kind?: 'text' | 'analysis' | 'clarify' | 'noAnswer' | 'photo' | 'pending' | 'answer' | 'error';
   about?: string;
+  /** The question behind a live pending, answer or error turn. */
+  question?: string;
+  citations?: Citation[];
+  startedAt?: number;
 };
 
 let counter = 0;
@@ -30,10 +36,10 @@ export function looksLikeQuestion(query: string) {
   return text.endsWith('?') || ['who', 'who’s', "who's", 'what', 'what’s', 'when', 'where', 'why', 'how', 'is', 'are', 'does', 'do', 'should', 'can', 'will', 'did', 'tell', 'help', 'remind', 'give', 'find'].includes(first);
 }
 
-export function subjectOf(question: string, friend?: Friend) {
+export function subjectOf(question: string, friend?: Friend, list: Friend[] = friends) {
   const set = words(question);
   if (friend) return set.has(firstName(friend).toLowerCase()) || hasAny(set, ['she', 'her', 'he', 'him', 'they', 'them']) ? friend : undefined;
-  return friends.find((f) => set.has(firstName(f).toLowerCase()));
+  return list.find((f) => set.has(firstName(f).toLowerCase()));
 }
 
 function overallAnswer(set: Set<string>, subject?: Friend): Turn | undefined {
