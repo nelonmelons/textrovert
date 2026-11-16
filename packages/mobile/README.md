@@ -1,8 +1,8 @@
 # @textrovert/mobile
 
 Textrovert's phone app: Expo (SDK 58, expo-router, TypeScript), for iOS, Android and web. The Ask tab works today: it
-talks to the assistant through the local Ask API in `packages/history`. Today and Friends are placeholders until the
-SwiftUI screens are ported.
+talks to the assistant through the local Ask API in `packages/history`. Friends lists the people from `GET /people`
+and opens Ask scoped to one of them. Today is a placeholder until the SwiftUI screen is ported.
 
 ## Run it on web (localhost)
 
@@ -47,8 +47,11 @@ lockfile with `npm install --package-lock-only` in a copy outside the workspace 
   radii and shadows. Ask uses the purple replies tone. `useTheme()` follows the system appearance.
 - `src/components/`: reusable pieces for ported screens: `PaperScreen` (paper, grid and inline title bar),
   `GridPaper`, `Bubbles` (`MyBubble`, `AssistantTurn`), `HedgehogAvatar`, `Face`, `Chip`, `QuoteLine`,
-  `Composer`, `Sheet` (bottom sheets via `useSheet()`), `TypingDots`, `PhoneFrame` and `ComingSoon`.
-- `src/features/ask/`: the Ask screen, `[n]` answer rendering, the receipts sheet, the friend picker and starters.
+  `Composer`, `Sheet` (bottom sheets via `useSheet()`), `TypingDots`, `PhoneFrame`, `FadeIn` and `ComingSoon`.
+- `src/features/ask/`: the Ask screen, light-markdown answers with `[n]` pills, sources grouped by chat, the receipts
+  sheet, the friend picker, starters and the shared Ask scope.
+- `src/features/friends/`: the Friends list.
+- `src/lib/motion.ts` and `src/lib/haptics.ts`: Reduce Motion and device haptics (no-op on web).
 - `src/lib/api.ts`: the Ask API client (2-minute timeout on `/ask`; answers usually take 10-30s).
 
 ## Checks
