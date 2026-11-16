@@ -2,10 +2,11 @@
   "expo": {
     "name": "Textrovert",
     "slug": "textrovert",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "textrovert",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.textrovert.app",
@@ -17,15 +18,26 @@
       }
     },
     "android": {
-      "package": "com.textrovert.app"
+      "package": "com.textrovert.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "name": "Textrovert"
+      "name": "Textrovert",
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-font",
+      ["expo-contacts", { "contactsPermission": "Textrovert reads your contacts only when you tap Import, to find your people." }],
+      ["expo-image-picker", { "photosPermission": "Textrovert uses the photo you pick to answer your question." }]
     ]
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@textrovert/mobile",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
@@ -12,9 +12,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/nunito": "^0.4.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.25",
+    "expo-clipboard": "~58.0.4",
     "expo-constants": "~58.0.16",
+    "expo-contacts": "~58.0.11",
+    "expo-document-picker": "~58.0.5",
+    "expo-font": "~58.0.12",
     "expo-haptics": "~58.0.8",
+    "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.17",
     "expo-router": "~58.0.31",
     "expo-status-bar": "~58.0.5",
