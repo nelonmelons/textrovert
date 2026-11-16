@@ -1,18 +1,19 @@
 import { ComponentRef, ReactNode, useEffect, useRef, useState } from 'react';
-import { Animated, Image, Keyboard, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Image, Keyboard, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import type { SymbolViewProps } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Chevron, Backdrop, ditto, Eyebrow, fill, fonts, Glass, Icon, PillButton, PressScale, Scallop, Sticker, TAB_BAR_SPACE, Txt, useDesign, Wordmark } from '@/design';
-import { Friend, firstName, upcomingMilestones } from '../../people';
+import { Friend, firstName, milestoneDateLine, milestoneHeadline, upcomingMilestones } from '../../people';
+import { giftFor } from '../../features/friend/Interests';
 import { DeadlineBadge, Face, HedgehogMark } from '../../components/Paper';
 import { useDataMode } from '../../api/mode';
 import { useFriends, useToday } from '../../api/people';
 import { openLiveSource } from '../../api/sources';
 import { formatAgo } from '../../lib/answer';
-import { MilestoneRow } from '../../components/MilestoneRow';
 import { useNotes } from '../../store';
 import { SearchResults } from '../../components/SearchResults';
 import { LiveResults } from '../../components/LiveResults';
@@ -24,6 +25,40 @@ const openProfile = (friend: Friend) => router.push({ pathname: '/friend/[id]', 
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
 
 type Mode = 'idle' | 'live' | 'final';
+
+/** A birthday or anniversary coming up, with a gift reminder when there is one. */
+type Upcoming = { key: string; friend: Friend; headline: string; detail: string; gift?: string };
+
+const DISMISSED = 'textrovert.dismissedReplies.v1';
+
+/** Replies the user dismissed on this phone, kept across launches. */
+function useDismissed() {
+  const [keys, setKeys] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    AsyncStorage.getItem(DISMISSED)
+      .then((raw) => raw && setKeys(new Set(JSON.parse(raw) as string[])))
+      .catch(() => {});
+  }, []);
+  const dismiss = (key: string) =>
+    setKeys((prev) => {
+      const next = new Set(prev).add(key);
+      AsyncStorage.setItem(DISMISSED, JSON.stringify([...next])).catch(() => {});
+      return next;
+    });
+  return { dismissed: keys, dismiss };
+}
+
+/** Opens Messages, addressed to the friend when their id is a phone number or email. */
+function openIMessage(friend: Friend) {
+  const to = /^\+?[\d\s().-]{7,}$/.test(friend.id) ? friend.id.replace(/[^\d+]/g, '') : friend.id.includes('@') ? friend.id : '';
+  Linking.openURL(`sms:${to}`).catch(() => {});
+}
+
+const dayLine = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+};
 
 /** One row of the replies or plans card: from GET /today when live, or a note saved on the phone. */
 type Item = { key: string; friend: Friend; headline: string; detail?: string; deadline?: Date; open: () => void };
@@ -116,6 +151,19 @@ export default function Today() {
   const friends = people.friends;
   const recent = [...friends].sort((a, b) => (b.person?.lastAt ?? '').localeCompare(a.person?.lastAt ?? '')).slice(0, 4);
   const day = useToday(live && firstRun.done);
+  const { dismissed, dismiss } = useDismissed();
+  const upcoming: Upcoming[] = milestones.length
+    ? milestones.map((m) => ({
+        key: m.id,
+        friend: m.friend,
+        headline: milestoneHeadline(m),
+        detail: milestoneDateLine(m),
+        gift: m.kind === 'birthday' ? (items(m.friend, 'gifts')[0]?.title ?? giftFor(m.friend)) : undefined,
+      }))
+    : [
+        ...recent.slice(0, 1).map((f) => ({ key: f.id + '-bday', friend: f, headline: `${firstName(f)}’s birthday is tomorrow`, detail: dayLine(1), gift: giftFor(f) })),
+        ...recent.slice(1, 2).map((f) => ({ key: f.id + '-bday', friend: f, headline: `${firstName(f)}’s birthday is in 5 days`, detail: `${dayLine(5)} · Order a gift by ${dayLine(2).split(',')[0]}`, gift: giftFor(f) })),
+      ];
   const byName = new Map(friends.map((f) => [f.id, f]));
   const noted = (section: 'reply' | 'plans') =>
     friends.flatMap((friend) =>
@@ -144,6 +192,7 @@ export default function Today() {
     }),
     ...noted('plans'),
   ];
+  const waiting = replies.filter((item) => !dismissed.has(item.key));
   const pending = live && day.status === 'loading' ? 'Checking your chats…' : live && day.status === 'error' ? `Couldn’t load this. ${day.message}` : null;
   const searching = mode !== 'idle';
   const dock = TAB_BAR_SPACE - 14;
@@ -236,7 +285,7 @@ export default function Today() {
             emma
           </Txt>
           <Txt variant="callout" shadow style={{ textAlign: 'center', marginTop: 10, opacity: 0.92 }}>
-            {replies.length ? `${replies.length} ${replies.length === 1 ? 'person is' : 'people are'} waiting on you.` : 'Here’s who and what matters today.'}
+            {waiting.length ? `${waiting.length} ${waiting.length === 1 ? 'person is' : 'people are'} waiting on you.` : 'Here’s who and what matters today.'}
           </Txt>
         </View>
 
@@ -269,12 +318,35 @@ export default function Today() {
           </Glass>
         ) : (
           <>
-            <Card title="Waiting on your reply" accent="reply" count={replies.length}>
-              {replies.length === 0 ? (
+            {upcoming.length > 0 ? (
+              <Card title="Coming up" accent="up" count={upcoming.length}>
+                <Rows>
+                  {upcoming.map((item) => (
+                    <Row key={item.key} friend={item.friend}>
+                      <Txt variant="headline">{item.headline}</Txt>
+                      <Txt variant="subhead" tone="secondary">
+                        {item.detail}
+                      </Txt>
+                      {item.gift ? (
+                        <View style={styles.inline}>
+                          <Icon name="gift" size={13} color="#F748B1" />
+                          <Txt variant="subhead" color="#F748B1" style={{ fontWeight: '600' }}>
+                            Gift idea: {item.gift}
+                          </Txt>
+                        </View>
+                      ) : null}
+                    </Row>
+                  ))}
+                </Rows>
+              </Card>
+            ) : null}
+
+            <Card title="Waiting on your reply" accent="reply" count={waiting.length}>
+              {waiting.length === 0 ? (
                 <Empty text={pending ?? 'Nothing waiting on you.'} />
               ) : (
                 <Rows>
-                  {replies.map((item) => (
+                  {waiting.map((item) => (
                     <Row key={item.key} friend={item.friend} onPress={item.open}>
                       <Txt variant="headline">
                         {item.headline}
@@ -285,23 +357,15 @@ export default function Today() {
                         </Txt>
                       ) : null}
                       {item.deadline ? <DeadlineBadge deadline={item.deadline} /> : null}
+                      <View style={[styles.inline, { gap: 8, marginTop: 6 }]}>
+                        <PillButton title="Open iMessage" small kind="primary" icon={<Icon name="message.fill" size={12} color={ditto.navy} />} accessibilityLabel={`Reply to ${firstName(item.friend)} in iMessage`} onPress={() => openIMessage(item.friend)} />
+                        <PillButton title="Dismiss" small accessibilityLabel={`Dismiss ${firstName(item.friend)}’s message`} onPress={() => dismiss(item.key)} />
+                      </View>
                     </Row>
                   ))}
                 </Rows>
               )}
             </Card>
-
-            {milestones.length > 0 ? (
-              <Card title="Coming up" accent="up">
-                <Rows>
-                  {milestones.map((milestone) => (
-                    <PressScale key={milestone.id} onPress={() => openProfile(milestone.friend)} scale={0.98}>
-                      <MilestoneRow milestone={milestone} />
-                    </PressScale>
-                  ))}
-                </Rows>
-              </Card>
-            ) : null}
 
             <Card title="Upcoming plans" accent="plans">
               {plans.length === 0 ? (

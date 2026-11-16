@@ -14,6 +14,7 @@ import { DeadlineBadge, ServiceIcon } from '../../components/Paper';
 import { MilestoneRow } from '../../components/MilestoneRow';
 import { WrappedEntry } from '../../components/WrappedEntry';
 import { CommonGroundEntry } from '../../features/common/CommonGroundEntry';
+import { Interests } from '../../features/friend/Interests';
 import { Backdrop, Chevron, EmojiAvatar, Field, FormCard, Glass, Icon, IconButton, PillButton, PressScale, TopBar, Txt, space, useDesign } from '@/design';
 
 const openSource = (friend: Friend, messageID: string) => router.push({ pathname: '/source', params: { friend: friend.id, message: messageID } });
@@ -266,6 +267,7 @@ export default function FriendProfile() {
       ))}
       {live ? <LiveSections friend={friend} /> : <WrappedEntry friend={friend} />}
       {live ? <CommonGroundEntry friend={friend} /> : null}
+      <Interests friend={friend} />
       {live ? <CommonGroundEntry friend={friend} /> : null}
       {sectionOrder.map((section) => (
         <SectionBlock key={section} friend={friend} section={section} hideEmpty={live} />
