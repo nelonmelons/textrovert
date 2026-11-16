@@ -22,6 +22,7 @@ type Store = {
   save: (friend: Friend, note: Note) => Promise<void>;
   notepad: (friend: Friend) => string;
   setNotepad: (friend: Friend, text: string) => Promise<void>;
+  reset: () => Promise<void>;
 };
 
 const NotesContext = createContext<Store | null>(null);
@@ -62,6 +63,10 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       notepad: (friend) => saved.notepad[friend.id] ?? '',
       setNotepad: async (friend, text) => {
         await persist({ ...saved, notepad: { ...saved.notepad, [friend.id]: text } });
+      },
+      reset: async () => {
+        await AsyncStorage.removeItem(KEY);
+        setSaved(empty);
       },
     }),
     [saved, persist],

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { SymbolViewProps } from 'expo-symbols';
 import { MiaConversation } from '../chat';
 import { Theme, Type, withAlpha } from '../theme';
 import { Divider, Symbol } from '../components/Paper';
-import { PaperScroll } from '../components/PaperScroll';
 
 function Card({ title, symbol, color, children }: { title: string; symbol: SymbolViewProps['name']; color: string; children: React.ReactNode }) {
   return (
@@ -38,8 +37,10 @@ export default function Analysis() {
   const [copied, setCopied] = useState(false);
   return (
     <>
-      <Stack.Screen options={{ headerTitle: 'Ask about Mia', headerTitleStyle: { color: Theme.ink, fontWeight: '600' } }} />
-      <PaperScroll contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 60 }}>
+      <Stack.Screen
+        options={{ headerTitle: 'Ask about Mia', headerTitleStyle: { color: Theme.ink, fontWeight: '600' }, headerStyle: { backgroundColor: Theme.background }, contentStyle: { backgroundColor: Theme.background } }}
+      />
+      <ScrollView style={{ backgroundColor: Theme.background }} contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 60 }} keyboardDismissMode="interactive">
         <View style={{ alignItems: 'flex-end', gap: 6, paddingLeft: 40 }}>
           <View style={{ paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, backgroundColor: Theme.accent }}>
             <Text style={[Type.body, { color: '#FFFFFF', fontWeight: '500' }]}>{MiaConversation.question}</Text>
@@ -60,8 +61,8 @@ export default function Analysis() {
           <Quote who="Mia · 5:10 PM" text={MiaConversation.first} />
           <Quote who="Mia · 5:41 PM" text={MiaConversation.last} />
           <Pressable onPress={() => router.push('/conversation')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 }}>
-            <Symbol name="bubble.left.and.bubble.right" size={15} color={Theme.accent} />
-            <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>See the full conversation</Text>
+            <Symbol name="bubble.left.and.bubble.right" size={16} color={Theme.ink} />
+            <Text style={[Type.subheadline, { color: Theme.ink, fontWeight: '600' }]}>See the full conversation</Text>
           </Pressable>
         </View>
         <Divider />
@@ -90,7 +91,7 @@ export default function Analysis() {
           </View>
           <Text style={[Type.caption, { color: Theme.secondary }]}>I won’t send anything. Copy it into your chat when it sounds like you.</Text>
         </View>
-      </PaperScroll>
+      </ScrollView>
     </>
   );
 }

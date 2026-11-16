@@ -66,7 +66,7 @@ export default function Today() {
               <HedgehogMark height={30} />
               <Text style={[Type.title2, { fontFamily: Rounded.heavy, color: Theme.accent }]}>textrovert</Text>
             </View>
-            <Pressable accessibilityLabel="Emma, Settings">
+            <Pressable accessibilityLabel="Emma, Settings" onPress={() => router.push('/settings')}>
               <Face initials="ED" />
             </Pressable>
           </View>

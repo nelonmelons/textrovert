@@ -24,7 +24,9 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font"
+      "expo-font",
+      ["expo-contacts", { "contactsPermission": "Textrovert reads your contacts only when you tap Import, to find your people." }],
+      ["expo-image-picker", { "photosPermission": "Textrovert uses the photo you pick to answer your question." }]
     ],
     "scheme": "textrovert"
   }
