@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Friend, friendById, friends as fixtureFriends } from '../people';
 import { formatAgo } from '../lib/answer';
 import { fetchPeople, type Person } from './client';
+import { loadOwnerKey } from './owner';
 import { useDataMode } from './mode';
 
 /** Friends worth listing: anyone with a DM, or anyone sharing a lot of group messages. */
@@ -9,23 +10,26 @@ const MIN_SHARED_MESSAGES = 1000;
 export const pickable = (people: Person[]) => people.filter((p) => p.dm || p.messages >= MIN_SHARED_MESSAGES);
 
 type State = { status: 'loading' } | { status: 'ready'; people: Person[] } | { status: 'error'; message: string };
-let cached: Promise<Person[]> | null = null;
+let cached: { ownerKey: string | null; people: Promise<Person[]> } | null = null;
 
-/** The friend list from GET /people, fetched once per app session and shared by every screen. Idle when not live. */
+/** The friend list from GET /people, fetched once per owner key and shared by every screen. Idle when not live. */
 export function usePeople(enabled = true): State & { retry: () => void } {
   const [state, setState] = useState<State>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    cached ??= fetchPeople().then(pickable);
-    cached.then(
-      (people) => live && setState({ status: 'ready', people }),
-      (error: Error) => {
-        cached = null;
-        if (live) setState({ status: 'error', message: error.message });
-      },
-    );
+    loadOwnerKey().then((ownerKey) => {
+      if (cached?.ownerKey !== ownerKey) cached = { ownerKey, people: fetchPeople().then(pickable) };
+      const mine = cached;
+      mine.people.then(
+        (people) => live && setState({ status: 'ready', people }),
+        (error: Error) => {
+          if (cached === mine) cached = null;
+          if (live) setState({ status: 'error', message: error.message });
+        },
+      );
+    });
     return () => {
       live = false;
     };
