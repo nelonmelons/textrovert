@@ -1,6 +1,7 @@
 import Foundation
 
-/// Runs imessage-exporter to write every conversation as a text file, then zips the export for upload.
+/// Runs imessage-exporter to write every conversation as a text file, then saves the export as the file the iPhone app
+/// imports, or zips it for upload.
 public struct Exporter {
     public static let messagesDatabase = URL(fileURLWithPath: NSHomeDirectory()).appending(path: "Library/Messages/chat.db")
 
@@ -22,9 +23,37 @@ public struct Exporter {
         self.binary = binary
     }
 
+    /// Exports every conversation and saves it to destination as the file the iPhone app imports. arguments are extra
+    /// imessage-exporter flags.
+    public func saveMessagesFile(to destination: URL, arguments: [String] = []) async throws -> (chats: Int, messages: Int) {
+        let export = try await exportText(arguments: arguments)
+        defer { try? FileManager.default.removeItem(at: export.folder) }
+        let file = try MessagesFile(exportFolder: export.text)
+        guard file.messageCount > 0 else { throw TextrovertError("imessage-exporter found no messages to save.") }
+        try file.data().write(to: destination, options: .atomic)
+        return (file.chats.count, file.messageCount)
+    }
+
     /// Exports into a new private temporary folder and returns the zip inside it. The folder holds the user's whole
-    /// message history, so callers delete it as soon as the upload ends. `arguments` are extra imessage-exporter flags.
+    /// message history, so callers delete it as soon as the upload ends. arguments are extra imessage-exporter flags.
     public func exportZip(arguments: [String] = []) async throws -> (folder: URL, zip: URL, conversations: Int) {
+        let export = try await exportText(arguments: arguments)
+        do {
+            let zip = export.folder.appending(path: "imessage-export.zip")
+            let log = export.folder.appending(path: "exporter.log")
+            guard try await Self.run(URL(fileURLWithPath: "/usr/bin/ditto"), ["-c", "-k", export.text.path, zip.path], log: log) == 0 else {
+                throw TextrovertError("Couldn't zip the export.")
+            }
+            try? FileManager.default.removeItem(at: export.text)
+            return (export.folder, zip, export.conversations)
+        } catch {
+            try? FileManager.default.removeItem(at: export.folder)
+            throw error
+        }
+    }
+
+    /// Writes every conversation as a text file into a new private temporary folder, which callers delete when done.
+    private func exportText(arguments: [String]) async throws -> (folder: URL, text: URL, conversations: Int) {
         let folder = FileManager.default.temporaryDirectory.appending(path: "textrovert-" + UUID().uuidString)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         do {
@@ -39,12 +68,7 @@ public struct Exporter {
             let conversations = files.filter { $0.hasSuffix(".txt") && $0 != "orphaned.txt" }.count
             guard conversations > 0 else { throw TextrovertError("imessage-exporter found no conversations to export.") }
             try? FileManager.default.removeItem(at: export.appending(path: "orphaned.txt"))
-            let zip = folder.appending(path: "imessage-export.zip")
-            guard try await Self.run(URL(fileURLWithPath: "/usr/bin/ditto"), ["-c", "-k", export.path, zip.path], log: log) == 0 else {
-                throw TextrovertError("Couldn't zip the export.")
-            }
-            try? FileManager.default.removeItem(at: export)
-            return (folder, zip, conversations)
+            return (folder, export, conversations)
         } catch {
             try? FileManager.default.removeItem(at: folder)
             throw error

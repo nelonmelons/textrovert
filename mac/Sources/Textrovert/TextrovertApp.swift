@@ -16,17 +16,16 @@ struct TextrovertApp: App {
 
 @MainActor
 final class AppModel: ObservableObject {
-    @Published var access = Exporter.access()
-    @Published var working = false
-    @Published var status = ""
-    @Published var error: String?
-    @Published var lastUpload: Upload?
-    @Published var query = ""
-    @Published var results: [SearchHit]?
-    @Published var searching = false
-    @Published private(set) var ownerKey = Keychain.ownerKey
+    struct Saved {
+        let file: URL
+        let chats: Int
+        let messages: Int
+    }
 
-    private let convex = Convex(url: URL(string: UserDefaults.standard.string(forKey: "backend") ?? "https://wry-bandicoot-379.convex.cloud")!)
+    @Published var access = Exporter.access()
+    @Published var saving = false
+    @Published var error: String?
+    @Published var saved: Saved?
 
     func checkAccess() {
         access = Exporter.access()
@@ -36,68 +35,42 @@ final class AppModel: ObservableObject {
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
     }
 
-    func showInFinder() {
+    func showAppInFinder() {
         NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
     }
 
-    func copyAccountKey() {
-        guard let ownerKey else { return }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(ownerKey, forType: .string)
-    }
-
-    func loadLastUpload() async {
-        guard let ownerKey, (try? await convex.accountExists(ownerKey: ownerKey)) == true else { return }
-        lastUpload = try? await convex.lastUpload(ownerKey: ownerKey)
-    }
-
-    func upload() {
-        working = true
+    func save() {
+        saving = true
         error = nil
-        results = nil
         Task {
             do {
-                let ownerKey = try await account()
                 guard let binary = Bundle.main.url(forAuxiliaryExecutable: "imessage-exporter") else {
                     throw TextrovertError("imessage-exporter is missing from the app. Rebuild it with mac/build.sh.")
                 }
-                status = "Exporting your messages. Big histories take a minute or two…"
-                let export = try await Exporter(binary: binary).exportZip()
-                defer { try? FileManager.default.removeItem(at: export.folder) }
-                status = "Uploading \(export.conversations.formatted()) conversations…"
-                let upload = try await convex.upload(zip: export.zip, ownerKey: ownerKey) { self.status = $0.summary }
-                if upload.status == "failed" { throw TextrovertError(upload.summary) }
-                lastUpload = upload
+                let downloads = try FileManager.default.url(for: .downloadsDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+                let file = downloads.appending(path: "Textrovert Messages.textrovert")
+                let counts = try await Exporter(binary: binary).saveMessagesFile(to: file)
+                saved = Saved(file: file, chats: counts.chats, messages: counts.messages)
+                airDrop()
             } catch {
                 self.error = error.localizedDescription
             }
-            status = ""
-            working = false
+            saving = false
         }
     }
 
-    func search() {
-        let text = query.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty, let ownerKey else { return }
-        searching = true
-        error = nil
-        Task {
-            do {
-                results = try await convex.search(ownerKey: ownerKey, text: text)
-            } catch {
-                self.error = error.localizedDescription
-            }
-            searching = false
+    func airDrop() {
+        guard let saved else { return }
+        if let airDrop = NSSharingService(named: .sendViaAirDrop), airDrop.canPerform(withItems: [saved.file]) {
+            airDrop.perform(withItems: [saved.file])
+        } else {
+            showFile()
         }
     }
 
-    private func account() async throws -> String {
-        if let ownerKey, try await convex.accountExists(ownerKey: ownerKey) { return ownerKey }
-        status = "Creating your account…"
-        let created: String = try await convex.action("owners:create", [:])
-        Keychain.ownerKey = created
-        ownerKey = created
-        return created
+    func showFile() {
+        guard let saved else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([saved.file])
     }
 }
 
@@ -108,35 +81,26 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Textrovert").font(.largeTitle.bold())
-                Text("Bring your iMessage history into Textrovert in three steps.")
+                Text("Get your iMessage stats on your iPhone in three steps.")
                     .foregroundStyle(.secondary)
             }
             Step(number: 1, title: "Allow access to Messages", done: model.access == .granted, enabled: true) {
                 accessStep
             }
-            Step(number: 2, title: "Upload your messages", done: model.lastUpload != nil && !model.working, enabled: model.access == .granted) {
-                uploadStep
+            Step(number: 2, title: "Save your messages for iPhone", done: model.saved != nil && !model.saving, enabled: model.access == .granted) {
+                saveStep
             }
-            Step(number: 3, title: "Search your messages", done: false, enabled: model.lastUpload != nil) {
-                searchStep
+            Step(number: 3, title: "Open them on your iPhone", done: false, enabled: model.saved != nil) {
+                Text("On your iPhone, accept the AirDrop and choose **Textrovert**. Your stats show up on the Today screen, and each of your top people opens a Wrapped.\n\nNo AirDrop? Send the file any way you like and save it to Files, then tap **Import messages file** in Textrovert.")
             }
             if let error = model.error {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.red)
                     .textSelection(.enabled)
             }
-            if model.ownerKey != nil {
-                HStack {
-                    Spacer()
-                    Button("Copy Account Key") { model.copyAccountKey() }
-                        .buttonStyle(.link)
-                        .font(.caption)
-                }
-            }
         }
         .padding(28)
         .frame(width: 580)
-        .task { await model.loadLastUpload() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.checkAccess()
         }
@@ -156,89 +120,33 @@ struct ContentView: View {
                 HStack {
                     Button("Open Privacy Settings") { model.openPrivacySettings() }
                         .buttonStyle(.borderedProminent)
-                    Button("Show Textrovert in Finder") { model.showInFinder() }
+                    Button("Show Textrovert in Finder") { model.showAppInFinder() }
                 }
             }
         }
     }
 
-    @ViewBuilder private var uploadStep: some View {
+    @ViewBuilder private var saveStep: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if model.working {
+            if model.saving {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text(model.status)
+                    Text("Exporting your messages. Big histories take a minute or two…")
                 }
-            } else if let upload = model.lastUpload {
-                Text("Uploaded **\(count(upload.progress.messagesParsed)) messages** from **\(count(upload.progress.conversations)) chats**\(finished(upload)).")
-                Text("Upload again any time to add new messages. Messages already uploaded are skipped.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                Button("Upload Again") { model.upload() }
+            } else if let saved = model.saved {
+                Text("Saved **\(saved.messages.formatted()) messages** from **\(saved.chats.formatted()) chats** to **\(saved.file.lastPathComponent)** in Downloads.")
+                HStack {
+                    Button("AirDrop to iPhone") { model.airDrop() }
+                        .buttonStyle(.borderedProminent)
+                    Button("Show in Finder") { model.showFile() }
+                    Button("Save Again") { model.save() }
+                }
             } else {
-                Text("Textrovert exports every conversation with imessage-exporter and uploads it to your private account. Nothing leaves this Mac until you click Upload.")
-                Button("Upload Messages") { model.upload() }
+                Text("Textrovert exports every conversation with imessage-exporter and saves them as one file in your Downloads folder. Nothing is uploaded.")
+                Button("Save for iPhone") { model.save() }
                     .buttonStyle(.borderedProminent)
             }
         }
-    }
-
-    @ViewBuilder private var searchStep: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                TextField("Search for a word or phrase", text: $model.query)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { model.search() }
-                Button("Search") { model.search() }
-                    .disabled(model.searching || model.query.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
-            if model.searching {
-                ProgressView().controlSize(.small)
-            } else if let results = model.results {
-                if results.isEmpty {
-                    Text("No messages match that.").foregroundStyle(.secondary)
-                } else {
-                    ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 12) {
-                            ForEach(results) { hit in
-                                VStack(alignment: .leading, spacing: 3) {
-                                    HStack {
-                                        Text(hit.conversation.title.isEmpty ? "Untitled chat" : hit.conversation.title).bold()
-                                        Spacer()
-                                        Text(hit.date.formatted(date: .abbreviated, time: .shortened))
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Text(highlighted(hit)).textSelection(.enabled)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                    }
-                    .frame(height: 300)
-                }
-            }
-        }
-    }
-
-    private func highlighted(_ hit: SearchHit) -> AttributedString {
-        var text = AttributedString((hit.fromMe ? "You" : hit.sender) + ": ")
-        text.foregroundColor = .secondary
-        for (index, part) in hit.snippet.components(separatedBy: "**").enumerated() {
-            var piece = AttributedString(part)
-            if index % 2 == 1 { piece.inlinePresentationIntent = .stronglyEmphasized }
-            text += piece
-        }
-        return text
-    }
-
-    private func count(_ value: Double) -> String {
-        Int(value).formatted()
-    }
-
-    private func finished(_ upload: Upload) -> String {
-        guard let finishedAt = upload.finishedAt else { return "" }
-        return " on " + Date(timeIntervalSince1970: finishedAt / 1000).formatted(date: .abbreviated, time: .shortened)
     }
 }
 
@@ -269,31 +177,5 @@ struct Step<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .opacity(enabled ? 1 : 0.5)
-    }
-}
-
-/// The account key is the only credential to the user's data, so it lives in the login keychain.
-enum Keychain {
-    private static let item: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: "com.textrovert.mac",
-        kSecAttrAccount as String: "ownerKey",
-    ]
-
-    static var ownerKey: String? {
-        get {
-            var query = item
-            query[kSecReturnData as String] = true
-            var result: CFTypeRef?
-            guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
-            return String(data: data, encoding: .utf8)
-        }
-        set {
-            SecItemDelete(item as CFDictionary)
-            guard let newValue, !newValue.isEmpty else { return }
-            var add = item
-            add[kSecValueData as String] = Data(newValue.utf8)
-            SecItemAdd(add as CFDictionary, nil)
-        }
     }
 }

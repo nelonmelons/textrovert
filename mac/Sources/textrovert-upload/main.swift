@@ -1,9 +1,10 @@
 import Foundation
 import TextrovertCore
 
-// Exports this Mac's iMessage history with imessage-exporter and uploads it, without the app's window. It runs the
-// same code as Textrovert.app, which makes it the way to test or script the app's export.
+// Exports this Mac's iMessage history with imessage-exporter, then saves the file the iPhone app imports (--save) or
+// uploads it to the backend. It runs the same code as Textrovert.app, which makes it the way to test or script the export.
 //
+//   textrovert-upload --save <file.textrovert> [--exporter <path>] [--db <chat.db>] [--contacts <contacts database>]
 //   textrovert-upload --backend https://<deployment>.convex.cloud (--owner-key <key> | --new)
 //                     [--exporter <path>] [--db <chat.db>] [--contacts <contacts database>] [--search <query>]
 
@@ -25,9 +26,10 @@ while let argument = rest.next() {
     }
 }
 
-guard let backend = options["backend"].flatMap(URL.init(string:)) else {
-    fail("usage: textrovert-upload --backend https://<deployment>.convex.cloud (--owner-key <key> | --new) [--exporter <path>] [--db <chat.db>] [--contacts <path>] [--search <query>]")
-}
+let usage = "usage: textrovert-upload (--save <file.textrovert> | --backend https://<deployment>.convex.cloud (--owner-key <key> | --new) [--search <query>]) [--exporter <path>] [--db <chat.db>] [--contacts <path>]"
+let save = options["save"].map { URL(fileURLWithPath: $0) }
+let backend = options["backend"].flatMap(URL.init(string:))
+guard save != nil || backend != nil else { fail(usage) }
 let here = URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
 let exporter = Exporter(binary: options["exporter"].map { URL(fileURLWithPath: $0) } ?? here.appending(path: "Textrovert.app/Contents/MacOS/imessage-exporter"))
 var exporterArguments: [String] = []
@@ -40,7 +42,18 @@ if let contacts = options["contacts"] {
     exporterArguments += ["-n", contacts]
 }
 
-let convex = Convex(url: backend)
+if let save {
+    do {
+        print("Exporting messages with imessage-exporter…")
+        let counts = try await exporter.saveMessagesFile(to: save, arguments: exporterArguments)
+        print("Saved \(counts.messages) messages from \(counts.chats) chats to \(save.path)")
+    } catch {
+        fail(error.localizedDescription)
+    }
+    exit(0)
+}
+
+let convex = Convex(url: backend!)
 do {
     var ownerKey = options["owner-key"] ?? ""
     if ownerKey.isEmpty {
@@ -48,7 +61,7 @@ do {
         ownerKey = try await convex.action("owners:create", [:])
         print("Created an account. Its key is the only way back into this data:\n  " + ownerKey)
     } else if try await !convex.accountExists(ownerKey: ownerKey) {
-        fail("There's no account with that key on " + backend.absoluteString + ".")
+        fail("There's no account with that key on " + backend!.absoluteString + ".")
     }
     print("Exporting messages with imessage-exporter…")
     let export = try await exporter.exportZip(arguments: exporterArguments)
