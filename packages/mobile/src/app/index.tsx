@@ -1,6 +1,6 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Rounded, Theme, Type } from '../theme';
 import { Friend, firstName, friends, upcomingMilestones } from '../fixtures';
@@ -9,6 +9,7 @@ import { MilestoneRow } from '../components/MilestoneRow';
 import { useNotes } from '../store';
 import { SearchResults } from '../components/SearchResults';
 import { looksLikeQuestion } from '../chat';
+import { useFirstRun } from '../firstRun';
 
 const openProfile = (friend: Friend) => router.push(`/friend/${friend.id}`);
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
@@ -49,8 +50,11 @@ export default function Today() {
   const [contentSize, setContentSize] = useState({ width: 440, height: 1200 });
   const { items } = useNotes();
   const milestones = upcomingMilestones();
+  const firstRun = useFirstRun();
   const sarah = friends[1];
   const mia = friends[0];
+
+  if (!firstRun.done) return <Redirect href="/setup" />;
 
   return (
     <View style={{ flex: 1, backgroundColor: Theme.paper }}>
