@@ -1,7 +1,3 @@
-import { ComingSoon } from '@/components/ComingSoon';
-import { useTheme } from '@/theme';
+import { FriendsScreen } from '@/features/friends/FriendsScreen';
 
-export default function Friends() {
-  const theme = useTheme();
-  return <ComingSoon title="Friends" tone={theme.tones.activities} blurb="Friend profiles with plans, gifts and memories will land here when the Friends screens are ported." />;
-}
+export default FriendsScreen;
