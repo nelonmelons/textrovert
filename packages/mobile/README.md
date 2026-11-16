@@ -2,7 +2,9 @@
 
 Textrovert's phone app: Expo (SDK 58, expo-router, TypeScript), for iOS, Android and web. The Ask tab works today: it
 talks to the assistant through the local Ask API in `packages/history`. Friends lists the people from `GET /people`
-and opens Ask scoped to one of them. Today is a placeholder until the SwiftUI screen is ported.
+and opens Ask scoped to one of them. Stats imports the file the Mac app saves with Save for iPhone (`mac/README.md`)
+and shows fun numbers from the whole iMessage history, computed on the phone. Today is a placeholder until the SwiftUI
+screen is ported.
 
 ## Run it on web (localhost)
 
@@ -41,7 +43,7 @@ lockfile with `npm install --package-lock-only` in a copy outside the workspace 
 
 ## Layout
 
-- `src/app/`: routes. `(tabs)/` holds Today, Ask (`index`) and Friends.
+- `src/app/`: routes. `(tabs)/` holds Today, Ask (`index`), Friends and Stats.
 - `src/theme.ts`: the SwiftUI app's Theme and Paper.swift ported: paper, panel, grid lines, ink, the section tones
   (accent, plans, celebrate, replies, coral, activities) in light and dark, brand colors, the Dynamic Type scale,
   radii and shadows. Ask uses the purple replies tone. `useTheme()` follows the system appearance.
@@ -51,6 +53,9 @@ lockfile with `npm install --package-lock-only` in a copy outside the workspace 
 - `src/features/ask/`: the Ask screen, light-markdown answers with `[n]` pills, sources grouped by chat, the receipts
   sheet, the friend picker, starters and the shared Ask scope.
 - `src/features/friends/`: the Friends list.
+- `src/features/stats/`: the Stats tab. It imports a `.textrovert` file with expo-document-picker, keeps a copy in
+  the app's documents with expo-file-system, and shows `textingStats` from `src/lib/messagesFile.ts`, which reads the
+  file and counts in the phone's time zone.
 - `src/lib/motion.ts` and `src/lib/haptics.ts`: Reduce Motion and device haptics (no-op on web).
 - `src/lib/api.ts`: the Ask API client (2-minute timeout on `/ask`; answers usually take 10-30s).
 
