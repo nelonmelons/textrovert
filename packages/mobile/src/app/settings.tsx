@@ -4,7 +4,10 @@ import { router } from 'expo-router';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
 import { useDataMode } from '../api/mode';
+import { clearOwnerKey } from '../api/owner';
 import { useFriends } from '../api/people';
+import { forgetSources } from '../api/sources';
+import { forgetPortrait } from '../features/portrait/Portrait';
 import { useNotes } from '../store';
 import { useFirstRun } from '../firstRun';
 import { Theme, Type } from '../theme';
@@ -50,6 +53,11 @@ export default function Settings() {
   };
 
   const logOut = async () => {
+    // Forget this device's account first, so nothing after this reads the previous user's chats and the next
+    // onboarding upload creates a fresh account instead of adding to the old one.
+    await clearOwnerKey();
+    forgetSources();
+    forgetPortrait();
     await notes.reset();
     await firstRun.reset();
     router.dismissTo('/');
@@ -62,6 +70,8 @@ export default function Settings() {
       ActionSheetIOS.showActionSheetWithOptions({ title, message, options: ['Log out', 'Cancel'], destructiveButtonIndex: 0, cancelButtonIndex: 1 }, (index) => {
         if (index === 0) logOut();
       });
+    } else if (Platform.OS === 'web') {
+      if (window.confirm(title + '\n\n' + message)) logOut();
     } else {
       Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: logOut }]);
     }

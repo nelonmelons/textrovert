@@ -19,6 +19,11 @@ const screenBlend = Platform.OS === 'web' ? ({ mixBlendMode: 'screen' } as objec
 /** The portrait JSON is several megabytes and only changes with new messages, so every screen shares one fetch. */
 let cached: Promise<string> | null = null;
 
+/** Drops the shared portrait; call it on log out so the next account doesn't see the previous one's. */
+export const forgetPortrait = () => {
+  cached = null;
+};
+
 export function usePortraitJson(enabled: boolean) {
   const [json, setJson] = useState<string | null>(null);
   const [error, setError] = useState<string>();

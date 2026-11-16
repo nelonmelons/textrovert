@@ -2,15 +2,31 @@ import { File, FileMode, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { API_URL, ApiError, getJson, postJson } from './client';
-import { loadOwnerKey, saveOwnerKey } from './owner';
+import { clearOwnerKey, loadOwnerKey, saveOwnerKey } from './owner';
 import { slimZip } from './slimZip';
 
-/** POST /account once per device; later calls reuse the stored key. */
+let checkedOwnerKey: string | null = null;
+
+/**
+ * POST /account once per device; later calls reuse the stored key. A stored key the API no longer knows (its account
+ * was deleted or the backend was reset) would fail every upload, so it's checked once per session and replaced.
+ */
 export async function ensureAccount(): Promise<string> {
   const existing = await loadOwnerKey();
-  if (existing) return existing;
+  if (existing && existing === checkedOwnerKey) return existing;
+  if (existing) {
+    try {
+      await getJson('/status');
+      checkedOwnerKey = existing;
+      return existing;
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 401 && /owner key/i.test(e.message))) throw e;
+      await clearOwnerKey();
+    }
+  }
   const { ownerKey } = await postJson<{ ownerKey: string }>('/account', {});
   await saveOwnerKey(ownerKey);
+  checkedOwnerKey = ownerKey;
   return ownerKey;
 }
 
