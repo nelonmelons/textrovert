@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { SymbolViewProps } from 'expo-symbols';
-import { friendById, NoteSection, sectionInfo } from '../fixtures';
+import { friendById, NoteSection, sectionInfo } from '../people';
 import { useNotes } from '../store';
 import { sectionTone, Theme, Type, withAlpha } from '../theme';
 import { art, ServiceIcon, Symbol, ToneTab } from '../components/Paper';

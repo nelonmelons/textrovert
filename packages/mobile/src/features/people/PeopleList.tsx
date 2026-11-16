@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import { Friend } from '../../fixtures';
+import { Friend } from '../../people';
 import { useDataMode } from '../../api/mode';
 import { useFriends } from '../../api/people';
 import { art, Divider, Face, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
