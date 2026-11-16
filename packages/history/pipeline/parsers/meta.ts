@@ -7,6 +7,8 @@ import type { ArchiveEntry, MessageInput, MessageMeta, Parser, ParserIO, Platfor
 // "Download your information" picks by default), with or without a your_instagram_activity / your_facebook_activity prefix.
 const THREAD_RE = /(^|\/)messages\/[^/]+\/[^/]+\/message_\d+\.(?:json|html)$/;
 const MESSAGES_DIR_RE = /(?:^|\/)((?:your_(?:instagram|facebook)_activity\/)?messages\/)/;
+// Requests from people the user never accepted (mostly spam): claimed so they don't count as unrecognized, never stored.
+const MESSAGE_REQUESTS_RE = /(^|\/)messages\/message_requests\//;
 const IG_PROFILE_RE = /(^|\/)personal_information\/(?:personal_information\/)?personal_information\.(?:json|html)$/;
 const FB_PROFILE_RE = /(^|\/)profile_information\/profile_information\.json$/;
 const IG_ACTIVITY_RE = /(^|\/)your_instagram_activity\//;
@@ -58,6 +60,7 @@ function metaParser(platform: "instagram" | "messenger"): Parser {
       const threads = new Map<string, ArchiveEntry[]>();
       for (const entry of entries) {
         if (THREAD_RE.test(entry.path)) {
+          if (MESSAGE_REQUESTS_RE.test(entry.path)) continue;
           const folder = entry.path.slice(0, entry.path.lastIndexOf("/"));
           threads.set(folder, [...(threads.get(folder) ?? []), entry]);
         } else if (IG_PROFILE_RE.test(entry.path)) {

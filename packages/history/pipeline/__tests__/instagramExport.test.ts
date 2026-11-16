@@ -1,4 +1,4 @@
-import { writeFile, mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,6 +14,7 @@ import { instagramParser } from "../parsers/meta";
 import { MessageStore } from "../store";
 import { runParser } from "../testing";
 import { LocalTime } from "../time";
+import { slimZip } from "../../../mobile/src/api/slimZip";
 import { FOLDERS, GROUP_TITLE, instagramFiles, JORDAN, LEA, mediaPaths, otherFiles, OWNER, RAVI } from "./fixtures/instagram";
 
 const TZ = "America/Los_Angeles";
@@ -67,13 +68,20 @@ describe("Instagram 'Download your information' export", () => {
     expect(html.warnings).toEqual([]);
     expect(html.selfHints).toEqual([OWNER.name, OWNER.username]);
     expect(json.selfHints).toEqual([OWNER.name, OWNER.username]);
-    // The HTML pages don't list participants, so they are the senders: the owner is missing where they never wrote.
     const sorted = (run: typeof json) => [...run.conversations.values()].map((c) => ({ ...c, participants: [...c.participants].sort() }));
-    const fromJson = sorted(json);
-    fromJson.find((c) => c.externalId === FOLDERS.request)!.participants = ["cryptodeals99"];
-    expect(sorted(html)).toEqual(fromJson);
+    expect(sorted(html)).toEqual(sorted(json));
     expect([...html.messages.keys()]).toEqual([...json.messages.keys()]);
     for (const [id, messages] of json.messages) expect(html.messages.get(id), id).toEqual(messages);
+  });
+
+  it("leaves out message requests in both formats", async () => {
+    for (const format of ["json", "html"] as const) {
+      const files = instagramFiles(format);
+      const run = await runParser(instagramParser, files, { timeZone: TZ });
+      expect(run.claimed, format).toContain(`your_instagram_activity/messages/message_requests/${FOLDERS.request}/message_1.${format}`);
+      expect([...run.conversations.keys()], format).toEqual([FOLDERS.jordan, FOLDERS.lea, FOLDERS.group]);
+      expect(run.warnings, format).toEqual([]);
+    }
   });
 
   it("decodes mojibake and keeps reactions, shares, photos, unsent messages and the group", async () => {
@@ -101,25 +109,40 @@ describe("Instagram 'Download your information' export", () => {
     it(`ingests a full ${format.toUpperCase()} zip, names the owner from the profile and leaves them out of friends`, async () => {
       const owner = "ig-full-" + format;
       const result = await ingest(await exportZip(format, `instagram-full-${format}.zip`), owner, ["Maya"]);
-      expect(result.sources).toEqual([{ platform: "instagram", files: 7, conversations: 4, messages: 253 }]);
-      expect(result.messagesStored).toBe(253);
-      for (const c of result.conversations) {
-        if (format === "json" || c.title !== "cryptodeals99") expect(c.selfName, c.title).toBe(OWNER.name);
-      }
-      expect(result.conversations.map((c) => c.title).sort()).toEqual(["Jordan Kim", "Léa Dubois", "Tahoe Trip 🏔️", "cryptodeals99"]);
-      const people = await peopleOf(owner, result);
-      expect(people).not.toContain(OWNER.name);
-      expect(people).toEqual(expect.arrayContaining([JORDAN, LEA, RAVI]));
+      expect(result.sources).toEqual([{ platform: "instagram", files: 7, conversations: 3, messages: 252 }]);
+      expect(result.messagesStored).toBe(252);
+      for (const c of result.conversations) expect(c.selfName, c.title).toBe(OWNER.name);
+      expect(result.conversations.map((c) => c.title).sort()).toEqual(["Jordan Kim", "Léa Dubois", "Tahoe Trip 🏔️"]);
+      expect(await peopleOf(owner, result)).toEqual([JORDAN, LEA, RAVI]);
     });
 
     it(`ingests a ${format.toUpperCase()} zip of just the messages folder, with no profile file`, async () => {
       const owner = "ig-messages-" + format;
       const result = await ingest(await exportZip(format, `instagram-messages-${format}.zip`, true), owner, ["Maya"]);
-      expect(result.messagesStored).toBe(253);
-      for (const c of result.conversations) {
-        if (format === "json" || c.title !== "cryptodeals99") expect(c.selfName, c.title).toBe(OWNER.name);
-      }
-      expect(await peopleOf(owner, result)).not.toContain(OWNER.name);
+      expect(result.messagesStored).toBe(252);
+      for (const c of result.conversations) expect(c.selfName, c.title).toBe(OWNER.name);
+      expect(await peopleOf(owner, result)).toEqual([JORDAN, LEA, RAVI]);
+    });
+
+    it(`ingests the ${format.toUpperCase()} zip the phone repacks without media and message requests`, async () => {
+      const path = await exportZip(format, `instagram-full-${format}-for-slim.zip`);
+      const original = await readFile(path);
+      const chunks: Uint8Array[] = [];
+      const size = await slimZip(
+        { size: original.byteLength, read: async (offset, length) => original.subarray(offset, offset + length) },
+        async (bytes) => void chunks.push(bytes.slice()),
+      );
+      expect(size).toBe(chunks.reduce((n, c) => n + c.byteLength, 0));
+      const slimPath = join(dir, `instagram-slim-${format}.zip`);
+      await writeFile(slimPath, Buffer.concat(chunks));
+      const archive = await openArchive(slimPath, "slim.zip");
+      const paths = archive.entries.map((e) => e.path);
+      await archive.close();
+      expect(paths.filter((p) => /\.(jpg|mp4)$|message_requests/.test(p))).toEqual([]);
+      expect(paths).toContain(`your_instagram_activity/messages/inbox/${FOLDERS.jordan}/message_3.${format}`);
+      const result = await ingest(slimPath, "ig-slim-" + format, ["Maya"]);
+      expect(result.messagesStored).toBe(252);
+      expect(await peopleOf("ig-slim-" + format, result)).toEqual([JORDAN, LEA, RAVI]);
     });
   }
 });

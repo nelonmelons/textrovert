@@ -7,6 +7,9 @@
 // Media the parsers never open: they only read message text and the file names messages point at.
 const MEDIA_RE = /\.(jpe?g|png|heic|heif|webp|gif|bmp|tiff?|mp4|mov|m4v|3gp|webm|avi|mkv|mp3|m4a|aac|wav|ogg|opus|amr|caf|pdf|srt)$/i;
 
+// Instagram and Messenger message requests from people the user never accepted; the server doesn't store them.
+const MESSAGE_REQUESTS_RE = /(^|\/)messages\/message_requests\//;
+
 const LOCAL_SIG = 0x04034b50;
 const CENTRAL_SIG = 0x02014b50;
 const EOCD_SIG = 0x06054b50;
@@ -71,7 +74,7 @@ export async function slimZip(source: ZipSource, write: (bytes: Uint8Array) => P
     const localOffset = d.getUint32(p + 42, true);
     const header = directory.slice(p, p + 46 + nameLength);
     p += 46 + nameLength + extraLength + commentLength;
-    if (MEDIA_RE.test(name) || name.endsWith('/')) {
+    if (MEDIA_RE.test(name) || MESSAGE_REQUESTS_RE.test(name) || name.endsWith('/')) {
       dropped++;
       continue;
     }
