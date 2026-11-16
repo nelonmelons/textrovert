@@ -157,6 +157,9 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
       ) : (
         <Stack.Screen options={{ headerTitle: name ? `Ask about ${name}` : 'Ask me', headerTitleStyle: { color: Theme.ink, fontWeight: '600' } }} />
       )}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <GridPaper width={440} height={1400} />
+      </View>
       <ScrollView
         ref={scroll}
         style={{ flex: 1 }}
@@ -165,7 +168,6 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
       >
-        <GridPaper width={440} height={3000} />
         {turns.map((t) =>
           t.fromMe ? (
             <FadeIn key={t.id} style={{ alignItems: 'flex-end', gap: 6, paddingLeft: 48 }}>
