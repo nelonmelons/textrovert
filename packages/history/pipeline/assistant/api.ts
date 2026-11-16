@@ -2,7 +2,12 @@ import { analyzePortrait, loadPortraitSource, type WriteStory } from "../portrai
 import type { PortraitCache } from "../portrait/cache";
 import { meaningfulTopics } from "../portrait/topics";
 import type { Story } from "../portrait/types";
+import type { ConversationStats, Insights, Person } from "../../convex/validators";
+import { analyzeStoredConversations } from "../analyze";
+import { buildInsights, buildPeople, type ConversationSummary } from "../insights";
 import type { MessageStore, StoredMessage } from "../store";
+import { normalizeName } from "../text";
+import { LocalTime } from "../time";
 import { ask, type ChatTurn, type ConversationRef } from "./agent";
 import type { EpisodeIndex, StoredEpisode } from "./episodes";
 import type { FactIndex, Predicate } from "./facts";
@@ -274,6 +279,8 @@ export interface ApiFriend {
   topics: { topic: string; count: number }[];
   /** The cached memoir; null until GET /story has written one. */
   story: ApiStory | null;
+  /** Texting numbers across your chats with them; null when nothing could be counted. */
+  stats: ApiFriendStats | null;
 }
 
 const FRIEND_EPISODES = 400;
@@ -293,6 +300,93 @@ const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boo
 const iso = (ts: number) => new Date(ts).toISOString();
 
 /** Everything the profile shows about one person, every item with the message it came from. */
+// ---------- stats ----------
+
+/** Stats keep timestamps as milliseconds since 1970, as the analyzer and Convex insights do. */
+export type ApiStatsPerson = Omit<Person, "conversationKeys" | "aliases">;
+
+/** GET /stats: the analyzer's profile insights over every chat, plus the people ranked by closeness. */
+export interface ApiStats {
+  insights: Insights;
+  people: ApiStatsPerson[];
+}
+
+/** One friend's numbers: the merged person (all their chats) and, with a DM, that chat's own breakdown. */
+export interface ApiFriendStats {
+  person: ApiStatsPerson | null;
+  dm: Pick<
+    ConversationStats,
+    "messages" | "myMessages" | "firstAt" | "lastAt" | "activeDays" | "longestStreakDays" | "sessions" | "hourly" | "weekday" | "monthly" | "topWords" | "topEmojis" | "links" | "calls"
+  > & { myReplyMedianSec: number | null; theirReplyMedianSec: number | null; myInitiations: number; theirInitiations: number } | null;
+}
+
+const STATS_PEOPLE = 30;
+const toStatsPerson = ({ conversationKeys: _keys, aliases: _aliases, ...p }: Person): ApiStatsPerson => p;
+
+/** Runs pipeline/analyze.ts over the given chats and returns them as insights summaries. */
+async function summarize(ctx: Pick<FriendContext, "owner" | "store" | "timeZone">, chats: ConversationRef[], now: number): Promise<ConversationSummary[]> {
+  const byKey = new Map(chats.map((c) => [c.key, c]));
+  const summaries: ConversationSummary[] = [];
+  const targets = chats.map((c) => ({ key: c.key, kind: c.kind, selfName: c.selfName }));
+  for await (const r of analyzeStoredConversations(ctx.store, ctx.owner, targets, new LocalTime(ctx.timeZone), now)) {
+    const c = byKey.get(r.key)!;
+    summaries.push({ key: c.key, platform: c.platform, kind: c.kind, title: c.title, selfName: c.selfName, closeness: r.closeness, stats: r.stats });
+  }
+  return summaries;
+}
+
+const statsRuns = new Map<string, { version: string; result: Promise<ApiStats> }>();
+
+/** Overall stats, recomputed only when a new message lands or the chat list changes. */
+export async function overallStats(ctx: Pick<FriendContext, "conversations" | "owner" | "store" | "timeZone">, now = Date.now()): Promise<ApiStats> {
+  const version = (await ctx.store.latestId(ctx.owner)) + ":" + ctx.conversations.length;
+  const run = statsRuns.get(ctx.owner);
+  if (run?.version === version) return run.result;
+  const result = summarize(ctx, ctx.conversations, now).then((summaries) => {
+    const people = buildPeople(summaries);
+    return { insights: buildInsights(summaries, people, now), people: people.slice(0, STATS_PEOPLE).map(toStatsPerson) };
+  });
+  statsRuns.set(ctx.owner, { version, result });
+  result.catch(() => statsRuns.delete(ctx.owner));
+  return result;
+}
+
+/** Analyzes just this friend's chats: cheap enough to run per profile. */
+async function friendStats(ctx: FriendContext, person: ApiPerson, chats: ConversationRef[], dm: ConversationRef | null, now = Date.now()): Promise<ApiFriendStats | null> {
+  const summaries = await summarize(ctx, chats, now);
+  if (summaries.length === 0) return null;
+  const want = normalizeName(person.name);
+  const merged = buildPeople(summaries).find((p) => p.key === want || p.aliases.some((a) => a.toLowerCase() === person.name.toLowerCase())) ?? null;
+  const s = dm ? summaries.find((x) => x.key === dm.key)?.stats ?? null : null;
+  const me = s?.participants.find((p) => p.isMe);
+  const them = s?.participants.filter((p) => !p.isMe) ?? [];
+  return {
+    person: merged ? toStatsPerson(merged) : null,
+    dm: s
+      ? {
+          messages: s.messages,
+          myMessages: s.myMessages,
+          firstAt: s.firstAt,
+          lastAt: s.lastAt,
+          activeDays: s.activeDays,
+          longestStreakDays: s.longestStreakDays,
+          sessions: s.sessions,
+          hourly: s.hourly,
+          weekday: s.weekday,
+          monthly: s.monthly,
+          topWords: s.topWords.slice(0, 12),
+          topEmojis: s.topEmojis.slice(0, 6),
+          links: s.links,
+          calls: s.calls,
+          myReplyMedianSec: me?.replyMedianSec ?? null,
+          theirReplyMedianSec: them[0]?.replyMedianSec ?? null,
+          myInitiations: me?.initiations ?? 0,
+          theirInitiations: them.reduce((n, p) => n + p.initiations, 0),
+        }
+      : null,
+  };
+}
+
 export async function friendProfile(name: string, ctx: FriendContext): Promise<ApiFriend> {
   const { owner, store } = ctx;
   const person = personNamed(ctx.conversations, name);
@@ -303,12 +397,13 @@ export async function friendProfile(name: string, ctx: FriendContext): Promise<A
   const first = person.name.split(/\s+/)[0];
   const nameWords = new Set([first.toLowerCase(), ...words(person.name)]);
 
-  const [dmEpisodes, groupEpisodes, factsByName, factsByFirst, cached] = await Promise.all([
+  const [dmEpisodes, groupEpisodes, factsByName, factsByFirst, cached, stats] = await Promise.all([
     dm ? ctx.episodes.find(owner, { conversations: [dm.key] }, FRIEND_EPISODES) : [],
     groupKeys.length ? ctx.episodes.find(owner, { conversations: groupKeys, person: person.name }, FRIEND_EPISODES) : [],
     ctx.facts.about(owner, person.name, { includeHistory: true, limit: 200 }),
     first.toLowerCase() !== person.name.toLowerCase() ? ctx.facts.about(owner, first, { includeHistory: true, limit: 200 }) : [],
     ctx.cache.story(owner, person.name),
+    friendStats(ctx, person, chats, dm),
   ]);
   const episodes = [...dmEpisodes, ...groupEpisodes].sort((a, b) => b.startTs - a.startTs);
 
@@ -371,6 +466,7 @@ export async function friendProfile(name: string, ctx: FriendContext): Promise<A
     }),
     topics,
     story: cached ? await toApiStory(cached.story, cached.writtenAt, chats, ctx, episodes) : null,
+    stats,
   };
 }
 
@@ -487,6 +583,7 @@ function episodeIdOf(value: unknown): number {
  *   GET /friend?name=        → ApiFriend
  *   GET /story?name=&refresh=1 → {story: ApiStory | null}
  *   GET /portrait            → Portrait (packages/history/pipeline/portrait/types.ts)
+ *   GET /stats               → ApiStats (pipeline/analyze.ts + pipeline/insights.ts over every chat)
  *   GET /reel?episodeId=     → ApiReel
  *   POST /reel {episodeId}   → ApiReel, starting a render when there is none
  * Returns null for any other route.
@@ -496,6 +593,7 @@ export async function friendRoute(method: string, path: string, query: URLSearch
   if (method === "GET" && path === "/friend") return friendProfile(name(), ctx);
   if (method === "GET" && path === "/story") return friendStory(name(), ctx, query.get("refresh") === "1");
   if (method === "GET" && path === "/portrait") return portraitJson(ctx);
+  if (method === "GET" && path === "/stats") return overallStats(ctx);
   if (path === "/reel" && (method === "GET" || method === "POST")) {
     if (!reels) return REELS_ON_DESKTOP;
     if (method === "GET") return reels.status(episodeIdOf(query.get("episodeId")));

@@ -16,7 +16,8 @@ The app loads `/portrait.json`, which the dev server serves from `.data/portrait
 back to the synthetic `fixtures/demo-portrait.json` otherwise. Add `?demo` to the URL to force the demo data.
 Production builds never include `.data`.
 
-Deep links: `#/orbit`, `#/rivers`, `#/atlas`, and `#/<view>/p/<personId>` for a person's story. When embedded,
+Deep links: `#/orbit`, `#/rivers`, `#/atlas`, `#/atlas/t/<topic>` for the atlas with that land focused, and
+`#/<view>/p/<personId>` for a person's story. When embedded,
 taps post `"light"` or `"medium"` to `window.webkit.messageHandlers.haptic` if the native shell registers it.
 
 ## Embedded in the app

@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router, Stack } from 'expo-router';
-import { Friend } from '../fixtures';
-import { useDataMode } from '../api/mode';
-import { useFriends } from '../api/people';
-import { art, Divider, Face, RowChevron, SectionCard, Symbol, ToneTab } from '../components/Paper';
-import { PaperScroll } from '../components/PaperScroll';
-import { haptics } from '../lib/haptics';
-import { Theme, Type, withAlpha } from '../theme';
+import { router } from 'expo-router';
+import { Friend } from '../../fixtures';
+import { useDataMode } from '../../api/mode';
+import { useFriends } from '../../api/people';
+import { art, Divider, Face, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
+import { PaperScroll } from '../../components/PaperScroll';
+import { haptics } from '../../lib/haptics';
+import { Theme, Type, withAlpha } from '../../theme';
 
 /** Everyone you text (GET /people when live, Emma's friends in demo mode), searchable; a tap opens their profile. */
-export default function Friends() {
+export function PeopleList() {
   const { live } = useDataMode();
   const { status, friends, message, retry } = useFriends();
   const [query, setQuery] = useState('');
@@ -24,8 +24,7 @@ export default function Friends() {
     : [{ title: 'Your people', symbol: 'person.2.fill' as const, tone: Theme.accentTone, list: matches }];
 
   return (
-    <PaperScroll contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 18 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ headerTitle: 'Your people', headerTitleStyle: { color: Theme.ink, fontWeight: '600' } }} />
+    <PaperScroll contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 18 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
       <View style={styles.field}>
         <Symbol name="magnifyingglass" size={15} color={Theme.accent} weight="bold" />
         <TextInput
@@ -37,13 +36,6 @@ export default function Friends() {
           style={[Type.body, { flex: 1, color: Theme.ink }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
         />
       </View>
-      {live ? (
-        <Pressable onPress={() => router.push('/portrait')} style={({ pressed }) => [styles.portrait, pressed && { opacity: 0.8 }]}>
-          <Symbol name="circle.hexagongrid.fill" size={20} color="#FFFFFF" />
-          <Text style={[Type.headline, { color: '#FFFFFF', flex: 1 }]}>See everyone as a portrait</Text>
-          <Symbol name="chevron.right" size={13} color="#FFFFFF" weight="bold" />
-        </Pressable>
-      ) : null}
       {status === 'loading' ? <ActivityIndicator color={Theme.accent} /> : null}
       {status === 'error' ? (
         <SectionCard tone={Theme.coralTone}>
@@ -108,7 +100,6 @@ function Row({ friend }: { friend: Friend }) {
 
 const styles = StyleSheet.create({
   field: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 16, borderRadius: 24, borderWidth: 1.5, borderColor: Theme.accent, backgroundColor: Theme.background },
-  portrait: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: '#0b0810' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 4 },
   pressed: { backgroundColor: withAlpha(Theme.accentTone.fill, 0.6), opacity: 0.75, borderRadius: 12 },
 });

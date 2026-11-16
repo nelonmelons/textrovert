@@ -229,9 +229,12 @@ Friends, memoirs, the portrait and reels (`friendRoute` in `pipeline/assistant/a
   "dmConversationId", "facts": [{"predicate", "object", "quote", "messageId", "validFrom", "validTo", "source"}],
   "plans": [{"what", "date", "when", "who", "episodeId", "source"}], "episodes": [{"id", "title", "summary", "mood",
   "kind", "topics", "chatId", "chat", "isDm", "start", "end", "messageCount", "source"}], "topics": [{"topic",
-  "count"}], "story"}`. Facts come from the person's own chats (health facts are never returned), plans from their
+  "count"}], "story", "stats"}`. Facts come from the person's own chats (health facts are never returned), plans from their
   DM or naming them in a group, episodes and topics from their DM and the group episodes they're in. `story` is the
-  cached memoir or null. 404 for an unknown name.
+  cached memoir or null. `stats` is `{"person", "dm"}` from `pipeline/analyze.ts` over just their chats: `person` is
+  their merged `Person` (messages each way, who starts conversations, reply medians, closeness) and `dm` the DM's
+  breakdown (hourly, weekday, monthly, streak, top words and emoji, reply medians, initiations), or null without a
+  DM. 404 for an unknown name.
 - `GET /story?name=&refresh=1` → `{"story": {"headline", "chapters": [{"title", "period", "sentences": [{"n", "text",
   "refs", "episodes": [{"id", "title", "summary"}]}]}], "sources": {"<messageId>": source}, "writtenAt"} | null}`.
   Written on first request (about 10 seconds) by the portrait's memoir writer with its footnote check (every ref is a
@@ -239,6 +242,10 @@ Friends, memoirs, the portrait and reels (`friendRoute` in `pipeline/assistant/a
   `n` numbers the footnotes through the memoir. 503 without an OpenAI key.
 - `GET /portrait` → the portrait (`pipeline/portrait/types.ts`, what `packages/portrait` renders) with every cached
   memoir, cached until a new message, episode or memoir arrives.
+- `GET /stats` → `{"insights", "people"}`: `buildInsights` and `buildPeople` (`pipeline/insights.ts`) over every chat,
+  the same numbers Convex stores per profile (totals, heatmap, monthly, reply times, habits, top emoji and words,
+  archetypes), plus the 30 closest people. Times are milliseconds. Computed on first request and kept until a new
+  message arrives.
 - `POST /reel {"episodeId"}` and `GET /reel?episodeId=` → `{"status": "none" | "rendering" | "ready" | "failed" |
   "unavailable", "episodeId", "url"?, "error"?, "message"?}`. The local server renders with `packages/reels`
   (episode-props, then render; about a minute, one at a time) into `packages/reels/.data/app/` and serves
@@ -253,7 +260,7 @@ the hosted API below, so both servers answer identically.
 
 ## Hosted Ask API
 
-`convex/http.ts` serves the same `POST /ask`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait` and `/reel` from the deployment's site URL
+`convex/http.ts` serves the same `POST /ask`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait`, `GET /stats` and `/reel` from the deployment's site URL
 (`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
 chats and is off until both of these are set on the deployment:
 

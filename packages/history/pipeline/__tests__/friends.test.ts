@@ -6,7 +6,7 @@ import { createClient } from "@libsql/client";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import type { Complete, ConversationRef } from "../assistant/agent";
-import { answerRequest, ApiError, friendProfile, friendRoute, friendStory, portraitJson, REELS_ON_DESKTOP, type FriendContext } from "../assistant/api";
+import { answerRequest, ApiError, friendProfile, friendRoute, friendStory, overallStats, portraitJson, REELS_ON_DESKTOP, type ApiStats, type FriendContext } from "../assistant/api";
 import { EpisodeIndex, type Episode } from "../assistant/episodes";
 import { FactIndex, type Fact } from "../assistant/facts";
 import type { Embed } from "../assistant/memory";
@@ -73,6 +73,17 @@ beforeAll(async () => {
 });
 afterAll(() => rm(dir, { recursive: true, force: true }));
 
+describe("GET /stats", () => {
+  it("serves the analyzer's insights and people over every chat, cached until a new message", async () => {
+    const stats = (await friendRoute("GET", "/stats", new URLSearchParams(), null, ctx, null)) as ApiStats;
+    expect(stats.insights.totals).toMatchObject({ messages: 10, sent: 3, received: 7, conversations: 3, dms: 2, groups: 1 });
+    expect(stats.insights.heatmap).toHaveLength(168);
+    expect(stats.people.map((p) => p.name)).toEqual(expect.arrayContaining(["Juno Reyes", "Kit Malone"]));
+    expect(stats.people[0]).not.toHaveProperty("conversationKeys");
+    expect(await overallStats(ctx)).toBe(stats);
+  });
+});
+
 describe("GET /friend", () => {
   it("returns facts, plans, moments and topics from their chats, each with its source message", async () => {
     const friend = await friendProfile("juno reyes", ctx);
@@ -86,6 +97,15 @@ describe("GET /friend", () => {
     expect(friend.episodes.map((e) => [e.title, e.chat, e.source.messageId])).toEqual([["Rooftop Friday", "Loft crew", id.loft1], ["Lanterns and kayaks", "Juno Reyes", id.hello]]);
     expect(friend.topics).toEqual([{ topic: "kayaking", count: 2 }, { topic: "night fair", count: 1 }, { topic: "rooftop", count: 1 }]);
     expect(friend.story).toBeNull();
+  });
+
+  it("includes their stats from the analyzer: the merged person and the DM's breakdown", async () => {
+    const { stats } = await friendProfile("Juno Reyes", ctx);
+    expect(stats?.person).toMatchObject({ name: "Juno Reyes", fromThem: 5, fromMe: 2, dmMessages: 6, initiatedByThem: 2, initiatedByMe: 0 });
+    expect(stats?.dm).toMatchObject({ messages: 6, myMessages: 2, myInitiations: 0, theirInitiations: 2 });
+    expect(stats?.dm?.hourly).toHaveLength(24);
+    expect(stats?.dm?.weekday).toHaveLength(7);
+    expect((await friendProfile("Kit Malone", ctx)).stats?.dm).toMatchObject({ messages: 1, myMessages: 0 });
   });
 
   it("answers 404 for someone not in the chats and 400 without a name", async () => {

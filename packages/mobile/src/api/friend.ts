@@ -83,6 +83,81 @@ export interface FriendProfile {
   topics: { topic: string; count: number }[];
   /** Null until fetchStory has written it once. */
   story: Story | null;
+  /** Texting numbers across your chats with them (pipeline/analyze.ts); null when nothing could be counted. */
+  stats: FriendStats | null;
+}
+
+type TextCount = { text: string; count: number };
+
+/** A person as the analyzer ranks them. Times are milliseconds since 1970. */
+export interface StatsPerson {
+  key: string;
+  name: string;
+  platforms: string[];
+  messages: number;
+  fromThem: number;
+  fromMe: number;
+  dmMessages: number;
+  firstAt: number | null;
+  lastAt: number | null;
+  theirReplyMedianSec: number | null;
+  myReplyMedianSec: number | null;
+  initiatedByMe: number;
+  initiatedByThem: number;
+  /** 0-100 from volume, balance, recency and consistency. */
+  closeness: number;
+}
+
+export interface FriendStats {
+  person: StatsPerson | null;
+  /** The DM's own breakdown; null without a DM. hourly has 24 entries, weekday 7 (Sunday first). */
+  dm: {
+    messages: number;
+    myMessages: number;
+    firstAt: number | null;
+    lastAt: number | null;
+    activeDays: number;
+    longestStreakDays: number;
+    sessions: number;
+    hourly: number[];
+    weekday: number[];
+    monthly: { month: string; mine: number; theirs: number }[];
+    topWords: TextCount[];
+    topEmojis: TextCount[];
+    links: number;
+    calls: number;
+    myReplyMedianSec: number | null;
+    theirReplyMedianSec: number | null;
+    myInitiations: number;
+    theirInitiations: number;
+  } | null;
+}
+
+/** GET /stats: buildInsights over every chat (the numbers Convex keeps per profile) and the closest people. */
+export interface Stats {
+  insights: {
+    generatedAt: number;
+    totals: { messages: number; sent: number; received: number; conversations: number; dms: number; groups: number; aiChats: number; people: number; firstAt: number | null; lastAt: number | null };
+    platforms: { platform: string; conversations: number; messages: number; sent: number }[];
+    /** Your messages by weekday * 24 + hour, Sunday first. */
+    heatmap: number[];
+    monthly: { month: string; sent: number; received: number }[];
+    reply: { myMedianSec: number | null; theirMedianSec: number | null; myHistogram: number[]; theirHistogram: number[] };
+    habits: {
+      initiationRate: number | null;
+      doubleTextRate: number | null;
+      nightOwlRate: number | null;
+      avgWordsPerMessage: number | null;
+      laughRate: number | null;
+      questionRate: number | null;
+      emojiRate: number | null;
+    };
+    topEmojis: TextCount[];
+    topWords: TextCount[];
+    topPeople: { key: string; name: string; closeness: number; messages: number; platforms: string[] }[];
+    archetypes: { id: string; label: string; reason: string }[];
+  };
+  people: StatsPerson[];
 }
 
 export type Reel =
@@ -101,6 +176,9 @@ export const fetchStory = (name: string, refresh = false) =>
 
 /** The portrait data as text, ready for PortraitWebView (it can be a few megabytes, so it isn't parsed here). */
 export const fetchPortraitJson = async () => (await call('/portrait', { method: 'GET' }, SLOW_TIMEOUT_MS)).text();
+
+/** Overall texting stats; the first call after new messages analyzes every chat (a few seconds). */
+export const fetchStats = () => getJson<Stats>('/stats', SLOW_TIMEOUT_MS);
 
 export const fetchReel = (episodeId: number) => getJson<Reel>('/reel?episodeId=' + episodeId);
 

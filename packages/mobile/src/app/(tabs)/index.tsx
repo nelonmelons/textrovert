@@ -2,16 +2,16 @@ import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Rounded, Theme, Type } from '../theme';
-import { Friend, firstName, friends, upcomingMilestones } from '../fixtures';
-import { art, DeadlineBadge, DemoPill, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../components/Paper';
-import { useDataMode } from '../api/mode';
-import { useFriends } from '../api/people';
-import { MilestoneRow } from '../components/MilestoneRow';
-import { useNotes } from '../store';
-import { SearchResults } from '../components/SearchResults';
-import { looksLikeQuestion } from '../chat';
-import { useFirstRun } from '../firstRun';
+import { Rounded, Theme, Type } from '../../theme';
+import { Friend, firstName, friends, upcomingMilestones } from '../../fixtures';
+import { art, DeadlineBadge, DemoPill, Divider, Face, GridPaper, HedgehogMark, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
+import { useDataMode } from '../../api/mode';
+import { useFriends } from '../../api/people';
+import { MilestoneRow } from '../../components/MilestoneRow';
+import { useNotes } from '../../store';
+import { SearchResults } from '../../components/SearchResults';
+import { looksLikeQuestion } from '../../chat';
+import { useFirstRun } from '../../firstRun';
 
 const openProfile = (friend: Friend) => router.push({ pathname: '/friend/[id]', params: { id: friend.id } });
 const openSource = (friend: Friend, message: string) => router.push({ pathname: '/source', params: { friend: friend.id, message, profile: '1' } });
@@ -156,7 +156,7 @@ export default function Today() {
               <View style={{ gap: 14 }}>
                 <View style={styles.header}>
                   <ToneTab title="Your people" symbol="person.2.fill" tone={Theme.accentTone} />
-                  <Pressable onPress={() => router.push('/friends')} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Pressable onPress={() => router.navigate('/people')} hitSlop={10} style={{ minHeight: 44, justifyContent: 'center' }}>
                     <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>See all</Text>
                   </Pressable>
                 </View>
@@ -182,25 +182,13 @@ export default function Today() {
               </View>
             </SectionCard>
 
-            {live ? (
-              <Pressable onPress={() => router.push('/portrait')} style={({ pressed }) => [styles.portrait, pressed && { opacity: 0.85 }]}>
-                <View style={styles.portraitIcon}>
-                  <Symbol name="circle.hexagongrid.fill" size={22} color="#FFFFFF" />
-                </View>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Your portrait</Text>
-                  <Text style={[Type.subheadline, { color: 'rgba(255,255,255,0.75)' }]}>Everyone you text, drawn as an orbit</Text>
-                </View>
-                <Symbol name="chevron.right" size={13} color="#FFFFFF" weight="bold" />
-              </Pressable>
-            ) : null}
 
-            <Pressable onPress={() => router.push('/stats')} style={({ pressed }) => pressed && { opacity: 0.8 }}>
+            <Pressable onPress={() => router.navigate('/you')} style={({ pressed }) => pressed && { opacity: 0.8 }}>
               <SectionCard tone={Theme.celebrateTone} fillOpacity={0.4}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                   <View style={{ flex: 1, gap: 8 }}>
-                    <ToneTab title="Your iMessage stats" symbol="chart.bar.fill" tone={Theme.celebrateTone} />
-                    <Text style={[Type.subheadline, styles.ink]}>Import the file from Textrovert on your Mac to see your texting stats.</Text>
+                    <ToneTab title="Your texting stats" symbol="chart.bar.fill" tone={Theme.celebrateTone} />
+                    <Text style={[Type.subheadline, styles.ink]}>{live ? 'Who texts first, reply times, your busiest hours and your closest people.' : 'Import the file from Textrovert on your Mac to see your texting stats.'}</Text>
                   </View>
                   <RowChevron />
                 </View>
@@ -212,7 +200,7 @@ export default function Today() {
       </ScrollView>
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: Theme.paper }} />
 
-      <View style={[styles.panel, { paddingBottom: insets.bottom + 6 }]} onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)}>
+      <View style={[styles.panel, { paddingBottom: 10 }]} onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)}>
         <View style={styles.inlineWide}>
           <View
             style={[
@@ -309,7 +297,5 @@ const styles = StyleSheet.create({
   },
   searchIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   chips: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
-  portrait: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: 18, backgroundColor: '#0b0810' },
-  portraitIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.12)' },
   chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 22, backgroundColor: Theme.accentTone.fill },
 });

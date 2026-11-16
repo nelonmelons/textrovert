@@ -6,6 +6,8 @@ import { chatLabel, type Source } from '../../api/client';
 import { openLiveSource } from '../../api/sources';
 import { art, Divider, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
 import { ReelButton } from '../reels/ReelButton';
+import { FriendStatsCard } from '../stats/FriendStatsCard';
+import { router } from 'expo-router';
 import { haptics } from '../../lib/haptics';
 import { formatAgo } from '../../lib/answer';
 import { Theme, Tone, Type, withAlpha } from '../../theme';
@@ -194,16 +196,27 @@ export function LiveProfile({ name, first, state, retry }: { name: string; first
     <View style={{ gap: 18 }}>
       {p.topics.length > 0 ? (
         <View style={{ gap: 8 }}>
-          <Text style={[Type.footnote, { color: Theme.secondary, fontWeight: '600' }]}>You two talk about</Text>
+          <Text style={[Type.footnote, { color: Theme.secondary, fontWeight: '600' }]}>You two talk about · tap one to see it on your map</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {p.topics.slice(0, 8).map((t) => (
-              <View key={t.topic} style={styles.topic}>
+              <Pressable
+                key={t.topic}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.topic}: show it in your topics`}
+                onPress={() => {
+                  haptics.select();
+                  router.push({ pathname: '/portrait', params: { view: 'atlas/t/' + encodeURIComponent(t.topic) } });
+                }}
+                style={({ pressed }) => [styles.topic, pressed && { opacity: 0.7 }]}
+              >
                 <Text style={[Type.subheadline, { color: Theme.activitiesTone.ink, fontWeight: '500' }]}>{t.topic}</Text>
-              </View>
+                <Symbol name="map" size={11} color={Theme.activitiesTone.ink} weight="semibold" />
+              </Pressable>
             ))}
           </View>
         </View>
       ) : null}
+      {p.stats ? <FriendStatsCard stats={p.stats} first={first} /> : null}
       {quiet ? (
         <SectionCard tone={Theme.activitiesTone}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -258,5 +271,5 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: withAlpha(Theme.accentTone.fill, 0.6), opacity: 0.75, borderRadius: 12 },
   footnote: { color: Theme.celebrateTone.ink, fontWeight: '800', fontSize: 12 },
   pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 8, paddingHorizontal: 16, minHeight: 40, borderRadius: 20 },
-  topic: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: Theme.activitiesTone.fill },
+  topic: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: Theme.activitiesTone.fill },
 });

@@ -12,7 +12,7 @@
  * POST /ask {question, person?, history?} → {answer, citations: [{n, messageId, sender, fromMe, chat, chatId, sentAt, text, quote}]}
  * GET /people → {people: [{name, dm, chats, messages, lastAt}]}, most-messaged DMs first; dates are ISO 8601 strings
  * POST /wrapped {conversationId, from, through, model?, ...} → one Wrapped edition for a DM (see README)
- * GET /friend, GET /story, GET /portrait, GET|POST /reel → see pipeline/assistant/api.ts friendRoute; GET /reels/<id>.mp4 serves a rendered reel
+ * GET /friend, GET /story, GET /portrait, GET /stats, GET|POST /reel → see pipeline/assistant/api.ts friendRoute; GET /reels/<id>.mp4 serves a rendered reel
  *
  *   ASK_CACHE_DB       optional writable libSQL file for cached memoirs and the portrait
  *                      (defaults to packages/history/.data/ask-cache.db; ASK_DB itself is never written)

@@ -10,8 +10,12 @@ export interface PortraitWebViewProps {
   /** A person tapped in the orbit, rivers or atlas: open their profile. */
   onOpenPerson: (person: { name: string; personId: string }) => void;
   onHaptic?: (style: 'light' | 'medium') => void;
+  /** Which view to show: "orbit", "rivers", "atlas" or "atlas/t/<topic>" (the page's hash routes). Defaults to orbit. */
+  view?: string;
   style?: StyleProp<ViewStyle>;
 }
+
+export const portraitHash = (view?: string) => '#/' + (view || 'orbit');
 
 type FromPortrait = { type: 'textrovert:ready' } | { type: 'textrovert:open-person'; name: string; personId: string } | { type: 'textrovert:haptic'; style: 'light' | 'medium' };
 
@@ -20,7 +24,7 @@ type FromPortrait = { type: 'textrovert:ready' } | { type: 'textrovert:open-pers
  * data with "textrovert:ready"; the portrait JSON is injected then, and taps on a person come back as onOpenPerson.
  * Works offline: the page is bundled, only the data comes from the API.
  */
-export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, style }: PortraitWebViewProps) {
+export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, style }: PortraitWebViewProps) {
   const web = useRef<WebView<object>>(null);
   const ready = useRef(false);
   const sent = useRef<string | null>(null);
@@ -31,6 +35,10 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, style }:
     web.current?.injectJavaScript('window.textrovertPortrait(' + JSON.stringify(portraitJson) + ');true;');
   };
   useEffect(inject, [portraitJson]);
+  const first = useRef(portraitHash(view));
+  useEffect(() => {
+    web.current?.injectJavaScript('location.hash=' + JSON.stringify(portraitHash(view)) + ';true;');
+  }, [view]);
 
   const onMessage = (event: WebViewMessageEvent) => {
     let message: FromPortrait;
@@ -53,6 +61,7 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, style }:
       source={{ html: PORTRAIT_HTML, baseUrl: 'https://portrait.textrovert.local/' }}
       originWhitelist={['*']}
       onMessage={onMessage}
+      injectedJavaScriptBeforeContentLoaded={'location.hash=' + JSON.stringify(first.current) + ';true;'}
       style={[{ flex: 1, backgroundColor: '#0b0810' }, style]}
       containerStyle={{ backgroundColor: '#0b0810' }}
       bounces={false}

@@ -34,9 +34,9 @@ export default function RootLayout() {
                     headerBackButtonDisplayMode: 'minimal',
                   }}
                 >
+                  <Stack.Screen name="(tabs)" />
                   <Stack.Screen name="setup" options={{ gestureEnabled: false, animation: 'fade' }} />
                   <Stack.Screen name="friend/[id]" options={{ headerShown: true }} />
-                  <Stack.Screen name="friends" options={{ headerShown: true }} />
                   <Stack.Screen name="source" options={{ headerShown: true, presentation: 'modal' }} />
                   <Stack.Screen name="note" options={{ headerShown: true, presentation: 'modal' }} />
                   <Stack.Screen name="chat" options={{ headerShown: true }} />
