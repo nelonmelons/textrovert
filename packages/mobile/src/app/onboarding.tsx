@@ -7,6 +7,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 
+import { API_URL } from '../api/client';
+import { uploadExport } from '../api/upload';
 import { useFirstRun } from '../firstRun';
 import { Tactile } from '../design/Tactile';
 
@@ -83,6 +85,7 @@ export default function Onboarding() {
   const [email, setEmail] = useState('');
   const [index, setIndex] = useState(0);
   const [finishing, setFinishing] = useState(false);
+  const [uploadError, setUploadError] = useState<string>();
 
   const steps: StepId[] = ['type', 'app', ...(app === 'imessage' ? (['method'] as const) : []), 'upload', 'self', 'extra', 'email'];
   const step = steps[Math.min(index, steps.length - 1)];
@@ -108,17 +111,29 @@ export default function Onboarding() {
     }
   };
 
-  const finish = async (skipped = false) => {
+  const finish = async (skipped = false, upload = true) => {
     if (finishing) return;
     setFinishing(true);
+    setUploadError(undefined);
     const answers = { chatType, app, method, file: file ? { name: file.name, size: file.size } : null, selfName, extra, email, skipped, at: Date.now() };
     try {
       await AsyncStorage.setItem(ANSWERS_KEY, JSON.stringify(answers));
     } catch {
       // Keeping the answers is a nice-to-have; never block the app on it.
     }
+    let uploadId: string | undefined;
+    if (!skipped && upload && file && API_URL) {
+      try {
+        uploadId = await uploadExport(file, selfName);
+      } catch (e) {
+        setUploadError(e instanceof Error ? e.message : "Couldn't upload your chat. Try again?");
+        setFinishing(false);
+        return;
+      }
+    }
     await firstRun.finish({ messagesExport: file ? { name: file.name, size: file.size } : undefined, contactsOptIn: false });
-    router.replace('/');
+    if (uploadId) router.replace({ pathname: '/indexing', params: { uploadId } });
+    else router.replace('/');
   };
 
   return (
@@ -250,7 +265,13 @@ export default function Onboarding() {
                 <Question>Which email address should we send your report to?</Question>
                 <Text style={text(13, D.muted, '600')}>Email address</Text>
                 <Field value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" onSubmit={() => finish()} />
-                <PrimaryButton title={finishing ? 'Creating…' : 'Create my report'} onPress={() => finish()} disabled={finishing} />
+                <PrimaryButton title={finishing ? (file && API_URL ? 'Uploading…' : 'Creating…') : 'Create my report'} onPress={() => finish()} disabled={finishing} />
+                {uploadError ? (
+                  <>
+                    <Text style={text(13, D.danger)}>{uploadError}</Text>
+                    <TextLink onPress={() => finish(false, false)}>Continue without uploading</TextLink>
+                  </>
+                ) : null}
               </>
             )}
           </Animated.View>

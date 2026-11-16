@@ -4,6 +4,8 @@
  * them alike. Screens choose between it and Emma's fixtures with useDataMode(), so the app works with no backend.
  */
 
+import { loadOwnerKey } from './owner';
+
 /** Unset means no backend: the app runs on Emma's fixtures. Inlined when the bundle is built. */
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/$/, '');
 /** Sent as x-api-key; the hosted API requires it. It ships inside the app bundle, so it gates casual use, not a determined one. */
@@ -21,13 +23,18 @@ export class ApiError extends Error {
 /** One request with the key, a timeout and readable errors; resolves to the raw response, already checked for 2xx. */
 export async function call(path: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   if (!API_URL) throw new ApiError('No API is set up. Set EXPO_PUBLIC_API_URL to use your own chats.');
+  const ownerKey = await loadOwnerKey();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
     res = await fetch(API_URL + path, {
       ...init,
-      headers: { ...(init.headers as Record<string, string> | undefined), ...(API_KEY ? { 'x-api-key': API_KEY } : {}) },
+      headers: {
+        ...(init.headers as Record<string, string> | undefined),
+        ...(API_KEY ? { 'x-api-key': API_KEY } : {}),
+        ...(ownerKey ? { 'x-owner-key': ownerKey } : {}),
+      },
       signal: controller.signal,
     });
   } catch {

@@ -37,6 +37,7 @@ export default function RootLayout() {
                   <Stack.Screen name="(tabs)" />
                   <Stack.Screen name="setup" options={{ gestureEnabled: false, animation: 'fade' }} />
                   <Stack.Screen name="onboarding" options={{ gestureEnabled: false, animation: 'fade' }} />
+                  <Stack.Screen name="indexing" options={{ gestureEnabled: false, animation: 'fade' }} />
                   <Stack.Screen name="friend/[id]" options={{ headerShown: true }} />
                   <Stack.Screen name="source" options={{ headerShown: true, presentation: 'modal' }} />
                   <Stack.Screen name="note" options={{ headerShown: true, presentation: 'modal' }} />
