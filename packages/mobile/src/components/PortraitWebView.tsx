@@ -17,6 +17,10 @@ export interface PortraitWebViewProps {
 
 export const portraitHash = (view?: string) => '#/' + (view || 'orbit');
 
+/** Moves the page to a view without reloading it: the portrait listens for hashchange. */
+const route = (view?: string) =>
+  `history.replaceState(null, '', ${JSON.stringify(portraitHash(view))});dispatchEvent(new HashChangeEvent('hashchange'));true;`;
+
 type FromPortrait = { type: 'textrovert:ready' } | { type: 'textrovert:open-person'; name: string; personId: string } | { type: 'textrovert:haptic'; style: 'light' | 'medium' };
 
 /**
@@ -35,9 +39,9 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, st
     web.current?.injectJavaScript('window.textrovertPortrait(' + JSON.stringify(portraitJson) + ');true;');
   };
   useEffect(inject, [portraitJson]);
-  const first = useRef(portraitHash(view));
+  const first = useRef(route(view));
   useEffect(() => {
-    web.current?.injectJavaScript('location.hash=' + JSON.stringify(portraitHash(view)) + ';true;');
+    web.current?.injectJavaScript(route(view));
   }, [view]);
 
   const onMessage = (event: WebViewMessageEvent) => {
@@ -61,7 +65,7 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, st
       source={{ html: PORTRAIT_HTML, baseUrl: 'https://portrait.textrovert.local/' }}
       originWhitelist={['*']}
       onMessage={onMessage}
-      injectedJavaScriptBeforeContentLoaded={'location.hash=' + JSON.stringify(first.current) + ';true;'}
+      injectedJavaScriptBeforeContentLoaded={first.current}
       style={[{ flex: 1, backgroundColor: '#0b0810' }, style]}
       containerStyle={{ backgroundColor: '#0b0810' }}
       bounces={false}

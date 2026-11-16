@@ -1,9 +1,13 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PORTRAIT_HTML } from './portraitHtml';
 
 const portraitHash = (view?: string) => '#/' + (view || 'orbit');
+
+/** A blob URL rather than srcDoc, so the page has a real location whose hash picks the view. */
+let pageUrl: string | null = null;
+const portraitPage = () => (pageUrl ??= URL.createObjectURL(new Blob([PORTRAIT_HTML], { type: 'text/html' })));
 
 export interface PortraitWebViewProps {
   /** The GET /portrait body as text (fetchPortraitJson in src/api/friend.ts); null while it loads. */
@@ -28,11 +32,11 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, st
   };
   useEffect(send, [portraitJson]);
 
-  const route = () => {
+  const [initialHash] = useState(() => portraitHash(view));
+  useEffect(() => {
     const win = frame.current?.contentWindow;
-    if (win) win.location.hash = portraitHash(view);
-  };
-  useEffect(route, [view]);
+    if (win?.location.protocol === 'blob:' && win.location.hash !== portraitHash(view)) win.location.hash = portraitHash(view);
+  }, [view]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -50,7 +54,7 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, st
 
   return (
     <View style={[{ flex: 1, backgroundColor: '#0b0810' }, style]}>
-      <iframe ref={frame} onLoad={route} title="Portrait" srcDoc={PORTRAIT_HTML} style={{ border: 0, width: '100%', height: '100%', display: 'block' }} />
+      <iframe ref={frame} title="Portrait" src={portraitPage() + initialHash} style={{ border: 0, width: '100%', height: '100%', display: 'block' }} />
     </View>
   );
 }
