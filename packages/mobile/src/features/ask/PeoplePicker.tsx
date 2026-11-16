@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Platform, TextInput, View } from 'react-native';
 
-import { EmojiAvatar, geist, ListRow, ListSection, PillButton, radii, space, Txt, useDesign } from '@/design';
+import { Avatar, EmojiAvatar, Field, Icon, ListRow, ListSection, PillButton, space, sym, Txt, useDesign } from '@/design';
+import { View } from 'react-native';
 import { personLine, usePeople } from '@/api/people';
 import type { Person } from '@/api/client';
-import { askHedgehog } from './hedgehog';
+
+const mark = require('../../../assets/art/hedgehog-mark.png');
 
 /** Choose who Ask is about: everyone, or one friend (their DM and the groups you share). */
 export function PeoplePicker({ current, onPick }: { current: string | null; onPick: (person: Person | null) => void }) {
@@ -15,22 +16,13 @@ export function PeoplePicker({ current, onPick }: { current: string | null; onPi
   const matches = people.status === 'ready' ? people.people.filter((p) => !q || p.name.toLowerCase().includes(q)).slice(0, 60) : [];
   const tick = (selected: boolean) =>
     selected ? (
-      <Txt variant="headline" tone="accent" accessibilityLabel="Selected">
-        ✓
-      </Txt>
+      <Icon name="checkmark" size={16} color={c.accent} />
     ) : null;
   return (
     <>
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="🔍  Search friends"
-        placeholderTextColor={c.textTertiary}
-        aria-label="Search friends"
-        style={[{ height: 44, paddingHorizontal: space.lg, borderRadius: radii.pill, backgroundColor: c.fill, color: c.text, fontFamily: geist['400'], fontSize: 17 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
-      />
+      <Field value={query} onChangeText={setQuery} placeholder="Search friends" aria-label="Search friends" leading={<Icon name={sym('magnifyingglass', 'search')} size={16} color={c.placeholder} />} />
       <ListSection inset={64}>
-        <ListRow title="All your chats" subtitle="Ask across every conversation" leading={<EmojiAvatar {...askHedgehog} size={36} />} trailing={tick(current === null)} onPress={() => onPick(null)} chevron={false} />
+        <ListRow title="All your chats" subtitle="Ask across every conversation" leading={<Avatar name="Textrovert" image={mark} size={36} />} trailing={tick(current === null)} onPress={() => onPick(null)} chevron={false} />
       </ListSection>
       {people.status === 'loading' ? (
         <Txt variant="subhead" tone="secondary">
@@ -40,7 +32,7 @@ export function PeoplePicker({ current, onPick }: { current: string | null; onPi
       {people.status === 'error' ? (
         <View style={{ gap: space.sm, alignItems: 'flex-start' }}>
           <Txt variant="subhead">Couldn’t load your friends. {people.message}</Txt>
-          <PillButton title="Try again" emoji="🔁" kind="secondary" small onPress={people.retry} />
+          <PillButton title="Try again" icon={<Icon name={sym('arrow.clockwise', 'refresh')} size={14} />} small onPress={people.retry} />
         </View>
       ) : null}
       {people.status === 'ready' && !matches.length ? (

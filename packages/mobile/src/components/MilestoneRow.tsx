@@ -13,7 +13,7 @@ export function MilestoneRow({ milestone }: { milestone: Milestone }) {
       <View style={{ alignSelf: 'flex-start' }}>
         <Face initials={milestone.friend.initials} />
         <View style={styles.badge}>
-          <Symbol name={milestone.kind === 'birthday' ? 'birthday.cake.fill' : 'heart.fill'} size={11} color={Theme.celebrateTone.ink} weight="bold" />
+          <Symbol name={milestone.kind === 'birthday' ? 'birthday.cake.fill' : 'heart.fill'} size={11} color="#081721" weight="bold" />
         </View>
       </View>
       <View style={{ flex: 1, gap: 4 }}>
@@ -47,9 +47,9 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: Theme.celebrateTone.fill,
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: 'rgba(8, 23, 33, 1)',
     alignItems: 'center',
     justifyContent: 'center',
   },

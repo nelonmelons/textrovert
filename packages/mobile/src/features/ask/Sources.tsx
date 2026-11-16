@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import { Chip, fillFor, space } from '@/design';
+import { Chip, space } from '@/design';
 import type { Citation } from '@/api/client';
 
 const MAX_CHATS = 3;
@@ -29,7 +29,7 @@ export const chatName = (g: ChatGroup) => (g.isDm ? (g.citations.find((c) => !c.
 
 const short = (label: string) => (label.length > MAX_LABEL ? label.slice(0, MAX_LABEL - 1).trimEnd() + '…' : label);
 
-/** The sources under an answer: one tinted chip per chat with its message count, and "+N more" past three chats. */
+/** The sources under an answer: one glass pill per chat with a pink count, and "+N more" past three chats. */
 export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: (focus?: number) => void }) {
   const groups = groupByChat(citations);
   const shown = groups.slice(0, MAX_CHATS);
@@ -40,9 +40,7 @@ export function Sources({ citations, onOpen }: { citations: Citation[]; onOpen: 
         <Chip
           key={g.chatId}
           label={short(chatName(g))}
-          emoji={g.isDm ? '💬' : '👥'}
           count={g.citations.length}
-          tint={fillFor(g.chatId)}
           accessibilityLabel={`${g.citations.length} ${g.citations.length === 1 ? 'source' : 'sources'} in ${chatName(g)}`}
           onPress={() => onOpen(g.citations[0].n)}
         />

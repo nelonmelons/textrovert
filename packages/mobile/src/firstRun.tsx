@@ -37,7 +37,7 @@ export function FirstRunProvider({ children }: { children: ReactNode }) {
     [saved],
   );
 
-  if (!value) return <View style={{ flex: 1, backgroundColor: Theme.paper }} />;
+  if (!value) return <View style={{ flex: 1, backgroundColor: Theme.solid }} />;
   return <FirstRunContext.Provider value={value}>{children}</FirstRunContext.Provider>;
 }
 

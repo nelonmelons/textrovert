@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
-import { ChatBubble, ChatPanel, EmojiAvatar, geist, ListRow, ListSection, space, Txt, useDesign, withAlpha } from '@/design';
+import { ChatBubble, ChatPanel, EmojiAvatar, fonts, ListRow, ListSection, space, Txt, useDesign, withAlpha } from '@/design';
 import { FadeIn } from '@/components/FadeIn';
 import { senderLabel, type ApiMessage, type Citation } from '@/api/client';
 import { formatSent } from '@/lib/answer';
@@ -28,9 +28,9 @@ export function Receipts({ citations, focus, onOpenChat }: { citations: Citation
       <ChatPanel style={{ gap: space.md }}>
         {groups.map((g, gi) => (
           <Fragment key={g.chatId}>
-            <View style={{ alignSelf: 'center', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, backgroundColor: c.fill, marginTop: gi ? space.sm : 0 }}>
-              <Txt variant="caption" tone="secondary" numberOfLines={1}>
-                {(g.isDm ? '💬 ' : '👥 ') + chatName(g)}
+            <View style={{ alignSelf: 'center', maxWidth: '100%', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.45)', marginTop: gi ? space.sm : 0 }}>
+              <Txt variant="caption" tone="secondary" numberOfLines={1} style={{ letterSpacing: 0.3 }}>
+                {chatName(g)}
               </Txt>
             </View>
             {g.citations.map((x, i) => (
@@ -47,7 +47,7 @@ export function Receipts({ citations, focus, onOpenChat }: { citations: Citation
             key={g.chatId}
             title={chatName(g)}
             subtitle={(g.isDm ? 'Your DM' : 'Group chat') + ' · ' + g.citations.length + (g.citations.length === 1 ? ' message' : ' messages')}
-            leading={g.isDm ? <EmojiAvatar name={chatName(g)} size={36} /> : <EmojiAvatar emoji="👥" name={g.chatId} size={36} />}
+            leading={<EmojiAvatar name={g.isDm ? chatName(g) : ''} size={36} />}
             onPress={() => onOpenChat(g.citations[0])}
           />
         ))}
@@ -60,16 +60,17 @@ export function Receipts({ citations, focus, onOpenChat }: { citations: Citation
 }
 
 function Receipt({ citation: x, focused }: { citation: Citation; focused: boolean }) {
+  const { c } = useDesign();
   const [full, setFull] = useState(false);
   const long = x.text.length > LONG_CHARS || x.text.split('\n').length > LONG_LINES;
   return (
     <>
       <Context messages={x.before} />
       <ChatBubble mine={x.fromMe} name={senderLabel(x)} time={formatSent(x.sentAt)} highlighted={focused}>
-        <Excerpt text={x.text} quote={x.quote} full={full || !long} />
+        <Excerpt text={x.text} quote={x.quote} full={full || !long} mine={x.fromMe} />
         {long ? (
           <Pressable accessibilityRole="button" onPress={() => setFull((f) => !f)} hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: 4 }}>
-            <Txt variant="footnote" tone="accent" style={{ fontWeight: '600' }}>
+            <Txt variant="footnote" color={x.fromMe ? c.accent : c.accentText} style={{ fontWeight: '700' }}>
               {full ? 'Show less' : 'Show full message'}
             </Txt>
           </Pressable>
@@ -99,8 +100,8 @@ function findQuote(text: string, quote: string) {
   return text.toLowerCase().indexOf(q.toLowerCase());
 }
 
-/** The message with only the quoted span washed in the accent; clamped, it opens a little before the quote. */
-function Excerpt({ text, quote, full }: { text: string; quote: string; full: boolean }) {
+/** The message with only the quoted span washed in pink; clamped, it opens a little before the quote. Mine reads navy on the white key. */
+function Excerpt({ text, quote, full, mine }: { text: string; quote: string; full: boolean; mine?: boolean }) {
   const { c } = useDesign();
   const at = findQuote(text, quote);
   const q = quote.trim();
@@ -109,7 +110,7 @@ function Excerpt({ text, quote, full }: { text: string; quote: string; full: boo
     const space = text.indexOf(' ', at - LEAD_IN);
     start = space > 0 && space < at ? space + 1 : at;
   }
-  const style = { fontFamily: geist['400'], fontSize: 16, lineHeight: 22, color: c.bubbleText };
+  const style = { fontFamily: fonts.ui, fontSize: 16, lineHeight: 22, color: mine ? c.bubbleMineText : c.bubbleText };
   const lines = full ? undefined : CLAMP_LINES;
   if (at < 0)
     return (
@@ -121,7 +122,7 @@ function Excerpt({ text, quote, full }: { text: string; quote: string; full: boo
     <Text numberOfLines={lines} style={style}>
       {start > 0 ? '…' : ''}
       {text.slice(start, at)}
-      <Text style={{ backgroundColor: withAlpha(c.accent, 0.22), fontFamily: geist['600'] }}>{text.slice(at, at + q.length)}</Text>
+      <Text style={{ backgroundColor: withAlpha(c.accent, mine ? 0.18 : 0.38), fontWeight: '700' }}>{text.slice(at, at + q.length)}</Text>
       {text.slice(at + q.length)}
     </Text>
   );

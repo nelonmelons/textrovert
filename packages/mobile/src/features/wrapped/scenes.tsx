@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, SlideInRight, ZoomIn, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming, Easing } from 'react-native-reanimated';
-import Svg, { Circle, Defs, Ellipse, G, Line, Path, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, G, Line, Path, RadialGradient, Stop } from 'react-native-svg';
 
 import {
   formatElapsed, quotesFor, rangeDayCount, rangeLabel,
@@ -15,7 +15,7 @@ import {
   attribution, dayLabel, friendName, ghostPath, isOwner, slantedHalf, tangentPath, ticketPath, useReduced, useRepeat, useSlide, useTween, who,
   type Story,
 } from './parts';
-import { fonts, palette, rainbowText, text, withAlpha } from './theme';
+import { fonts, lift, palette, rainbowText, text, withAlpha } from './theme';
 
 export interface SlideState {
   guess?: string;
@@ -37,8 +37,9 @@ function Why({ h, color, order }: { h: WrappedHighlight; color: string; order?: 
   return order === undefined ? <Footnote color={color}>{h.why}</Footnote> : <Enter order={order}><Footnote color={color}>{h.why}</Footnote></Enter>;
 }
 
-function Gradient({ colors, start = { x: 0.5, y: 0 }, end = { x: 0.5, y: 1 } }: { colors: string[]; start?: { x: number; y: number }; end?: { x: number; y: number } }) {
-  return <LinearGradient colors={colors as [string, string, ...string[]]} start={start} end={end} style={fill} />;
+/** A colour wash over the slide's Ditto photograph: translucent, so the sky still shows through. */
+function Gradient({ colors, start = { x: 0.5, y: 0 }, end = { x: 0.5, y: 1 }, opacity = 0.42 }: { colors: string[]; start?: { x: number; y: number }; end?: { x: number; y: number }; opacity?: number }) {
+  return <LinearGradient colors={colors as [string, string, ...string[]]} start={start} end={end} style={[fill, { opacity }]} />;
 }
 
 /** Marks a non-text element as the slide's heading, for focus after paging. */
@@ -62,8 +63,8 @@ export function OpenerScene({ story, edition }: { story: Story; edition: Wrapped
       <Gradient colors={[w.deep, withAlpha(w.mid, 0.8), w.deep]} />
       <Glow colors={[w.mid, withAlpha(w.hot, 0.7), withAlpha(w.glow, 0.4)]} active={slide.active} />
       <View pointerEvents="none" aria-hidden style={[fill, { overflow: 'hidden' }]}>
-        <View style={{ position: 'absolute', right: -170, bottom: -250, opacity: 0.9 }}>
-          <RainbowRing size={520} stroke={26} active={slide.active} />
+        <View style={{ position: 'absolute', right: -170, bottom: -250, opacity: 0.55 }}>
+          <RainbowRing size={520} stroke={18} active={slide.active} />
         </View>
       </View>
       <Scroll>
@@ -73,8 +74,8 @@ export function OpenerScene({ story, edition }: { story: Story; edition: Wrapped
           </Enter>
           <Enter order={1} distance={44}>
             <Heading label={`Wrapped, you and ${name}`}>
-              <Text style={{ fontFamily: fonts.expanded, fontSize: 44, lineHeight: 46, fontWeight: '800', letterSpacing: 1, color: palette.butter }}>YOU &</Text>
-              <GradientText lines={[name]} colors={rainbowText} size={92} family={fonts.serif} weight="900" italic lineHeight={1.05} widthPerChar={0.56} label={name} />
+              <Text style={{ fontFamily: fonts.serif, fontSize: 48, lineHeight: 50, fontWeight: '400', color: palette.butter, ...lift }}>You &</Text>
+              <GradientText lines={[name]} colors={rainbowText} size={104} family={fonts.serif} weight="400" lineHeight={1.02} widthPerChar={0.42} label={name} />
             </Heading>
           </Enter>
           <Enter order={2}>
@@ -88,7 +89,7 @@ export function OpenerScene({ story, edition }: { story: Story; edition: Wrapped
             </Text>
           </Enter>
           <Enter order={4}>
-            <Text style={{ ...text.subheadline, fontFamily: fonts.rounded, fontWeight: '800', color: w.hot, marginTop: 8 }}>Swipe or tap Next  →</Text>
+            <Text style={{ ...text.subheadline, fontFamily: fonts.rounded, fontWeight: '700', color: palette.butter, marginTop: 8, ...lift }}>Swipe or tap Next  →</Text>
           </Enter>
         </View>
       </Scroll>
@@ -114,21 +115,11 @@ export function GuessScene({ h, story, state, onGuess }: Omit<SceneProps, 'onRev
   const panel = useAnimatedStyle(() => ({ height: `${wipe.value * 100}%`, opacity: wipe.value > 0 ? 1 : 0 }));
   return (
     <View style={fill} onLayout={(e) => setHeight(e.nativeEvent.layout.height)}>
-      <View style={[fill, { backgroundColor: w.deep }]} />
-      <Svg style={fill} pointerEvents="none" aria-hidden>
-        <Defs>
-          <RadialGradient id="guessTop" cx="50%" cy="0%" rx="140%" ry="70%" gradientUnits="objectBoundingBox">
-            <Stop offset="0" stopColor={w.glow} stopOpacity={0.4} />
-            <Stop offset="1" stopColor={w.glow} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Path d="M0 0 H2000 V2000 H0 Z" fill="url(#guessTop)" />
-      </Svg>
+      <View style={[fill, { backgroundColor: w.deep, opacity: 0.4 }]} />
       <Glow colors={[w.mid, withAlpha(w.hot, 0.45)]} active={slide.active && !guessed} />
-      <Text aria-hidden style={{ position: 'absolute', left: -36, top: -120, fontFamily: fonts.serif, fontWeight: '900', fontSize: 420, lineHeight: 460, color: withAlpha(w.hot, 0.22) }}>“</Text>
       <Scroll bottom={guessed ? 124 : 300}>
         <View style={{ gap: 22 }}>
-          <Enter order={0}><Eyebrow text={h.headline} color={w.hot} /></Enter>
+          <Enter order={0}><Eyebrow text={h.headline} color={w.glow} /></Enter>
           <Enter order={1} distance={40}><DisplayText text={`“${setup.text}”`} color={palette.butter} heading /></Enter>
         </View>
       </Scroll>
@@ -146,23 +137,23 @@ export function GuessScene({ h, story, state, onGuess }: Omit<SceneProps, 'onRev
         pointerEvents={guessed ? 'auto' : 'none'}
         accessibilityElementsHidden={!guessed}
         importantForAccessibility={guessed ? 'auto' : 'no-hide-descendants'}
-        style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden', backgroundColor: speakerColor }, panel]}>
+        style={[{ position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'hidden', backgroundColor: 'rgba(1, 30, 44, 0.94)', borderTopWidth: 1, borderTopColor: 'rgba(83, 105, 121, 1)' }, panel]}>
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: height || '100%' }}>
           <Scroll>
             <View style={{ gap: 18 }}>
-              <Enter active={guessed} order={1}><Eyebrow text={state.guess === setup.speakerID ? 'You called it' : 'It was'} color={withAlpha(palette.ink, 0.75)} /></Enter>
+              <Enter active={guessed} order={1}><Eyebrow text={state.guess === setup.speakerID ? 'You called it' : 'It was'} /></Enter>
               <Enter active={guessed} order={2} distance={50}>
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontFamily: fonts.compressed, fontWeight: '900', fontSize: Math.max(60, Math.min(120, 560 / Math.max([...who(story, setup)].length, 1))), color: palette.ink, textTransform: 'uppercase' }}>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontFamily: fonts.compressed, fontWeight: '400', fontSize: Math.max(60, Math.min(120, 560 / Math.max([...who(story, setup)].length, 1))), color: '#FFFFFF', textTransform: 'uppercase', ...lift }}>
                   {who(story, setup)}
                 </Text>
               </Enter>
               <Enter active={guessed} order={3}>
-                <Text style={{ ...text.title3, fontFamily: fonts.serif, fontStyle: 'italic', fontWeight: '600', color: palette.ink }}>“{setup.text}”</Text>
-                <Text style={{ ...text.caption, fontWeight: '600', color: withAlpha(palette.ink, 0.75), marginTop: 18 }}>{attribution(story, setup)}</Text>
+                <Text style={{ ...text.title3, fontFamily: fonts.serif, fontWeight: '400', color: '#FFFFFF' }}>“{setup.text}”</Text>
+                <Text style={{ ...text.caption, fontWeight: '600', color: 'rgba(255, 255, 255, 0.8)', marginTop: 18 }}>{attribution(story, setup)}</Text>
               </Enter>
-              <View style={{ height: 2, backgroundColor: withAlpha(palette.ink, 0.25), marginVertical: 6 }} />
+              <View style={{ height: 0.5, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginVertical: 6 }} />
               <Enter active={guessed} order={5}>
-                <Eyebrow text={`${who(story, answer)}, ${formatElapsed(answeredSeconds(h))} later`} color={withAlpha(palette.ink, 0.75)} />
+                <Eyebrow text={`${who(story, answer)}, ${formatElapsed(answeredSeconds(h))} later`} />
               </Enter>
               <Enter active={guessed} order={6} distance={34}>
                 <Bubble quote={answer} story={story} fill={palette.ink} color={palette.butter} caption={withAlpha(palette.ink, 0.75)} />
@@ -175,23 +166,16 @@ export function GuessScene({ h, story, state, onGuess }: Omit<SceneProps, 'onRev
   );
 }
 
+/** Me or them: the frontpage's button pair, the white pill with navy ink and the glass pill with white. */
 function SplitButtons({ story, onGuess }: { story: Story; onGuess: (id: string) => void }) {
-  const w = story.world;
-  const [width, setWidth] = useState(0);
   const people = [
-    { p: story.owner, leading: true, color: w.hot },
-    { p: story.friend, leading: false, color: w.glow },
+    { p: story.owner, primary: true },
+    { p: story.friend, primary: false },
   ];
   return (
-    <View style={{ height: 170, marginBottom: 96 }} onLayout={(e) => setWidth(e.nativeEvent.layout.width)}>
-      {width > 0 ? (
-        <Svg width={width} height={170} style={fill} aria-hidden>
-          {people.map(({ leading, color }) => <Path key={String(leading)} d={slantedHalf(width, 170, leading)} fill={color} />)}
-        </Svg>
-      ) : null}
-      {people.map(({ p, leading }) => {
+    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 96 }}>
+      {people.map(({ p, primary }) => {
         const name = p.name.split(' ').find((s) => s) ?? p.name;
-        const size = Math.max(23, Math.min(46, (width / 2 - 56) / Math.max([...name].length * 0.62, 1)));
         return (
           <Pressable
             key={p.id}
@@ -199,8 +183,13 @@ function SplitButtons({ story, onGuess }: { story: Story; onGuess: (id: string) 
             accessibilityRole="button"
             accessibilityLabel={`Guess ${name}`}
             onPress={() => onGuess(p.id)}
-            style={{ position: 'absolute', top: 0, bottom: 0, width: '50%', [leading ? 'left' : 'right']: 0, justifyContent: 'center', alignItems: leading ? 'flex-start' : 'flex-end', paddingHorizontal: 28 }}>
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontFamily: fonts.compressed, fontWeight: '900', fontSize: size, color: palette.ink, textTransform: 'uppercase' }}>
+            style={({ pressed }) => [
+              { flex: 1, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, transform: [{ scale: pressed ? 0.97 : 1 }] },
+              primary
+                ? { backgroundColor: '#FFFFFF' }
+                : { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1, borderTopColor: 'rgba(255, 255, 255, 0.8)', borderLeftColor: 'rgba(255, 255, 255, 0.45)', borderRightColor: 'rgba(255, 255, 255, 0.14)', borderBottomColor: 'rgba(255, 255, 255, 0.3)', boxShadow: 'inset 0px 1px 4px 0px rgba(255, 255, 255, 0.25)' },
+            ]}>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5} style={{ fontFamily: fonts.serif, fontWeight: '400', fontSize: 30, color: primary ? '#081721' : '#FFFFFF' }}>
               {name}
             </Text>
           </Pressable>
@@ -236,7 +225,6 @@ function Timeline({ dates, range, color, track, progress }: { dates: number[]; r
             return (
               <G key={i}>
                 <Line x1={x} y1={y} x2={x} y2={top} stroke={color} strokeWidth={2} />
-                <Circle cx={x} cy={top} r={r * 1.9} fill={color} fillOpacity={0.22} />
                 <Circle cx={x} cy={top} r={r} fill={color} />
               </G>
             );
@@ -260,12 +248,9 @@ export function JokeScene({ h, story, state, onReveal }: SceneProps) {
     <View style={fill}>
       <Gradient colors={[w.mid, w.deep]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} />
       <Glow colors={[withAlpha(w.hot, 0.7), withAlpha(w.glow, 0.4)]} active={slide.active} />
-      <Text aria-hidden numberOfLines={1} style={{ position: 'absolute', right: -30, top: 40, fontFamily: fonts.compressed, fontWeight: '900', fontSize: 300, lineHeight: 310, color: withAlpha(w.hot, 0.12) }}>
-        {(h.quantity?.value ?? '') + '×'}
-      </Text>
       <Scroll>
         <View style={{ gap: 20 }}>
-          <Enter order={0}><Eyebrow text="Running joke" color={w.hot} /></Enter>
+          <Enter order={0}><Eyebrow text="Running joke" color={w.glow} /></Enter>
           <Enter order={1} distance={40}><DisplayText text={h.headline} type="poster" color={palette.butter} heading /></Enter>
           <Enter order={2}>
             <View accessible accessibilityLabel={`Timeline: ${h.quantity?.value ?? ''} uses, ${h.quantity?.detail ?? ''}`} style={{ gap: 4 }}>
@@ -284,7 +269,7 @@ export function JokeScene({ h, story, state, onReveal }: SceneProps) {
             <Enter order={4}><TapPill title="Show the latest callback" color={w.hot} ink={palette.ink} testID="wrappedReveal" onPress={onReveal} /></Enter>
           ) : (
             <Animated.View entering={reduced ? FadeIn.duration(100) : ZoomIn.springify().damping(14)} style={{ gap: 20, transformOrigin: 'right bottom' }}>
-              <Eyebrow text={`Latest · ${days} days later`} color={w.hot} />
+              <Eyebrow text={`Latest · ${days} days later`} color={w.glow} />
               <Bubble quote={last} story={story} fill={w.hot} color={palette.ink} caption={withAlpha(w.glow, 0.85)} />
             </Animated.View>
           )}
@@ -306,8 +291,8 @@ function Stamp({ seconds, story }: { seconds: number; story: Story }) {
   }, [reduced, p]);
   const style = useAnimatedStyle(() => ({ opacity: Math.min(p.value * 1.5, 1), transform: [{ rotate: '-12deg' }, { scale: 2.2 - 1.2 * p.value }] }));
   return (
-    <Animated.View aria-hidden style={[{ width: 96, height: 96, borderRadius: 48, borderWidth: 4, borderColor: w.mid, backgroundColor: w.glow, alignItems: 'center', justifyContent: 'center', padding: 10 }, style]}>
-      <Text style={{ fontFamily: fonts.rounded, fontSize: 11, lineHeight: 13, fontWeight: '900', letterSpacing: 0.8, textAlign: 'center', color: w.mid }}>
+    <Animated.View aria-hidden style={[{ width: 96, height: 96, borderRadius: 48, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', padding: 10 }, style]}>
+      <Text style={{ fontFamily: fonts.rounded, fontSize: 11, lineHeight: 13, fontWeight: '900', letterSpacing: 0.8, textAlign: 'center', color: '#081721' }}>
         {'ANSWERED IN\n' + formatElapsed(seconds).toUpperCase()}
       </Text>
     </Animated.View>
@@ -323,7 +308,7 @@ export function TicketScene({ h, story, state, onReveal }: SceneProps) {
   const [box, setBox] = useState<{ w: number; h: number } | null>(null);
   return (
     <View style={fill}>
-      <View style={[fill, { backgroundColor: w.glow }]} />
+      <View style={[fill, { backgroundColor: w.deep, opacity: 0.35 }]} />
       <Glow colors={[withAlpha(w.hot, 0.8), withAlpha(w.mid, 0.25)]} active={slide.active} />
       <Scroll>
         <View style={{ gap: 22 }}>
@@ -387,7 +372,7 @@ export function TwistScene({ h, story, state, onReveal }: SceneProps) {
       <Glow colors={[withAlpha(w.glow, 0.35), withAlpha(w.hot, 0.35)]} active={slide.active && !revealed} />
       <Scroll bottom={120}>
         <View style={{ gap: 22 }}>
-          <Enter order={0}><Eyebrow text={h.headline} color={w.hot} /></Enter>
+          <Enter order={0}><Eyebrow text={h.headline} color={w.glow} /></Enter>
           <Enter order={1} distance={40}><DisplayText text={`“${setup.text}”`} type="typewriter" color={palette.butter} heading /></Enter>
           <Enter order={2}><Text style={{ ...text.caption, fontWeight: '600', color: withAlpha(w.glow, 0.9) }}>{attribution(story, setup)}</Text></Enter>
           <View style={{ paddingTop: 70, paddingBottom: 28, minHeight: 300, gap: 16 }} onLayout={(e) => setPanel({ w: e.nativeEvent.layout.width + 48, h: e.nativeEvent.layout.height })}>
@@ -395,7 +380,7 @@ export function TwistScene({ h, story, state, onReveal }: SceneProps) {
               <View aria-hidden pointerEvents="none" style={{ position: 'absolute', left: -24, right: -24, top: 0, bottom: 0, overflow: 'hidden' }}>
                 <Animated.View style={[fill, wipeStyle]}>
                   <Svg width={panel.w} height={panel.h + slant * 2}>
-                    <Path d={`M0 ${slant * 2} L${panel.w} 0 L${panel.w} ${panel.h + slant * 2} L0 ${panel.h + slant * 2} Z`} fill={w.hot} />
+                    <Path d={`M0 ${slant * 2} L${panel.w} 0 L${panel.w} ${panel.h + slant * 2} L0 ${panel.h + slant * 2} Z`} fill="rgba(1, 30, 44, 0.94)" stroke="rgba(83, 105, 121, 1)" strokeWidth={1} />
                   </Svg>
                 </Animated.View>
               </View>
@@ -407,8 +392,8 @@ export function TwistScene({ h, story, state, onReveal }: SceneProps) {
                 <Animated.View key={q.messageID} entering={FadeIn.duration(reduced ? 100 : 240)}>
                   {i === punch.length - 1 ? (
                     <View style={{ gap: 8 }}>
-                      <DisplayText text={`“${q.text}”`} color={palette.ink} />
-                      <Text style={{ ...text.caption, fontWeight: '600', color: withAlpha(palette.ink, 0.75) }}>{attribution(story, q)}</Text>
+                      <DisplayText text={`“${q.text}”`} color="#FFFFFF" />
+                      <Text style={{ ...text.caption, fontWeight: '600', color: 'rgba(255, 255, 255, 0.8)' }}>{attribution(story, q)}</Text>
                     </View>
                   ) : (
                     <Bubble quote={q} story={story} fill={palette.ink} color={palette.butter} caption={withAlpha(palette.ink, 0.75)} />
@@ -458,11 +443,11 @@ export function PivotScene({ h, story, state, onReveal }: SceneProps) {
   const length = width > 0 ? tangentLength(width, 150) : 1;
   return (
     <View style={fill}>
-      <View style={[fill, { backgroundColor: w.deep }]} />
+      <View style={[fill, { backgroundColor: w.deep, opacity: 0.4 }]} />
       <Glow colors={[w.mid, withAlpha(w.hot, 0.35)]} active={slide.active} />
       <Scroll>
         <View style={{ gap: 20 }}>
-          <Enter order={0}><Eyebrow text={h.headline} color={w.hot} /></Enter>
+          <Enter order={0}><Eyebrow text={h.headline} color={w.glow} /></Enter>
           <Enter order={1} distance={34}>
             <Heading><Bubble quote={setup} story={story} fill={w.glow} color={palette.ink} caption={withAlpha(w.glow, 0.85)} /></Heading>
           </Enter>
@@ -528,7 +513,7 @@ export function GhostScene({ h, story, state, onReveal }: SceneProps) {
         <View style={{ gap: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
             <View style={{ flex: 1, gap: 10 }}>
-              <Enter order={0}><Eyebrow text="Your reply habits" color={w.hot} /></Enter>
+              <Enter order={0}><Eyebrow text="Your reply habits" color={w.glow} /></Enter>
               <Enter order={1} distance={40}><DisplayText text={h.headline} type="wide" color={palette.butter} heading /></Enter>
             </View>
             <Animated.View aria-hidden style={[{ width: 70, height: 82 }, bobStyle]}>
@@ -554,7 +539,7 @@ export function GhostScene({ h, story, state, onReveal }: SceneProps) {
             <View style={{ gap: 18 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
                 <View style={{ width: 140 }}>
-                  <GradientText lines={[String(count)]} colors={rainbowText} size={112} family={fonts.rounded} weight="900" widthPerChar={0.62} label={String(gaps.length)} />
+                  <GradientText lines={[String(count)]} colors={rainbowText} size={112} family={fonts.serif} weight="400" widthPerChar={0.62} label={String(gaps.length)} />
                 </View>
                 <Text style={{ ...text.title2, fontFamily: fonts.rounded, fontWeight: '800', color: palette.butter, flex: 1, marginBottom: 18 }}>{h.quantity?.label ?? ''}</Text>
               </View>
@@ -598,7 +583,7 @@ export function BusiestScene({ h, story, state, onReveal }: SceneProps) {
       <Glow colors={[withAlpha(w.hot, 0.5), withAlpha(w.glow, 0.3)]} active={slide.active} />
       <Scroll>
         <View style={{ gap: 20 }}>
-          <Enter order={0}><Eyebrow text="By the numbers" color={w.hot} /></Enter>
+          <Enter order={0}><Eyebrow text="By the numbers" color={w.glow} /></Enter>
           <Enter order={1} distance={40}><DisplayText text={h.headline} type="poster" color={palette.butter} heading /></Enter>
           <Enter order={2}><Text style={{ ...text.title3, fontFamily: fonts.rounded, fontWeight: '700', color: w.glow }}>{h.prompt}</Text></Enter>
           <Enter order={3}>
@@ -613,7 +598,7 @@ export function BusiestScene({ h, story, state, onReveal }: SceneProps) {
           ) : (
             <View style={{ gap: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
-                <Text accessibilityLabel={h.quantity?.value ?? ''} style={{ fontFamily: fonts.compressed, fontWeight: '900', fontSize: 140, lineHeight: 140, color: w.hot }}>{number}</Text>
+                <Text accessibilityLabel={h.quantity?.value ?? ''} style={{ fontFamily: fonts.serif, fontWeight: '400', fontSize: 120, lineHeight: 128, color: w.hot, ...lift }}>{number}</Text>
                 <Text style={{ ...text.title2, fontFamily: fonts.rounded, fontWeight: '800', color: palette.butter, marginBottom: 18 }}>{h.quantity?.label ?? ''}</Text>
               </View>
               <Text style={{ ...text.headline, fontWeight: '700', color: palette.butter }}>{h.quantity?.detail ?? ''}</Text>
@@ -682,43 +667,6 @@ export function WarmScene({ h, story, state, onReveal }: SceneProps) {
 
 // Finale
 
-const toast = require('../../../assets/hedgehog-toast.png');
-
-/** The hedgehog tea toast: two halves slide together and clink once; already together under Reduce Motion. */
-function ToastArt() {
-  const slide = useSlide();
-  const reduced = useReduced();
-  const p = useSharedValue(reduced ? 1 : 0);
-  useEffect(() => {
-    if (reduced) p.value = 1;
-    else if (slide.active) p.value = withDelay(250, withSpring(1, { duration: 550, dampingRatio: 0.55 }));
-    else p.value = 0;
-  }, [slide.active, reduced, p]);
-  const left = useAnimatedStyle(() => ({ transform: [{ translateX: (1 - p.value) * -46 }, { rotate: `${(1 - p.value) * -5}deg` }] }));
-  const right = useAnimatedStyle(() => ({ transform: [{ translateX: (1 - p.value) * 46 }, { rotate: `${(1 - p.value) * 5}deg` }] }));
-  const width = 250, height = (250 * 333) / 600;
-  return (
-    <View accessible accessibilityRole="image" accessibilityLabel="Two hedgehogs clinking teacups" style={{ height: 160, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={290} height={180} style={{ position: 'absolute' }} aria-hidden>
-        <Defs>
-          <RadialGradient id="toastGlow" cx="50%" cy="50%" rx="50%" ry="50%">
-            <Stop offset="0" stopColor={palette.butter} stopOpacity={1} />
-            <Stop offset="1" stopColor={palette.butter} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Ellipse cx={145} cy={90} rx={145} ry={90} fill="url(#toastGlow)" />
-      </Svg>
-      <View style={{ flexDirection: 'row', width, height }}>
-        {[left, right].map((style, i) => (
-          <Animated.View key={i} style={[{ width: width / 2, height, overflow: 'hidden', transformOrigin: 'bottom' }, style]}>
-            <Image source={toast} style={{ width, height, marginLeft: i === 0 ? 0 : -width / 2 }} />
-          </Animated.View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
 export function FinaleScene({ edition, story, editionCount, wider, onAnother, onShare, onWiden, onEditions }: {
   edition: WrappedEdition; story: Story; editionCount: number; wider: WrappedDateRange | null;
   onAnother: () => void; onShare: () => void; onWiden: (r: WrappedDateRange) => void; onEditions: () => void;
@@ -735,9 +683,11 @@ export function FinaleScene({ edition, story, editionCount, wider, onAnother, on
       <Scroll>
         <View style={{ gap: 18 }}>
           <Enter order={0}><Eyebrow text={`Edition ${edition.number} of ${editionCount}`} color={w.glow} /></Enter>
-          <ToastArt />
+          <View pointerEvents="none" aria-hidden style={{ position: 'absolute', right: -190, top: -170, opacity: 0.45 }}>
+            <RainbowRing size={420} stroke={16} active={slide.active} />
+          </View>
           <Enter order={1} distance={40}>
-            <GradientText lines={['Cheers to you', `and ${name}.`]} colors={rainbowText} size={50} family={fonts.rounded} weight="800" lineHeight={1.1} widthPerChar={0.56} label={`Cheers to you and ${name}.`} heading />
+            <GradientText lines={['Cheers to you', `and ${name}.`]} colors={rainbowText} size={58} family={fonts.serif} weight="400" lineHeight={1.05} widthPerChar={0.44} label={`Cheers to you and ${name}.`} heading />
           </Enter>
           <Enter order={1}>
             <Text style={{ ...text.headline, fontFamily: fonts.rounded, fontWeight: '700', color: palette.butter }}>That’s what I found in {rangeLabel(story.range, story.locale)}.</Text>
@@ -745,7 +695,7 @@ export function FinaleScene({ edition, story, editionCount, wider, onAnother, on
           <Enter order={2} style={{ gap: 10 }}>
             {edition.highlights.map((h, i) => (
               <View key={h.id} accessible accessibilityLabel={`${i + 1}. ${h.headline}`} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-                <Text style={{ ...text.title3, fontFamily: fonts.serif, fontStyle: 'italic', fontWeight: '900', color: w.hot }}>{String(i + 1).padStart(2, '0')}</Text>
+                <Text style={{ ...text.title3, fontFamily: fonts.serif, fontWeight: '400', color: w.hot }}>{String(i + 1).padStart(2, '0')}</Text>
                 <Text style={{ ...text.headline, fontFamily: fonts.rounded, fontWeight: '700', color: palette.butter, flex: 1 }}>{h.headline}</Text>
               </View>
             ))}
@@ -790,7 +740,7 @@ export function MessageScene({ title, message, story, friend, actions }: { title
       <Glow colors={[withAlpha(w.hot, 0.4), w.mid]} active={slide.active} />
       <Scroll>
         <View style={{ gap: 20 }}>
-          <Enter order={0}><Eyebrow text={friend ? `Wrapped · ${friend}` : 'Wrapped'} color={w.hot} /></Enter>
+          <Enter order={0}><Eyebrow text={friend ? `Wrapped · ${friend}` : 'Wrapped'} color={w.glow} /></Enter>
           <Enter order={1} distance={40}><DisplayText text={title} type="wide" color={palette.butter} heading /></Enter>
           <Enter order={2}><Text style={{ ...text.body, fontWeight: '500', color: withAlpha(palette.butter, 0.92) }}>{message}</Text></Enter>
           {actions.map((a) => (

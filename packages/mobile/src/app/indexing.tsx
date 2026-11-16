@@ -1,33 +1,18 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, ScrollView, Text, View, type TextStyle } from 'react-native';
+import { Fragment, useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchStatus, type StageName, type UploadStatus } from '../api/upload';
-import { Tactile } from '../design/Tactile';
+import { Backdrop, BigButton, Glass, Icon, LargeTitle, Txt, Wordmark } from '@/design';
 
 /**
  * After onboarding uploads an export: polls GET /status every 2.5 s and shows each stage (stats and search first, then
- * Ask, moments and facts) in the onboarding's PostHog style. "Start exploring" opens the app once stats are ready;
- * the slower stages keep filling in behind it.
+ * Ask, moments and facts) in the onboarding's design: the painted sky, a heavy white title, the stages as rows of the
+ * liquid rounded glass, and the white key. "Start exploring" opens the app once stats are ready; the slower stages keep
+ * filling in behind it.
  */
-const D = {
-  canvas: '#F3F4EF',
-  surface: '#FFFFFF',
-  border: '#DADBD2',
-  text: '#111111',
-  muted: 'rgba(17, 17, 17, 0.6)',
-  accent: '#F54E01',
-  primaryFace: '#EB9D2A',
-  primaryEdge: '#B17816',
-  success: '#388600',
-  danger: '#DB3707',
-  radius: 6,
-};
-const SANS = Platform.select({ ios: undefined, android: 'sans-serif', default: '-apple-system, BlinkMacSystemFont, Inter, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif' });
-const text = (size: number, color: string, weight: TextStyle['fontWeight'] = '400'): TextStyle => ({ fontFamily: SANS, fontSize: size, lineHeight: Math.round(size * 1.35), color, fontWeight: weight });
-
 const STAGES: { id: StageName; title: string; detail: string }[] = [
   { id: 'stats', title: 'Stats', detail: 'Who you text, when, and how fast' },
   { id: 'search', title: 'Search', detail: 'Every message, searchable' },
@@ -79,54 +64,60 @@ export default function Indexing() {
         : 'Usually 1–3 minutes. Stats come first, then Ask.';
 
   return (
-    <View style={{ flex: 1, backgroundColor: D.canvas }}>
-      <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 36, paddingHorizontal: 20, paddingBottom: insets.bottom + 40, gap: 16 }}>
-        <View style={{ gap: 6 }}>
-          <Text accessibilityRole="header" style={[text(24, D.text, '700'), { letterSpacing: -0.3 }]}>
-            {failed ? 'Something went wrong' : 'Reading your chats'}
-          </Text>
-          <Text style={text(15, failed ? D.danger : D.muted)}>{subtitle}</Text>
+    <View style={{ flex: 1 }}>
+      <StatusBar style="light" />
+      <Backdrop scene="clouds" scrim={0.12} />
+      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: insets.bottom + 40, gap: 20 }}>
+        <Wordmark size={22} />
+        <View style={{ paddingTop: 12, paddingHorizontal: 4 }}>
+          <LargeTitle title={failed ? 'Something went wrong' : 'Reading your chats'} subtitle={subtitle} />
         </View>
 
-        <View style={{ backgroundColor: D.surface, borderRadius: D.radius, borderWidth: 1, borderColor: D.border, overflow: 'hidden' }}>
+        <Glass tone="dark" radius={24} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
           {STAGES.map((stage, i) => {
             const s = status?.stages[stage.id];
             const state = failed && s?.state !== 'ready' ? 'failed' : s?.state ?? 'pending';
             return (
-              <View key={stage.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderTopWidth: i ? 1 : 0, borderTopColor: D.border }}>
-                <View style={{ width: 22, alignItems: 'center' }}>
-                  {state === 'running' ? (
-                    <ActivityIndicator size="small" color={D.accent} />
-                  ) : (
-                    <Text style={text(16, state === 'ready' ? D.success : state === 'failed' ? D.danger : D.muted, '700')}>{state === 'ready' ? '✓' : state === 'failed' ? '×' : '○'}</Text>
-                  )}
+              <Fragment key={stage.id}>
+                {i ? <View style={{ height: 0.5, backgroundColor: 'rgba(255, 255, 255, 0.1)', marginHorizontal: 12 }} /> : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 12 }}>
+                  <View style={{ width: 24, alignItems: 'center' }}>
+                    {state === 'running' ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : state === 'ready' ? (
+                      <Icon name="checkmark.circle.fill" size={18} color="#FFFFFF" />
+                    ) : state === 'failed' ? (
+                      <Icon name="xmark" size={14} color="#FFB4B4" />
+                    ) : (
+                      <Icon name="circle.dashed" size={16} color="rgba(255, 255, 255, 0.5)" />
+                    )}
+                  </View>
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Txt variant="body" style={{ fontWeight: '700' }}>
+                      {stage.title}
+                    </Txt>
+                    <Txt variant="footnote" tone="secondary">
+                      {stage.detail}
+                    </Txt>
+                  </View>
+                  {s && s.total > 0 ? (
+                    <Txt variant="footnote" tone="secondary" style={{ fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+                      {s.done.toLocaleString('en-US') + ' / ' + s.total.toLocaleString('en-US')}
+                    </Txt>
+                  ) : null}
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={text(15, D.text, '600')}>{stage.title}</Text>
-                  <Text style={text(13, D.muted)}>{stage.detail}</Text>
-                </View>
-                {s && s.total > 0 ? <Text style={text(12, D.muted, '600')}>{s.done.toLocaleString('en-US') + ' / ' + s.total.toLocaleString('en-US')}</Text> : null}
-              </View>
+              </Fragment>
             );
           })}
-        </View>
+        </Glass>
 
-        {error ? <Text style={text(13, D.muted)}>{error}</Text> : null}
+        {error ? (
+          <Txt variant="footnote" tone="secondary" shadow>
+            {error}
+          </Txt>
+        ) : null}
 
-        <Tactile
-          face={D.primaryFace}
-          edge={D.primaryEdge}
-          radius={D.radius}
-          lip={3}
-          ring={1}
-          haptic="thud"
-          disabled={!statsReady && !failed}
-          onPress={() => router.replace('/')}
-          accessibilityLabel="Start exploring"
-          faceStyle={{ height: 46, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={text(15, D.text, '600')}>{failed ? 'Continue to Textrovert' : 'Start exploring'}</Text>
-        </Tactile>
+        <BigButton title={failed ? 'Continue to Textrovert' : 'Start exploring'} disabled={!statsReady && !failed} onPress={() => router.replace('/')} />
       </ScrollView>
     </View>
   );

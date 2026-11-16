@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
-import { PORTRAIT_HTML } from './portraitHtml';
+import { DITTO_PORTRAIT_HTML } from './portraitDitto';
 
 export interface PortraitWebViewProps {
   /** The GET /portrait body as text (fetchPortraitJson in src/api/friend.ts); null while it loads. */
@@ -62,12 +62,12 @@ export function PortraitWebView({ portraitJson, onOpenPerson, onHaptic, view, st
   return (
     <WebView
       ref={web}
-      source={{ html: PORTRAIT_HTML, baseUrl: 'https://portrait.textrovert.local/' }}
+      source={{ html: DITTO_PORTRAIT_HTML, baseUrl: 'https://portrait.textrovert.local/' }}
       originWhitelist={['*']}
       onMessage={onMessage}
       injectedJavaScriptBeforeContentLoaded={first.current}
-      style={[{ flex: 1, backgroundColor: '#0b0810' }, style]}
-      containerStyle={{ backgroundColor: '#0b0810' }}
+      style={[{ flex: 1, backgroundColor: 'transparent' }, style]}
+      containerStyle={{ backgroundColor: 'transparent' }}
       bounces={false}
       overScrollMode="never"
       scrollEnabled={false}

@@ -1,13 +1,17 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
-import { geistFor } from './fonts';
+import { fonts } from './fonts';
 import { useDesign } from './theme';
-import { type, type TypeName } from './tokens';
+import { serifVariants, softShadow, titleShadow, type, type TypeName } from './tokens';
 
 export type Tone = 'primary' | 'secondary' | 'tertiary' | 'accent' | 'onAccent' | 'onDark' | 'onDarkMuted';
 
-/** Text in Geist on the type scale. Tone picks a semantic colour; color overrides it. */
-export function Txt({ variant = 'body', tone = 'primary', color, style, ...rest }: TextProps & { variant?: TypeName; tone?: Tone; color?: string }) {
+/**
+ * Text on Ditto's scale: Spencer for display through title2 and Bitter Sour for script (both with the frontpage's navy
+ * title shadow; stat is Spencer too), Arial for the rest. Tone picks a semantic colour; color overrides it. shadow adds a soft lift for body copy sitting directly
+ * on the sky.
+ */
+export function Txt({ variant = 'body', tone = 'primary', color, shadow, style, ...rest }: TextProps & { variant?: TypeName; tone?: Tone; color?: string; shadow?: boolean }) {
   const { c } = useDesign();
   const tones: Record<Tone, string> = {
     primary: c.text,
@@ -18,6 +22,9 @@ export function Txt({ variant = 'body', tone = 'primary', color, style, ...rest 
     onDark: c.onDark,
     onDarkMuted: c.onDarkMuted,
   };
-  const flat = StyleSheet.flatten([type[variant], { color: color ?? tones[tone] }, style]) ?? {};
-  return <Text {...rest} style={{ ...flat, fontFamily: geistFor(flat.fontWeight), fontWeight: 'normal' }} />;
+  const serif = serifVariants.includes(variant);
+  const script = variant === 'script';
+  const family = serif ? fonts.serif : script ? fonts.script : fonts.ui;
+  const flat = StyleSheet.flatten([type[variant], serif || script ? titleShadow : shadow ? softShadow : null, { color: color ?? tones[tone] }, style]) ?? {};
+  return <Text {...rest} style={{ fontFamily: family, ...flat, ...(serif || script ? { fontWeight: 'normal' } : null) }} />;
 }

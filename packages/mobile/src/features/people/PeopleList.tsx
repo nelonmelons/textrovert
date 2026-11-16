@@ -1,105 +1,128 @@
 import { useState } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Friend } from '../../people';
 import { useDataMode } from '../../api/mode';
 import { useFriends } from '../../api/people';
-import { art, Divider, Face, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
-import { PaperScroll } from '../../components/PaperScroll';
 import { haptics } from '../../lib/haptics';
-import { Theme, Type, withAlpha } from '../../theme';
+import { Chevron, EmojiAvatar, Eyebrow, Glass, Icon, PillButton, PressScale, space, TAB_BAR_SPACE, Txt, useDesign } from '@/design';
 
 /** Everyone you text (GET /people when live, Emma's friends in demo mode), searchable; a tap opens their profile. */
 export function PeopleList() {
   const { live } = useDataMode();
+  const insets = useSafeAreaInsets();
   const { status, friends, message, retry } = useFriends();
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
   const matches = friends.filter((f) => !q || f.name.toLowerCase().includes(q) || f.handle.toLowerCase().includes(q));
   const groups = live
     ? [
-        { title: 'Your DMs', symbol: 'message.fill' as const, tone: Theme.accentTone, list: matches.filter((f) => f.person?.dm) },
-        { title: 'From your group chats', symbol: 'person.3.fill' as const, tone: Theme.plansTone, list: matches.filter((f) => !f.person?.dm) },
+        { title: 'Your DMs', list: matches.filter((f) => f.person?.dm) },
+        { title: 'From your group chats', list: matches.filter((f) => !f.person?.dm) },
       ]
-    : [{ title: 'Your people', symbol: 'person.2.fill' as const, tone: Theme.accentTone, list: matches }];
+    : [{ title: 'Your people', list: matches }];
 
   return (
-    <PaperScroll contentContainerStyle={{ padding: 20, paddingBottom: 40, gap: 18 }} keyboardDismissMode="on-drag" keyboardShouldPersistTaps="handled">
-      <View style={styles.field}>
-        <Symbol name="magnifyingglass" size={15} color={Theme.accent} weight="bold" />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search your people"
-          placeholderTextColor={Theme.secondary}
-          autoCorrect={false}
-          style={[Type.body, { flex: 1, color: Theme.ink }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
-        />
-      </View>
-      {status === 'loading' ? <ActivityIndicator color={Theme.accent} /> : null}
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingHorizontal: space.gutter, paddingTop: space.xs, paddingBottom: TAB_BAR_SPACE + insets.bottom + space.xl, gap: space.xl }}
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <SearchField value={query} onChange={setQuery} />
+      {status === 'loading' ? <ActivityIndicator color="#FFFFFF" style={{ paddingVertical: space.xl }} /> : null}
       {status === 'error' ? (
-        <SectionCard tone={Theme.coralTone}>
-          <View style={{ gap: 8 }}>
-            <Text style={[Type.subheadline, { color: Theme.ink }]}>Couldn’t load your people. {message}</Text>
-            <Pressable onPress={retry} hitSlop={8}>
-              <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Try again</Text>
-            </Pressable>
-          </View>
-        </SectionCard>
+        <Glass tone="dark" style={{ padding: space.lg, gap: space.md }}>
+          <Txt variant="callout">Couldn’t load your people. {message}</Txt>
+          <PillButton title="Try again" kind="primary" small onPress={retry} />
+        </Glass>
       ) : null}
-      {status === 'ready' && matches.length === 0 ? (
-        <View style={{ alignItems: 'center', gap: 8, paddingVertical: 24 }}>
-          <Image source={art.bird} style={{ width: 220, height: 150 }} resizeMode="contain" />
-          <Text style={[Type.title3, { color: Theme.ink, fontWeight: '700' }]}>No one by that name</Text>
-          <Text style={[Type.subheadline, { color: Theme.secondary, textAlign: 'center' }]}>Try a first name or a nickname from your chats.</Text>
-        </View>
-      ) : null}
+      {status === 'ready' && matches.length === 0 ? <Empty searching={!!q} /> : null}
       {groups
         .filter((g) => g.list.length > 0)
         .map((g) => (
-          <SectionCard key={g.title} tone={g.tone}>
-            <View style={{ gap: 10 }}>
-              <ToneTab title={g.title} symbol={g.symbol} tone={g.tone} />
+          <View key={g.title} style={{ gap: space.sm }}>
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingHorizontal: space.xs }}>
+              <Eyebrow text={g.title} />
+              <Txt variant="footnote" tone="tertiary" shadow>
+                {g.list.length}
+              </Txt>
+            </View>
+            <Glass tone="dark" radius={24}>
               {g.list.slice(0, 80).map((f, i) => (
-                <View key={f.id} style={{ gap: 10 }}>
-                  {i > 0 ? <Divider /> : null}
+                <View key={f.id}>
+                  {i > 0 ? <View style={{ height: 0.5, marginLeft: 72, backgroundColor: 'rgba(255, 255, 255, 0.12)' }} /> : null}
                   <Row friend={f} />
                 </View>
               ))}
-            </View>
-          </SectionCard>
+            </Glass>
+          </View>
         ))}
-    </PaperScroll>
+    </ScrollView>
+  );
+}
+
+/** Ditto's input: a navy pill (Nu-6 at 72%) with white text and a grey placeholder. */
+function SearchField({ value, onChange }: { value: string; onChange: (text: string) => void }) {
+  const { c } = useDesign();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, height: 48, paddingLeft: space.lg, paddingRight: space.md, borderRadius: 999, backgroundColor: c.input, borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.16)' }}>
+      <Icon name="magnifyingglass" size={16} color={c.placeholder} />
+      <TextInput
+        value={value}
+        onChangeText={onChange}
+        placeholder="Search your people"
+        placeholderTextColor={c.placeholder}
+        autoCorrect={false}
+        autoCapitalize="none"
+        returnKeyType="search"
+        style={[{ flex: 1, height: 48, color: '#FFFFFF', fontSize: 16 }, Platform.OS === 'web' ? ({ outlineStyle: 'none', fontFamily: 'Arial, "Helvetica Neue", Helvetica, sans-serif' } as object) : { fontFamily: 'Arial' }]}
+      />
+      {value ? (
+        <PressScale onPress={() => onChange('')} accessibilityLabel="Clear search">
+          <Icon name="xmark.circle.fill" size={16} color={c.placeholder} />
+        </PressScale>
+      ) : null}
+    </View>
+  );
+}
+
+function Empty({ searching }: { searching: boolean }) {
+  return (
+    <View style={{ alignItems: 'center', gap: space.sm, paddingVertical: space.huge, paddingHorizontal: space.xl }}>
+      <Txt variant="title2" style={{ textAlign: 'center' }}>
+        {searching ? 'No one by that name' : 'No one here yet'}
+      </Txt>
+      <Txt variant="callout" tone="secondary" shadow style={{ textAlign: 'center' }}>
+        {searching ? 'Try a first name or a nickname from your chats.' : 'Everyone you text shows up here once your messages are synced.'}
+      </Txt>
+    </View>
   );
 }
 
 function Row({ friend }: { friend: Friend }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <PressScale
+      scale={0.985}
       accessibilityLabel={`Open ${friend.name}`}
       onPress={() => {
         haptics.select();
         router.push({ pathname: '/friend/[id]', params: { id: friend.id } });
       }}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, paddingVertical: space.md, minHeight: 68 }}
     >
-      <Face initials={friend.initials} />
+      <EmojiAvatar name={friend.name} size={44} />
       <View style={{ flex: 1, gap: 2 }}>
-        <Text numberOfLines={1} style={[Type.headline, { color: Theme.ink }]}>
+        <Txt variant="body" numberOfLines={1} style={{ fontWeight: '700' }}>
           {friend.name}
-        </Text>
-        <Text numberOfLines={1} style={[Type.footnote, { color: Theme.secondary }]}>
+        </Txt>
+        <Txt variant="footnote" tone="secondary" numberOfLines={1}>
           {friend.handle}
-        </Text>
+        </Txt>
       </View>
-      <RowChevron />
-    </Pressable>
+      <Chevron />
+    </PressScale>
   );
 }
-
-const styles = StyleSheet.create({
-  field: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 16, borderRadius: 24, borderWidth: 1.5, borderColor: Theme.accent, backgroundColor: Theme.background },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 4 },
-  pressed: { backgroundColor: withAlpha(Theme.accentTone.fill, 0.6), opacity: 0.75, borderRadius: 12 },
-});

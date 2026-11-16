@@ -86,7 +86,7 @@ export function SharePreview({ edition, owner, friend, locale, onDone }: { editi
           else onDone();
         }}
         style={({ pressed }) => ({ alignItems: 'center', justifyContent: 'center', minHeight: 50, borderRadius: 999, backgroundColor: Theme.accent, opacity: selected.size === 0 ? 0.4 : pressed ? 0.8 : 1 })}>
-        <Text style={[Type.headline, { color: Theme.panel }]}>Share…</Text>
+        <Text style={[Type.headline, { color: '#FFFFFF' }]}>Share…</Text>
       </Pressable>
     </View>
   );
