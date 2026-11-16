@@ -1,49 +1,98 @@
-import { Fragment } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { Citation } from '@/lib/api';
-import { parseAnswer } from '@/lib/answer';
+import { blockLength, parseAnswer, type Block, type Segment } from '@/lib/answer';
 import { type, useTheme } from '@/theme';
 
-/** An assistant answer with its [n] markers drawn as small tappable receipts. */
-export function AnswerText({ answer, citations, onCite }: { answer: string; citations: Citation[]; onCite: (n: number) => void }) {
+/** Answers longer than this many characters fold after the block that crosses it, behind "Show more". */
+const FOLD_AT = 360;
+const FOLD_MIN_HIDDEN = 160;
+
+/** An assistant answer as light markdown, with its [n] markers drawn as small raised pills that open the receipt. */
+export function AnswerText({ answer, known, onCite }: { answer: string; known: Set<number>; onCite: (n: number) => void }) {
   const theme = useTheme();
-  const known = new Set(citations.map((c) => c.n));
+  const [expanded, setExpanded] = useState(false);
+  const blocks = parseAnswer(answer);
+  const total = blocks.reduce((n, b) => n + blockLength(b), 0);
+  let fold = blocks.length;
+  if (total > FOLD_AT + FOLD_MIN_HIDDEN) {
+    let seen = 0;
+    fold = blocks.findIndex((b) => (seen += blockLength(b)) > FOLD_AT) + 1;
+  }
+  const shown = expanded ? blocks : blocks.slice(0, fold);
+  const hidden = blocks.length - shown.length;
+
+  const line = (segments: Segment[], style?: object) => (
+    <Text style={[styles.text, { color: theme.ink }, style]}>
+      {segments.map((s, j) =>
+        s.kind === 'text' ? (
+          <Text key={j} style={s.bold ? styles.bold : undefined}>
+            {s.text}
+          </Text>
+        ) : (
+          <Text key={j}>
+            {'\u2009'}
+            {s.ns.filter((n) => known.has(n)).map((n) => (
+              <Cite key={n} n={n} onPress={() => onCite(n)} />
+            ))}
+          </Text>
+        ),
+      )}
+    </Text>
+  );
+
+  const render = (b: Block, i: number) => {
+    if (b.kind === 'heading') return <View key={i}>{line(b.segments, [styles.heading, { color: theme.ink }])}</View>;
+    if (b.kind === 'paragraph') return <View key={i}>{line(b.segments)}</View>;
+    return (
+      <View key={i} style={styles.item}>
+        <Text style={[styles.text, styles.marker, { color: theme.ask.ink }, b.kind === 'number' ? styles.number : null]}>{b.kind === 'number' ? b.label : '•'}</Text>
+        <View style={styles.flex}>{line(b.segments)}</View>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.blocks}>
-      {parseAnswer(answer).map((block, i) => (
-        <View key={i} style={block.bullet ? styles.bulletRow : undefined}>
-          {block.bullet ? <Text style={[type.body, { color: theme.ask.ink }]}>•</Text> : null}
-          <Text style={[type.body, styles.flex, { color: theme.ink }]}>
-            {block.segments.map((s, j) =>
-              s.kind === 'text' ? (
-                <Text key={j} style={s.bold ? styles.bold : undefined}>
-                  {s.text}
-                </Text>
-              ) : known.has(s.n) ? (
-                <Fragment key={j}>
-                  <Text
-                    accessibilityRole="button"
-                    aria-label={'Source ' + s.n}
-                    onPress={() => onCite(s.n)}
-                    style={[type.caption, styles.marker, { color: theme.ask.ink, backgroundColor: theme.ask.fill }]}>
-                    {' ' + s.n + ' '}
-                  </Text>
-                  <Text style={type.caption}>{'\u2009'}</Text>
-                </Fragment>
-              ) : null,
-            )}
-          </Text>
-        </View>
-      ))}
+      {shown.map(render)}
+      {hidden > 0 || expanded ? (
+        <Pressable accessibilityRole="button" onPress={() => setExpanded((e) => !e)} hitSlop={8} style={styles.more}>
+          <Text style={[type.footnote, { color: theme.ask.ink, fontWeight: '600' }]}>{expanded ? 'Show less' : 'Show more'}</Text>
+          <Text style={[type.caption2, { color: theme.ask.ink }]}>{expanded ? '▲' : '▼'}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+/** A citation number in a small raised pill, inline with the sentence it supports. */
+function Cite({ n, onPress }: { n: number; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.raise}>
+      <Pressable
+        accessibilityRole="button"
+        aria-label={'Source ' + n}
+        onPress={onPress}
+        hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
+        style={({ pressed }) => [styles.pill, { backgroundColor: pressed ? theme.ask.ink : theme.ask.fill }]}>
+        {({ pressed }) => <Text style={[styles.pillText, { color: pressed ? theme.panel : theme.ask.ink }]}>{n}</Text>}
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  blocks: { gap: 8 },
-  bulletRow: { flexDirection: 'row', gap: 8 },
-  flex: { flexShrink: 1 },
+  blocks: { gap: 7 },
+  text: { fontFamily: type.callout.fontFamily, fontSize: 16, lineHeight: 22 },
+  heading: { fontSize: 15, fontWeight: '700', marginTop: 4 },
   bold: { fontWeight: '600' },
-  marker: { fontWeight: '800', borderRadius: 6, overflow: 'hidden' },
+  item: { flexDirection: 'row', gap: 8, paddingLeft: 2 },
+  marker: { width: 10, textAlign: 'center', fontWeight: '700' },
+  number: { width: 18, textAlign: 'right', fontVariant: ['tabular-nums'], fontSize: 15 },
+  flex: { flex: 1 },
+  raise: { transform: [{ translateY: Platform.OS === 'web' ? -5 : -4 }], marginRight: 2 },
+  pill: { minWidth: 15, height: 15, paddingHorizontal: 4, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  pillText: { fontFamily: type.caption2.fontFamily, fontSize: 10, lineHeight: 12, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  more: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingTop: 2 },
 });

@@ -15,6 +15,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: Platform.OS === 'android',
         tabBarActiveTintColor: theme.ask.ink,
         tabBarInactiveTintColor: theme.secondary,
         tabBarStyle: { backgroundColor: theme.panel, borderTopColor: theme.gridMajor, ...(Platform.OS === 'web' ? { height: 62, paddingBottom: 8 } : null) },

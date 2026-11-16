@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Face } from '@/components/Face';
+import { Face, toneFor } from '@/components/Face';
 import { HedgehogAvatar } from '@/components/HedgehogAvatar';
+import { formatAgo } from '@/lib/answer';
 import type { Person } from '@/lib/api';
 import { radius, type, useTheme } from '@/theme';
 import { usePeople } from './people';
@@ -43,8 +44,8 @@ export function PeoplePicker({ current, onPick }: { current: string | null; onPi
                 selected={current === p.name}
                 onPress={() => onPick(p)}
                 title={p.name}
-                detail={(p.dm ? 'DM' : 'Groups only') + ' · ' + p.chats + (p.chats === 1 ? ' chat' : ' chats')}
-                leading={<Face name={p.name} ring={theme.ask.fill} />}
+                detail={(p.dm ? 'DM' : 'Groups only') + ' · ' + p.chats + (p.chats === 1 ? ' chat' : ' chats') + ' · ' + formatAgo(p.lastAt)}
+                leading={<Face name={p.name} size={38} tone={toneFor(p.name, theme.tones)} />}
               />
             ))
         : null}

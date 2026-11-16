@@ -3,5 +3,13 @@ import { useTheme } from '@/theme';
 
 export default function Today() {
   const theme = useTheme();
-  return <ComingSoon title="Today" tone={theme.tones.plans} blurb="Plans, birthdays and replies worth your attention will land here when the Today screen is ported." />;
+  return (
+    <ComingSoon
+      title="Today"
+      tone={theme.tones.activities}
+      art={require('../../../assets/hedgehog-leaf.png')}
+      blurb="A calm morning page for the people you care about."
+      teasers={['Plans and birthdays coming up', 'Replies worth sending', 'A friend to check in with']}
+    />
+  );
 }
