@@ -219,12 +219,41 @@ It exits with a message naming the missing variable or file. Endpoints (all date
   rules only. Pass the previous editions' source ids as `avoiding` for "Another edition".
 - `GET /health` → `{"ok": true, "chats"}`.
 
+Every /ask citation also carries `isDm` (the chat is the user's one-to-one DM) and `before`/`after`: up to two
+messages on each side of it in the same chat, `[{"sender", "fromMe", "sentAt", "text"}]`, oldest first.
+
+Friends, memoirs, the portrait and reels (`friendRoute` in `pipeline/assistant/api.ts`; both servers). A *source* is
+`{"messageId", "sender", "fromMe", "sentAt", "text", "chat", "chatId", "isDm"}`:
+
+- `GET /friend?name=` → `{"person", "chats": [{"id", "title", "platform", "isDm", "messageCount", "lastAt"}],
+  "dmConversationId", "facts": [{"predicate", "object", "quote", "messageId", "validFrom", "validTo", "source"}],
+  "plans": [{"what", "date", "when", "who", "episodeId", "source"}], "episodes": [{"id", "title", "summary", "mood",
+  "kind", "topics", "chatId", "chat", "isDm", "start", "end", "messageCount", "source"}], "topics": [{"topic",
+  "count"}], "story"}`. Facts come from the person's own chats (health facts are never returned), plans from their
+  DM or naming them in a group, episodes and topics from their DM and the group episodes they're in. `story` is the
+  cached memoir or null. 404 for an unknown name.
+- `GET /story?name=&refresh=1` → `{"story": {"headline", "chapters": [{"title", "period", "sentences": [{"n", "text",
+  "refs", "episodes": [{"id", "title", "summary"}]}]}], "sources": {"<messageId>": source}, "writtenAt"} | null}`.
+  Written on first request (about 10 seconds) by the portrait's memoir writer with its footnote check (every ref is a
+  message in a chat with that person; sentences without one are dropped), then cached in the `portrait_cache` table.
+  `n` numbers the footnotes through the memoir. 503 without an OpenAI key.
+- `GET /portrait` → the portrait (`pipeline/portrait/types.ts`, what `packages/portrait` renders) with every cached
+  memoir, cached until a new message, episode or memoir arrives.
+- `POST /reel {"episodeId"}` and `GET /reel?episodeId=` → `{"status": "none" | "rendering" | "ready" | "failed" |
+  "unavailable", "episodeId", "url"?, "error"?, "message"?}`. The local server renders with `packages/reels`
+  (episode-props, then render; about a minute, one at a time) into `packages/reels/.data/app/` and serves
+  `GET /reels/<id>.mp4` with byte ranges. The hosted API always answers `unavailable` ("Reels render on the desktop
+  app"). `ASK_REELS=0` turns rendering off locally.
+
+The local server never writes to `ASK_DB`: memoirs and the portrait are cached in `ASK_CACHE_DB` (default
+`.data/ask-cache.db`).
+
 The request parsing, people list, person scoping and citation mapping live in `pipeline/assistant/api.ts`, shared with
 the hosted API below, so both servers answer identically.
 
 ## Hosted Ask API
 
-`convex/http.ts` serves the same `POST /ask`, `GET /people` and `GET /health` from the deployment's site URL
+`convex/http.ts` serves the same `POST /ask`, `GET /people`, `GET /health`, `GET /friend`, `GET /story`, `GET /portrait` and `/reel` from the deployment's site URL
 (`https://<deployment>.convex.site`), with CORS, for a phone that can't reach a laptop. It serves exactly one owner's
 chats and is off until both of these are set on the deployment:
 
