@@ -1,4 +1,4 @@
-import { Friend, friends } from './fixtures';
+import { Friend, friends } from './people';
 import { Note } from './store';
 
 export type ActivityMatch = { friend: Friend; item: Note; exact: boolean; term: string };

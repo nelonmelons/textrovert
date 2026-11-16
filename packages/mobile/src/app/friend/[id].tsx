@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SymbolViewProps } from 'expo-symbols';
-import { Friend, firstName, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../fixtures';
+import { Friend, firstName, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../people';
 import { useFriend } from '../../api/people';
 import { LiveProfile, useFriendProfile } from '../../features/friend/LiveProfile';
 import { haptics } from '../../lib/haptics';
@@ -12,6 +12,7 @@ import { art, DeadlineBadge, Divider, Face, RowChevron, SectionCard, ServiceIcon
 import { MilestoneRow } from '../../components/MilestoneRow';
 import { PaperScroll } from '../../components/PaperScroll';
 import { AskBox } from '../../components/AskBox';
+import { WrappedEntry } from '../../components/WrappedEntry';
 
 const openSource = (friend: Friend, messageID: string) => router.push({ pathname: '/source', params: { friend: friend.id, message: messageID } });
 const openEditor = (friend: Friend, section: NoteSection, id?: string) => router.push({ pathname: '/note', params: { friend: friend.id, section, ...(id ? { id } : {}) } });
@@ -123,7 +124,7 @@ function Notepad({ friend }: { friend: Friend }) {
 }
 
 /** Opens this friend's Wrapped (src/features/wrapped/, being added on nelson/app-wrapped). */
-function WrappedButton({ conversationId, first, demo = false }: { conversationId: string | null | undefined; first: string; demo?: boolean }) {
+function WrappedButton({ conversationId, first }: { conversationId: string | null | undefined; first: string }) {
   const ready = !!conversationId;
   return (
     <Pressable
@@ -139,7 +140,7 @@ function WrappedButton({ conversationId, first, demo = false }: { conversationId
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Your Wrapped with {first}</Text>
         <Text style={[Type.subheadline, { color: withAlpha('rgba(255, 255, 255, 1)', 0.85) }]}>
-          {demo ? 'Wrapped is made from your own chats' : conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
+          {conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
         </Text>
       </View>
       <Symbol name="chevron.right" size={14} color="#FFFFFF" weight="bold" />
@@ -186,7 +187,7 @@ export default function FriendProfile() {
         </Pressable>
       ))}
       <AskBox friend={friend} ask={(q) => router.push({ pathname: '/chat', params: { friend: friend.id, q } })} />
-      {live ? <LiveSections friend={friend} /> : <WrappedButton conversationId={null} first={firstName(friend)} demo />}
+      {live ? <LiveSections friend={friend} /> : <WrappedEntry friend={friend} />}
       {sectionOrder.map((section) => (
         <SectionBlock key={section} friend={friend} section={section} hideEmpty={live} />
       ))}

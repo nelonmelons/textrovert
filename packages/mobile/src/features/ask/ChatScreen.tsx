@@ -3,11 +3,11 @@ import { Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView,
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Friend, firstName } from '../../fixtures';
-import { reply, subjectOf, turn, Turn } from '../../chat';
+import { firstName } from '../../people';
+import { turn, Turn, unavailableReply } from '../../chat';
 import { ask, type Citation, type Person, type Turn as ApiTurn } from '../../api/client';
 import { useDataMode } from '../../api/mode';
-import { useFriend, useFriends } from '../../api/people';
+import { useFriend } from '../../api/people';
 import { Rounded, Theme, Type, withAlpha } from '../../theme';
 import { GridPaper, HedgehogAvatar, Symbol } from '../../components/Paper';
 import { useSheet } from '../../components/Sheet';
@@ -32,10 +32,9 @@ const historyOf = (turns: Turn[]): ApiTurn[] =>
 
 /** Emma's chat, answering from /ask when live. In the Ask tab it draws its own title; pushed as /chat, the stack header does. */
 export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
-  const params = useLocalSearchParams<{ friend?: string; q?: string }>();
+  const params = useLocalSearchParams<{ friend?: string; q?: string; image?: string }>();
   const { live } = useDataMode();
   const { friend } = useFriend(params.friend || undefined);
-  const { friends } = useFriends();
   const sheet = useSheet();
   const insets = useSafeAreaInsets();
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -48,7 +47,6 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
   const [draft, setDraft] = useState('');
   const [useHistory, setUseHistory] = useState(true);
   const [photo, setPhoto] = useState<string>();
-  const [pending, setPending] = useState<{ question: string; image: string; subject: Friend }>();
   const [pickError, setPickError] = useState<string>();
   const started = useRef(false);
   const busy = turns.some((t) => t.kind === 'pending');
@@ -81,15 +79,7 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
       void askLive(question, scopeKey, person, history);
       return;
     }
-    const next = [mine];
-    const subject = subjectOf(question, friend, friends);
-    if (image && useHistory && subject) {
-      setPending({ question, image, subject });
-      next.push(turn({ fromMe: false, kind: 'clarify', about: firstName(subject), text: `Should I look at just your photo, or your photo and your chats with ${firstName(subject)} together?` }));
-    } else {
-      next.push(reply(question, { friend, image, includeHistory: !image && useHistory, subject }));
-    }
-    update(scopeKey, (t) => [...t, ...next]);
+    update(scopeKey, (t) => [...t, mine, unavailableReply(image)]);
   };
 
   const retry = (failed: Turn) => {
@@ -98,21 +88,11 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
     void askLive(failed.question ?? '', scopeKey, person, historyOf(before.slice(0, -1)));
   };
 
-  const answerPending = (includeHistory: boolean) => {
-    if (!pending) return;
-    setPending(undefined);
-    update(scopeKey, (t) => [
-      ...t,
-      turn({ fromMe: true, text: includeHistory ? `Photo + chats with ${firstName(pending.subject)}` : 'Just the photo' }),
-      reply(pending.question, { friend, image: pending.image, includeHistory, subject: pending.subject }),
-    ]);
-  };
-
   useEffect(() => {
-    if (started.current || !params.q) return;
+    if (started.current || (!params.q && !params.image)) return;
     started.current = true;
-    send(params.q);
-  }, [params.q]);
+    send(params.q ?? '', params.image);
+  }, [params.q, params.image]);
 
   const pick = async () => {
     setPickError(undefined);
@@ -207,22 +187,6 @@ export function ChatScreen({ inTab = false }: { inTab?: boolean }) {
                     {t.detail ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>{t.detail}</Text> : null}
                   </>
                 )}
-                {t.kind === 'analysis' ? (
-                  <Pressable onPress={() => router.push('/analysis')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Symbol name="text.bubble" size={14} color={Theme.accent} weight="semibold" />
-                    <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>See why I think that</Text>
-                  </Pressable>
-                ) : null}
-                {t.kind === 'clarify' ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, opacity: pending ? 1 : 0.4 }}>
-                    <Pressable disabled={!pending} onPress={() => answerPending(false)} style={styles.choice}>
-                      <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Just the photo</Text>
-                    </Pressable>
-                    <Pressable disabled={!pending} onPress={() => answerPending(true)} style={styles.choice}>
-                      <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Photo + chats with {t.about}</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
               </View>
             </FadeIn>
           ),

@@ -48,7 +48,7 @@ function ActivityRow({ match }: { match: ActivityMatch }) {
   );
 }
 
-export function SearchResults({ query, onBack }: { query: string; onBack: () => void }) {
+export function SearchResults({ query }: { query: string }) {
   const { items } = useNotes();
   const { friends } = useFriends();
   const people = friendMatches(query, friends).slice(0, 20);
@@ -68,14 +68,7 @@ export function SearchResults({ query, onBack }: { query: string; onBack: () => 
 
   return (
     <View style={{ gap: 20 }}>
-      <Pressable onPress={onBack} accessibilityLabel="Back to Today" style={({ pressed }) => [styles.back, pressed && { opacity: 0.75 }]}>
-        <Symbol name="chevron.left" size={17} color={Theme.accent} weight="semibold" />
-        <Text style={[Type.body, { color: Theme.accent, fontWeight: '600' }]}>Back</Text>
-      </Pressable>
-      <View style={{ gap: 4 }}>
-        <Text style={[Type.largeTitle, { fontFamily: Rounded.bold, color: Theme.ink }]}>Search</Text>
-        <Text style={[Type.body, { color: Theme.secondary }]}>Results for “{query}”</Text>
-      </View>
+      <Text style={[Type.subheadline, { color: Theme.secondary }]}>Results for “{query.trim()}”</Text>
       <Pressable
         onPress={() => router.push({ pathname: '/chat', params: { q: query.trim() } })}
         style={({ pressed }) => [styles.ask, question && styles.askStrong, pressed && { opacity: 0.75 }]}
@@ -93,7 +86,7 @@ export function SearchResults({ query, onBack }: { query: string; onBack: () => 
         <View style={{ gap: 12, paddingVertical: 24 }}>
           <Image source={art.bird} style={{ width: 260, height: 180, alignSelf: 'center' }} resizeMode="contain" />
           <Text style={[Type.title3, { fontFamily: Rounded.bold, color: Theme.ink }]}>No matches</Text>
-          <Text style={[Type.body, { color: Theme.secondary }]}>I couldn’t find anyone for that. Try a name, a handle like @mia.c, or an activity like volleyball.</Text>
+          <Text style={[Type.body, { color: Theme.secondary }]}>I couldn’t find anyone for that. Try a name, a handle, or something you do together.</Text>
         </View>
       ) : null}
       {groups.map(([key, matches]) => {
@@ -140,7 +133,6 @@ export function SearchResults({ query, onBack }: { query: string; onBack: () => 
 const styles = StyleSheet.create({
   ask: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: Theme.panel, borderWidth: 1.5, borderColor: withAlpha(Theme.accent, 0.5) },
   askStrong: { backgroundColor: Theme.accent, borderColor: Theme.accent },
-  back: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, alignSelf: 'flex-start' },
   activityBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 14 },
   person: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 6 },
   quote: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: withAlpha(Theme.accentTone.fill, 0.6) },

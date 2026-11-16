@@ -20,53 +20,7 @@ export type Friend = {
 
 export const firstName = (friend: Friend) => friend.name.split(' ')[0];
 
-export const friends: Friend[] = [
-  {
-    id: 'mia',
-    name: 'Mia Chen',
-    handle: '@mia.c',
-    initials: 'MC',
-    messages: [
-      { id: 'shopping', service: 'iMessage', date: 'Nov 14 · 4:12 PM', text: "See you Thursday at 4 for shopping. Let's meet at the bookstore." },
-      { id: 'volleyball', service: 'iMessage', date: 'Nov 12 · 6:20 PM', text: 'I love volleyball! Next time you need a +1 for VB, ask me.' },
-      { id: 'tea', service: 'iMessage', date: 'Nov 10 · 9:15 AM', text: "My birthday is November 16. I've been really into jasmine tea lately." },
-      { id: 'memory', service: 'iMessage', date: 'Oct 3 · 8:41 PM', text: "Still thinking about those night market dumplings. Best ones I've ever had." },
-    ],
-    birthday: { year: 0, month: 11, day: 16, sourceID: 'tea' },
-    notes: [
-      { id: 'shopping', section: 'plans', title: 'Shopping · Thursday, 4 PM', detail: 'Bookstore', sourceID: 'shopping' },
-      { id: 'volleyball', section: 'together', title: 'Volleyball', detail: 'Said to ask her next time you need a +1', sourceID: 'volleyball' },
-      { id: 'memory', section: 'memories', title: 'Night market dumplings', detail: 'She called them the best she’s ever had', sourceID: 'memory' },
-      { id: 'tea', section: 'gifts', title: 'Jasmine tea', detail: 'She’s been really into it lately', sourceID: 'tea' },
-    ],
-  },
-  {
-    id: 'sarah',
-    name: 'Sarah Park',
-    handle: '@sarahp',
-    initials: 'SP',
-    messages: [
-      { id: 'brunch', service: 'Instagram', date: 'Nov 14 · 11:08 AM', text: 'Brunch Friday at 11 at Juniper?' },
-      { id: 'reply', service: 'Instagram', date: 'Nov 15 · 10:30 AM', text: "Can you confirm brunch by 5 PM today? I'll book the table." },
-      { id: 'first', service: 'Instagram', date: 'Nov 18, 2025 · 9:02 PM', text: 'So nice meeting you tonight! We should get brunch sometime.' },
-    ],
-    firstMessage: { year: 2025, month: 11, day: 18, sourceID: 'first' },
-    notes: [
-      { id: 'reply', section: 'reply', title: 'Confirm brunch', detail: 'She’s booking Juniper for Friday at 11', sourceID: 'reply', deadline: new Date(2026, 10, 15, 17) },
-      { id: 'brunch', section: 'plans', title: 'Brunch · Friday, 11 AM', detail: 'Juniper · Not confirmed yet', sourceID: 'brunch' },
-    ],
-  },
-  {
-    id: 'jules',
-    name: 'Jules Rivera',
-    handle: '@julesr',
-    initials: 'JR',
-    messages: [{ id: 'volleyball', service: 'WhatsApp', date: 'Nov 11 · 7:02 PM', text: "I've been playing volleyball at the park on weekends." }],
-    notes: [{ id: 'volleyball', section: 'together', title: 'Volleyball', detail: 'Plays at the park on weekends', sourceID: 'volleyball' }],
-  },
-];
-
-export const notes = (friend: Friend, section: NoteSection) => friend.notes.filter((n) => n.section === section);
+export const friends: Friend[] = [];
 
 export const friendById = (id: string | string[] | undefined) => friends.find((f) => f.id === id);
 

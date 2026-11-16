@@ -1,24 +1,15 @@
-import { useEffect, useState } from 'react';
-import { ActionSheetIOS, ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { Stack } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useState } from 'react';
+import { ActionSheetIOS, Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, Stack } from 'expo-router';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
 import { useDataMode } from '../api/mode';
 import { useFriends } from '../api/people';
 import { useNotes } from '../store';
+import { useFirstRun } from '../firstRun';
 import { Rounded, Theme, Type } from '../theme';
 import { Divider, Face, SectionCard, Symbol, ToneTab } from '../components/Paper';
 import { PaperScroll } from '../components/PaperScroll';
-
-type AccountState = 'notConnected' | 'connecting' | 'connected' | 'needsAttention';
-
-const stateInfo: Record<AccountState, { label: string; symbol: SymbolViewProps['name'] }> = {
-  notConnected: { label: 'Not connected', symbol: 'circle.dashed' },
-  connecting: { label: 'Connecting…', symbol: 'arrow.triangle.2.circlepath' },
-  connected: { label: 'Connected', symbol: 'checkmark.circle.fill' },
-  needsAttention: { label: 'Needs attention', symbol: 'exclamationmark.triangle.fill' },
-};
 
 const accounts: { id: string; name: string; symbol: SymbolViewProps['name']; purpose: string }[] = [
   { id: 'imessage', name: 'iMessage', symbol: 'message.fill', purpose: 'So I can spot plans, replies and birthdays in your texts.' },
@@ -28,40 +19,16 @@ const accounts: { id: string; name: string; symbol: SymbolViewProps['name']; pur
   { id: 'whatsapp', name: 'WhatsApp', symbol: 'phone.bubble.fill', purpose: 'So I can keep track of group plans and replies you owe.' },
 ];
 
-const fixtureStates: Record<string, AccountState> = { imessage: 'connected', instagram: 'connected', whatsapp: 'needsAttention', tiktok: 'notConnected', snapchat: 'notConnected' };
-const KEY = 'textrovert.demo.accounts.v1';
 const deniedMessage = 'Allow Contacts in Settings to import your people.';
 
 export default function Settings() {
   const notes = useNotes();
   const { friends } = useFriends();
   const mode = useDataMode();
-  const [states, setStates] = useState(fixtureStates);
+  const firstRun = useFirstRun();
   const [contacts, setContacts] = useState<string[]>();
   const [contactsMessage, setContactsMessage] = useState<string>();
   const [showingContacts, setShowingContacts] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem(KEY).then((raw) => {
-      if (raw) {
-        const stored: Record<string, AccountState> = JSON.parse(raw);
-        setStates(Object.fromEntries(Object.entries(stored).map(([id, s]) => [id, s === 'connecting' ? 'notConnected' : s])));
-      }
-      setLoaded(true);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (loaded) AsyncStorage.setItem(KEY, JSON.stringify(states));
-  }, [states, loaded]);
-
-  const set = (id: string, state: AccountState) => setStates((current) => ({ ...current, [id]: state }));
-
-  const connect = (id: string) => {
-    set(id, 'connecting');
-    setTimeout(() => setStates((current) => (current[id] === 'connecting' ? { ...current, [id]: 'connected' } : current)), 1200);
-  };
 
   const importContacts = async () => {
     try {
@@ -84,24 +51,21 @@ export default function Settings() {
 
   const logOut = async () => {
     await notes.reset();
-    setStates(fixtureStates);
-    setContacts(undefined);
-    setContactsMessage(undefined);
+    await firstRun.reset();
+    router.dismissTo('/');
   };
 
   const confirmLogout = () => {
-    const title = 'Log out of the demo?';
-    const message = 'Your notes and accounts go back to how the demo started.';
+    const title = 'Log out?';
+    const message = 'This clears your notes and setup on this phone.';
     if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions({ title, message, options: ['Log out and reset', 'Cancel'], destructiveButtonIndex: 0, cancelButtonIndex: 1 }, (index) => {
+      ActionSheetIOS.showActionSheetWithOptions({ title, message, options: ['Log out', 'Cancel'], destructiveButtonIndex: 0, cancelButtonIndex: 1 }, (index) => {
         if (index === 0) logOut();
       });
     } else {
-      Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out and reset', style: 'destructive', onPress: logOut }]);
+      Alert.alert(title, message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: logOut }]);
     }
   };
-
-  const connected = Object.values(states).filter((s) => s === 'connected').length;
 
   return (
     <>
@@ -112,25 +76,15 @@ export default function Settings() {
             <Face initials="ED" />
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[Type.title2, { fontFamily: Rounded.bold, color: Theme.ink }]}>Emma Di</Text>
-              <Text style={[Type.subheadline, { color: Theme.secondary }]}>
-                {friends.length} friends · {connected} accounts connected
-              </Text>
+              <Text style={[Type.subheadline, { color: Theme.secondary }]}>{friends.length ? `${friends.length} friends` : 'No people yet'}</Text>
             </View>
           </View>
         </SectionCard>
 
         <SectionCard tone={Theme.celebrateTone}>
           <View style={{ gap: 14 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <ToneTab title="Connected accounts" symbol="link" tone={Theme.celebrateTone} />
-              <View style={styles.demo}>
-                <Text style={[Type.caption, { fontWeight: '700', color: Theme.celebrateTone.ink }]}>Demo</Text>
-              </View>
-            </View>
+            <ToneTab title="Connected accounts" symbol="link" tone={Theme.celebrateTone} />
             {accounts.map((account, index) => {
-              const state = states[account.id] ?? 'notConnected';
-              const attention = state === 'needsAttention';
-              const action = state === 'connected' ? 'Disconnect' : attention ? 'Fix' : 'Connect';
               return (
                 <View key={account.id} style={{ gap: 14 }}>
                   {index > 0 ? <Divider /> : null}
@@ -141,64 +95,30 @@ export default function Settings() {
                     <View style={{ flex: 1, gap: 4 }}>
                       <Text style={[Type.headline, { color: Theme.ink }]}>{account.name}</Text>
                       <Text style={[Type.subheadline, { color: Theme.secondary }]}>{account.purpose}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }} accessibilityLabel={stateInfo[state].label}>
-                        {state === 'connecting' ? (
-                          <ActivityIndicator size="small" style={{ transform: [{ scale: 0.7 }] }} />
-                        ) : (
-                          <Symbol name={stateInfo[state].symbol} size={13} color={attention ? Theme.deadline : state === 'connected' ? Theme.activitiesTone.ink : Theme.secondary} weight="semibold" />
-                        )}
-                        <Text style={[Type.subheadline, { fontWeight: '600', color: attention ? Theme.deadline : state === 'connected' ? Theme.activitiesTone.ink : Theme.secondary }]}>
-                          {attention ? 'Needs attention · sign-in expired' : stateInfo[state].label}
-                        </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Symbol name="circle.dashed" size={13} color={Theme.secondary} weight="semibold" />
+                        <Text style={[Type.subheadline, { fontWeight: '600', color: Theme.secondary }]}>Not connected</Text>
                       </View>
                     </View>
-                    <Pressable
-                      disabled={state === 'connecting'}
-                      onPress={() => (state === 'connected' ? set(account.id, 'notConnected') : connect(account.id))}
-                      accessibilityLabel={`${action} ${account.name}`}
-                      style={({ pressed }) => [styles.action, { opacity: state === 'connecting' ? 0 : pressed ? 0.6 : 1, backgroundColor: state === 'connected' ? Theme.tertiaryFill : Theme.accentTone.fill }]}
-                    >
-                      <Text style={[Type.subheadline, { fontWeight: '600', color: state === 'connected' ? Theme.secondary : Theme.accent }]}>{action}</Text>
-                    </Pressable>
+                    <View accessibilityLabel={`Connect ${account.name}, not available yet`} style={[styles.action, { backgroundColor: Theme.tertiaryFill }]}>
+                      <Text style={[Type.subheadline, { fontWeight: '600', color: Theme.secondary }]}>Connect</Text>
+                    </View>
                   </View>
                 </View>
               );
             })}
-            <Text style={[Type.footnote, { color: Theme.secondary }]}>These are pretend connections for the demo. No real accounts are linked and nothing leaves this phone.</Text>
           </View>
         </SectionCard>
 
         <SectionCard tone={Theme.activitiesTone}>
           <View style={{ gap: 12 }}>
             <ToneTab title="Your data" symbol="externaldrive.fill" tone={Theme.activitiesTone} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={[Type.headline, { color: Theme.ink }]}>Demo data</Text>
-                <Text style={[Type.subheadline, { color: Theme.secondary }]}>
-                  {!mode.apiUrl
-                    ? 'This build has no API set up, so the app shows sample friends. Build with EXPO_PUBLIC_API_URL to use your own chats.'
-                    : mode.live
-                      ? 'Off: friends, Ask and profiles come from your chats.'
-                      : 'On: the app shows sample friends instead of your chats.'}
-                </Text>
-              </View>
-              <Switch
-                value={!mode.live}
-                disabled={!mode.apiUrl}
-                onValueChange={(on) => mode.setDemo(on)}
-                trackColor={{ true: Theme.activitiesTone.ink }}
-                accessibilityLabel="Demo data"
-              />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Symbol name={mode.live ? 'checkmark.circle.fill' : 'circle.dashed'} size={13} color={mode.live ? Theme.activitiesTone.ink : Theme.secondary} weight="semibold" />
+              <Text style={[Type.footnote, { color: Theme.secondary, flex: 1 }]} numberOfLines={2}>
+                {mode.live ? 'Connected to ' + mode.apiUrl.replace(/^https?:\/\//, '') : 'Not connected yet. Your people, Ask and profiles show up once your chats are synced.'}
+              </Text>
             </View>
-            {mode.apiUrl ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Symbol name={mode.live ? 'checkmark.circle.fill' : 'circle.dashed'} size={13} color={mode.live ? Theme.activitiesTone.ink : Theme.secondary} weight="semibold" />
-                <Text style={[Type.footnote, { color: Theme.secondary, flex: 1 }]} numberOfLines={1}>
-                  {mode.live ? 'Connected to ' : 'Not using '}
-                  {mode.apiUrl.replace(/^https?:\/\//, '')}
-                </Text>
-              </View>
-            ) : null}
           </View>
         </SectionCard>
 
@@ -211,6 +131,17 @@ export default function Settings() {
             </Pressable>
             {contactsMessage ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>{contactsMessage}</Text> : null}
             <Text style={[Type.footnote, { color: Theme.secondary }]}>Contacts are only read after you tap import.</Text>
+            <Divider />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Symbol name="message" size={16} color={Theme.plansTone.ink} />
+              <Text style={[Type.subheadline, { flex: 1, color: Theme.ink }]}>
+                {firstRun.messagesExport ? `Messages export: ${firstRun.messagesExport.name}` : 'No Messages export added'}
+              </Text>
+            </View>
+            <Pressable onPress={() => router.push('/setup')} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }, pressed && { opacity: 0.6 }]}>
+              <Symbol name="slider.horizontal.3" size={16} color={Theme.accent} />
+              <Text style={[Type.body, { color: Theme.accent }]}>Change sources</Text>
+            </Pressable>
           </View>
         </SectionCard>
 
@@ -254,7 +185,6 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
-  demo: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, borderColor: Theme.celebrateTone.ink },
   icon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accentTone.fill },
   action: { paddingHorizontal: 12, minHeight: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
   logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: 25, borderWidth: 1.5, borderColor: Theme.accent, backgroundColor: Theme.background },

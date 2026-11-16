@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Friend, friendById, friends as fixtureFriends } from '../fixtures';
+import { Friend, friendById, friends as fixtureFriends } from '../people';
 import { formatAgo } from '../lib/answer';
 import { fetchPeople, type Person } from './client';
 import { useDataMode } from './mode';
