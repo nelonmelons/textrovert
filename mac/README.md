@@ -15,11 +15,13 @@ The build downloads imessage-exporter 5.0.1 for your Mac's chip, checks it again
 
 ## Using it
 
-1. **Full Disk Access.** macOS only lets apps read `~/Library/Messages` with it. Click *Open Full Disk Access Settings*, turn on Textrovert (or add it with +), then quit and reopen the app. Every build is signed ad hoc, so after a rebuild you may need to remove Textrovert from that list and add it again.
-2. **Account.** The backend defaults to the dev deployment; point it at any `https://<deployment>.convex.cloud`. Create an account or paste an existing account key. The key is kept in your login keychain.
-3. **Export and upload.** The export goes to a private temporary folder, is zipped and uploaded, and is deleted as soon as the upload ends. Uploading again only adds messages that are new.
+Open the app and follow its three steps:
 
-The deployment has to run a `packages/history` that includes the imessage-exporter parser, or processing fails with "No chats found".
+1. **Allow access to Messages.** macOS only lets apps read `~/Library/Messages` with Full Disk Access. The app opens the right settings page and says what to turn on. Every build is signed ad hoc, so after a rebuild you may need to remove Textrovert from that list and add it again.
+2. **Upload your messages.** The first upload creates an account and keeps its key in your login keychain (**Copy Account Key** copies it). The export goes to a private temporary folder, is zipped and uploaded, and is deleted as soon as the upload ends. Uploading again only adds messages that are new.
+3. **Search your messages.** Full-text search over everything stored for the account, to check what came through.
+
+The app uses the dev deployment. To point it at another one, run `defaults write com.textrovert.mac backend https://<deployment>.convex.cloud`. That deployment has to run a `packages/history` that includes the imessage-exporter parser, or processing fails with "No chats found".
 
 ## Without the window
 
@@ -29,7 +31,7 @@ The deployment has to run a `packages/history` that includes the imessage-export
 mac/build/textrovert-upload --backend https://<deployment>.convex.cloud --owner-key <key>   # or --new for a new account
 ```
 
-`--db <chat.db>` exports another database (useful for testing), and `--contacts <path>` sets the contacts database imessage-exporter uses to name people.
+`--db <chat.db>` exports another database (useful for testing), `--contacts <path>` sets the contacts database imessage-exporter uses to name people, and `--search <query>` searches the account once the upload is done.
 
 ## License
 
