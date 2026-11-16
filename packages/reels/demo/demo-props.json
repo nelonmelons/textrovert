@@ -1,0 +1,243 @@
+{
+  "chat": {
+    "title": "Lake House Crew 🏕️",
+    "platform": "whatsapp",
+    "kind": "group"
+  },
+  "participants": [
+    {
+      "name": "Me",
+      "color": "#5b8cff",
+      "isMe": true
+    },
+    {
+      "name": "Priya",
+      "color": "#ff7a59",
+      "isMe": false
+    },
+    {
+      "name": "Marcus",
+      "color": "#2ec4b6",
+      "isMe": false
+    },
+    {
+      "name": "Jun",
+      "color": "#c77dff",
+      "isMe": false
+    }
+  ],
+  "episode": {
+    "title": "Labor Day lake house plans",
+    "summary": "Priya books the lake house for Labor Day weekend; the crew sorts out driving, snacks, a playlist and a sunrise canoe trip.",
+    "startTs": 1785722640000,
+    "endTs": 1785773640000,
+    "mood": "planning",
+    "timeZone": "America/Los_Angeles"
+  },
+  "messages": [
+    {
+      "id": 101,
+      "sender": "Priya",
+      "isMe": false,
+      "text": "ok it's official. lake house is booked for labor day weekend 🏕️",
+      "ts": 1785722640000
+    },
+    {
+      "id": 102,
+      "sender": "Marcus",
+      "isMe": false,
+      "text": "WAIT",
+      "ts": 1785722700000
+    },
+    {
+      "id": 103,
+      "sender": "Marcus",
+      "isMe": false,
+      "text": "the one with the dock??",
+      "ts": 1785722700000
+    },
+    {
+      "id": 104,
+      "sender": "Priya",
+      "isMe": false,
+      "text": "the one with the dock AND the canoe",
+      "ts": 1785722760000
+    },
+    {
+      "id": 105,
+      "sender": "Me",
+      "isMe": true,
+      "text": "i'm literally packing right now",
+      "ts": 1785722820000,
+      "reactions": [
+        "😂",
+        "😂"
+      ]
+    },
+    {
+      "id": 106,
+      "sender": "Jun",
+      "isMe": false,
+      "text": "who's driving. i refuse to sit in the back for 4 hours again",
+      "ts": 1785722940000
+    },
+    {
+      "id": 107,
+      "sender": "Me",
+      "isMe": true,
+      "text": "i'll drive if someone handles snacks",
+      "ts": 1785723000000
+    },
+    {
+      "id": 108,
+      "sender": "Priya",
+      "isMe": false,
+      "text": "jun is on snacks. non negotiable",
+      "ts": 1785723000000,
+      "reactions": [
+        "💯"
+      ]
+    },
+    {
+      "id": 109,
+      "sender": "Jun",
+      "isMe": false,
+      "text": "fine but i'm bringing the good chips this time",
+      "ts": 1785723120000
+    },
+    {
+      "id": 110,
+      "sender": "Priya",
+      "isMe": false,
+      "text": null,
+      "ts": 1785723120000,
+      "media": "photo"
+    },
+    {
+      "id": 111,
+      "sender": "Marcus",
+      "isMe": false,
+      "text": "that sunset from last year still lives in my head rent free",
+      "ts": 1785723180000
+    },
+    {
+      "id": 112,
+      "sender": "Me",
+      "isMe": true,
+      "text": "ok roadtrip playlist is up. 4 hours 12 minutes of pure bangers",
+      "ts": 1785735600000,
+      "skippedBefore": 6
+    },
+    {
+      "id": 113,
+      "sender": "Jun",
+      "isMe": false,
+      "text": null,
+      "ts": 1785735660000,
+      "media": "share"
+    },
+    {
+      "id": 114,
+      "sender": "Jun",
+      "isMe": false,
+      "text": "adding this one, don't fight me",
+      "ts": 1785735660000
+    },
+    {
+      "id": 115,
+      "sender": "Marcus",
+      "isMe": false,
+      "text": "if anyone skips track 7 i'm walking home",
+      "ts": 1785735840000
+    },
+    {
+      "id": 116,
+      "sender": "Priya",
+      "isMe": false,
+      "text": "morning!! leaving friday at 3pm sharp, i'll make a group checklist",
+      "ts": 1785772920000,
+      "skippedBefore": 3
+    },
+    {
+      "id": 117,
+      "sender": "Me",
+      "isMe": true,
+      "text": "bringing the camp stove + my famous blueberry pancakes",
+      "ts": 1785773100000
+    },
+    {
+      "id": 118,
+      "sender": "Jun",
+      "isMe": false,
+      "text": "say less",
+      "ts": 1785773160000,
+      "reactions": [
+        "❤️",
+        "❤️",
+        "❤️"
+      ]
+    },
+    {
+      "id": 119,
+      "sender": "Marcus",
+      "isMe": false,
+      "text": "saturday sunrise canoe. who's in",
+      "ts": 1785773280000
+    },
+    {
+      "id": 120,
+      "sender": "Priya",
+      "isMe": false,
+      "text": "in",
+      "ts": 1785773280000
+    },
+    {
+      "id": 121,
+      "sender": "Me",
+      "isMe": true,
+      "text": "in",
+      "ts": 1785773340000
+    },
+    {
+      "id": 122,
+      "sender": "Jun",
+      "isMe": false,
+      "text": "...in. but only if there's coffee on the canoe",
+      "ts": 1785773520000
+    },
+    {
+      "id": 123,
+      "sender": "Marcus",
+      "isMe": false,
+      "text": "best weekend of the summer, calling it now",
+      "ts": 1785773640000
+    }
+  ],
+  "highlights": [
+    111,
+    123
+  ],
+  "plans": [
+    {
+      "what": "Leave for the lake house at 3pm",
+      "date": "2026-09-04",
+      "when": "friday at 3pm sharp"
+    },
+    {
+      "what": "Sunrise canoe on the lake",
+      "date": "2026-09-05",
+      "when": "saturday sunrise"
+    },
+    {
+      "what": "Blueberry pancakes on the camp stove",
+      "date": null,
+      "when": "some morning at the lake"
+    }
+  ],
+  "photos": [
+    "demo/lake.svg",
+    "demo/campfire.svg",
+    "demo/peaks.svg",
+    "demo/pancakes.svg"
+  ]
+}

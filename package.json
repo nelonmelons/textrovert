@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@12.18.0",
   "scripts": {
-    "dev:backend": "pnpm --filter @textrovert/backend dev",
+    "dev:backend": "pnpm --filter @textrovert/history dev",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck"
   }

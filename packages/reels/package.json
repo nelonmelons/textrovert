@@ -1,0 +1,32 @@
+{
+  "name": "@textrovert/reels",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "props": "tsx scripts/episode-props.ts",
+    "render": "tsx scripts/render.ts",
+    "render:demo": "tsx scripts/render.ts demo/demo-props.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@remotion/google-fonts": "4.0.543",
+    "@remotion/layout-utils": "4.0.543",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "4.0.543"
+  },
+  "devDependencies": {
+    "@libsql/client": "^0.18.0",
+    "@remotion/bundler": "4.0.543",
+    "@remotion/cli": "4.0.543",
+    "@remotion/renderer": "4.0.543",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  }
+}
