@@ -35,17 +35,18 @@ export function ListSection({ header, footer, children, inset = 64 }: { header?:
 }
 
 /** One row: a leading avatar or tile, a title and subtitle, a trailing value, and a chevron when it opens something. */
-export function ListRow({ title, subtitle, leading, value, trailing, onPress, chevron = !!onPress }: { title: string; subtitle?: string; leading?: ReactNode; value?: string; trailing?: ReactNode; onPress?: () => void; chevron?: boolean }) {
+export function ListRow({ title, subtitle, leading, value, trailing, onPress, chevron = !!onPress, wrap = false, accessibilityLabel = title }: { title: string; subtitle?: string; leading?: ReactNode; value?: string; trailing?: ReactNode; onPress?: () => void; chevron?: boolean; wrap?: boolean; accessibilityLabel?: string }) {
   const { c } = useDesign();
+  const lines = wrap ? undefined : 1;
   return (
-    <PressScale onPress={onPress} scale={0.985} accessibilityLabel={title} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 60, paddingVertical: 10, backgroundColor: c.surface }}>
+    <PressScale onPress={onPress} scale={0.985} accessibilityLabel={accessibilityLabel} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.lg, minHeight: 60, paddingVertical: 10, backgroundColor: c.surface }}>
       {leading}
       <View style={{ flex: 1, gap: 1 }}>
-        <Txt variant="body" numberOfLines={1} style={{ fontWeight: '500' }}>
+        <Txt variant="body" numberOfLines={lines} style={{ fontWeight: '500' }}>
           {title}
         </Txt>
         {subtitle ? (
-          <Txt variant="footnote" tone="secondary" numberOfLines={1} style={{ fontSize: 14 }}>
+          <Txt variant="footnote" tone="secondary" numberOfLines={wrap ? undefined : 1} style={{ fontSize: 14 }}>
             {subtitle}
           </Txt>
         ) : null}

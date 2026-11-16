@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { Image, View, type ImageSourcePropType } from 'react-native';
 
 import { Tactile } from './Tactile';
 import { useDesign } from './theme';
@@ -16,10 +16,11 @@ function useKind(kind: Kind) {
 }
 
 /** The full-width call to action: a pressable key on a darker lip, springing down with a firm haptic. */
-export function BigButton({ title, onPress, kind = 'primary', emoji, trailing = '→', disabled }: { title: string; onPress?: () => void; kind?: Kind; emoji?: string; trailing?: string | null; disabled?: boolean }) {
+export function BigButton({ title, onPress, kind = 'primary', emoji, image, trailing = '→', disabled }: { title: string; onPress?: () => void; kind?: Kind; emoji?: string; image?: ImageSourcePropType; trailing?: string | null; disabled?: boolean }) {
   const k = useKind(kind);
   return (
     <Tactile face={k.face} edge={k.edge} radius={radii.md} lip={lip.button} ring={2} haptic="thud" onPress={onPress} disabled={disabled} accessibilityLabel={title} faceStyle={{ height: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm }}>
+      {image ? <Image source={image} resizeMode="contain" style={{ width: 40, height: 40, marginVertical: -4 }} aria-hidden /> : null}
       {emoji ? <Txt style={{ fontSize: 20 }}>{emoji}</Txt> : null}
       <Txt variant="headline" color={k.ink} style={{ fontSize: 18 }}>
         {title}

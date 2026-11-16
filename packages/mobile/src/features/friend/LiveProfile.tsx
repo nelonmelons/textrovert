@@ -1,16 +1,21 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SymbolViewProps } from 'expo-symbols';
+import { ActivityIndicator, Image, ScrollView, View } from 'react-native';
+import { router } from 'expo-router';
+
+import { AppIconTile, BigButton, Chip, EmojiAvatar, fillFor, ListRow, ListSection, PillButton, SectionTitle, space, Txt, useDesign, type FillName } from '@/design';
 import { fetchFriend, fetchStory, type FriendFact, type FriendProfile, type Story } from '../../api/friend';
 import { chatLabel, type Source } from '../../api/client';
 import { openLiveSource } from '../../api/sources';
-import { art, Divider, RowChevron, SectionCard, Symbol, ToneTab } from '../../components/Paper';
 import { ReelButton } from '../reels/ReelButton';
-import { FriendStatsCard } from '../stats/FriendStatsCard';
-import { router } from 'expo-router';
+import { emojiFor } from '../stats/Topics';
+import { FriendStats } from './FriendStats';
 import { haptics } from '../../lib/haptics';
 import { formatAgo } from '../../lib/answer';
-import { Theme, Tone, Type, withAlpha } from '../../theme';
+
+const SLEEPY = require('../../../assets/art/hedgehog-sleepy.png');
+const GHOST = require('../../../assets/art/hedgehog-ghost.png');
+const WAVE = require('../../../assets/art/hedgehog-wave.png');
+const DETECTIVE = require('../../../assets/art/hedgehog-detective.png');
 
 const predicateLabel: Record<string, string> = {
   likes: 'Likes',
@@ -24,9 +29,22 @@ const predicateLabel: Record<string, string> = {
   habit: 'Habit',
 };
 
+const predicateEmoji: Record<string, [string, FillName]> = {
+  likes: ['❤️', 'pink'],
+  dislikes: ['🙅', 'coral'],
+  wants: ['✨', 'yellow'],
+  'works at': ['💼', 'peach'],
+  studies: ['📚', 'lilac'],
+  'lives in': ['📍', 'mint'],
+  relationship: ['💞', 'pink'],
+  milestone: ['🎉', 'yellow'],
+  habit: ['🔁', 'lime'],
+};
+
 const SHOWN_FACTS = 8;
 const SHOWN_EPISODES = 5;
 
+const clip = (text: string, max: number) => (text.length > max ? text.slice(0, max - 1).trimEnd() + '…' : text);
 const monthYear = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
 
 const open = (source: Source, quote?: string) => {
@@ -54,55 +72,55 @@ export function useFriendProfile(name: string) {
   return { state, retry: () => setAttempt((a) => a + 1) };
 }
 
-function Row({ onPress, children, label }: { onPress: () => void; children: React.ReactNode; label?: string }) {
+/** A hedgehog beside a line of copy, in a plain card: loading, empty and error states. */
+function Callout({ art, title, text, children }: { art: number; title?: string; text: string; children?: React.ReactNode }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <View style={{ flex: 1, gap: 3 }}>{children}</View>
-      <RowChevron />
-    </Pressable>
-  );
-}
-
-function Card({ title, symbol, tone, children }: { title: string; symbol: SymbolViewProps['name']; tone: Tone; children: React.ReactNode }) {
-  return (
-    <SectionCard tone={tone}>
-      <View style={{ gap: 10 }}>
-        <ToneTab title={title} symbol={symbol} tone={tone} />
-        {children}
+    <ListSection>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg }}>
+        <Image source={art} resizeMode="contain" style={{ width: 72, height: 72 }} aria-hidden />
+        <View style={{ flex: 1, gap: space.xs, alignItems: 'flex-start' }}>
+          {title ? <Txt variant="headline">{title}</Txt> : null}
+          <Txt variant="subhead" tone="secondary">
+            {text}
+          </Txt>
+          {children}
+        </View>
       </View>
-    </SectionCard>
+    </ListSection>
   );
 }
-
-const Meta = ({ text }: { text: string }) => <Text style={[Type.caption, { color: Theme.secondary }]}>{text}</Text>;
 
 function Facts({ facts }: { facts: FriendFact[] }) {
   const [all, setAll] = useState(false);
   const current = [...facts.filter((f) => !f.validTo), ...facts.filter((f) => f.validTo)];
   const shown = all ? current : current.slice(0, SHOWN_FACTS);
+  const rows = shown.map((f) => {
+    const label = predicateLabel[f.predicate] ?? f.predicate;
+    const [emoji, color] = predicateEmoji[f.predicate] ?? ['💡', 'lilac'];
+    return (
+      <ListRow
+        key={f.messageId + f.predicate + f.object}
+        wrap
+        title={f.object}
+        subtitle={(f.validTo ? 'Used to · ' : '') + label + ' · ' + chatLabel(f.source) + ' · ' + formatAgo(f.validFrom)}
+        accessibilityLabel={label + ' ' + f.object + '. Show the message'}
+        leading={<EmojiAvatar emoji={emoji} color={color} size={36} />}
+        onPress={() => open(f.source, f.quote)}
+      />
+    );
+  });
+  if (current.length > SHOWN_FACTS)
+    rows.push(<ListRow key="more" title={all ? 'Show fewer' : 'Show all ' + current.length} leading={<EmojiAvatar emoji={all ? '🔼' : '🔽'} color="white" size={36} />} chevron={false} onPress={() => setAll((a) => !a)} />);
   return (
-    <Card title="What you know" symbol="sparkles" tone={Theme.accentTone}>
-      {shown.map((f, i) => (
-        <View key={f.messageId + f.predicate + f.object} style={{ gap: 10 }}>
-          {i > 0 ? <Divider /> : null}
-          <Row onPress={() => open(f.source, f.quote)} label={`${predicateLabel[f.predicate] ?? f.predicate} ${f.object}. Show the message`}>
-            <Text style={[Type.caption, { color: Theme.accentTone.ink, fontWeight: '700' }]}>{(predicateLabel[f.predicate] ?? f.predicate).toUpperCase()}</Text>
-            <Text style={[Type.subheadline, { color: f.validTo ? Theme.secondary : Theme.ink, fontWeight: '600' }]}>{f.object}</Text>
-            <Meta text={(f.validTo ? 'Used to be · ' : '') + chatLabel(f.source) + ' · ' + formatAgo(f.validFrom)} />
-          </Row>
-        </View>
-      ))}
-      {current.length > SHOWN_FACTS ? (
-        <Pressable onPress={() => setAll((a) => !a)} hitSlop={8}>
-          <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>{all ? 'Show fewer' : `Show all ${current.length}`}</Text>
-        </Pressable>
-      ) : null}
-    </Card>
+    <ListSection header="Likes, wants and the rest" footer="Each one from a message. Tap to see it.">
+      {rows}
+    </ListSection>
   );
 }
 
 /** The "story of us": a memoir in chapters, each sentence footnoted to the messages behind it. */
 function StoryCard({ name, first, initial }: { name: string; first: string; initial: Story | null }) {
+  const { c } = useDesign();
   const [story, setStory] = useState(initial);
   const [writing, setWriting] = useState(false);
   const [note, setNote] = useState<string>();
@@ -120,156 +138,180 @@ function StoryCard({ name, first, initial }: { name: string; first: string; init
       setWriting(false);
     }
   };
+  if (!story)
+    return (
+      <Callout art={DETECTIVE} title="Story of us" text={`A short memoir of you and ${first}, written from your chats, with every line footnoted.`}>
+        {writing ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingTop: space.xs }}>
+            <ActivityIndicator size="small" color={c.accent} />
+            <Txt variant="footnote" tone="secondary">
+              Writing it. This takes up to half a minute.
+            </Txt>
+          </View>
+        ) : (
+          <View style={{ paddingTop: space.sm }}>
+            <PillButton title="Write our story" emoji="✍️" onPress={write} small />
+          </View>
+        )}
+        {note ? (
+          <Txt variant="footnote" tone="secondary">
+            {note}
+          </Txt>
+        ) : null}
+      </Callout>
+    );
   return (
-    <Card title="Story of us" symbol="book.closed.fill" tone={Theme.celebrateTone}>
-      {story ? (
-        <View style={{ gap: 14 }}>
-          <Text style={[Type.title3, { color: Theme.ink, fontWeight: '700' }]}>{story.headline}</Text>
-          {story.chapters.map((chapter) => (
-            <View key={chapter.title} style={{ gap: 6 }}>
-              <Text style={[Type.headline, { color: Theme.celebrateTone.ink }]}>{chapter.title}</Text>
-              <Meta text={chapter.period} />
-              <Text style={[Type.callout, { color: Theme.ink }]}>
-                {chapter.sentences.map((s) => {
-                  const source = s.refs.map((r) => story.sources[String(r)]).find(Boolean);
-                  return (
-                    <Text key={s.n}>
+    <View style={{ gap: space.lg }}>
+      <SectionTitle title="Story of us 📖" />
+      <ListSection footer={`Written ${formatAgo(story.writtenAt)} from your chats. Tap a receipt to see the message.`}>
+        <View style={{ padding: space.lg, gap: space.xl }}>
+          <Txt variant="title3">{story.headline}</Txt>
+          {story.chapters.map((chapter) => {
+            const notes = chapter.sentences.flatMap((s) => {
+              const source = s.refs.map((r) => story.sources[String(r)]).find(Boolean);
+              return source ? [{ n: s.n, source }] : [];
+            });
+            return (
+              <View key={chapter.title} style={{ gap: space.sm }}>
+                <View style={{ gap: 2 }}>
+                  <Txt variant="headline">{chapter.title}</Txt>
+                  <Txt variant="footnote" tone="secondary">
+                    {chapter.period}
+                  </Txt>
+                </View>
+                <Txt variant="callout" style={{ lineHeight: 24 }}>
+                  {chapter.sentences.map((s) => (
+                    <Txt key={s.n} variant="callout">
                       {s.text}
-                      {source ? (
-                        <Text accessibilityRole="button" accessibilityLabel={`Footnote ${s.n}`} onPress={() => open(source)} style={styles.footnote}>
+                      {notes.some((x) => x.n === s.n) ? (
+                        <Txt variant="caption" tone="accent" style={{ fontWeight: '700' }}>
                           {' '}
                           {s.n}
-                        </Text>
+                        </Txt>
                       ) : null}{' '}
-                    </Text>
-                  );
-                })}
-              </Text>
-            </View>
-          ))}
-          <Meta text={`Written ${formatAgo(story.writtenAt)} from your chats. Tap a number to see the message.`} />
+                    </Txt>
+                  ))}
+                </Txt>
+                {notes.length ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.xs + 2 }}>
+                    {notes.map((x) => (
+                      <Chip key={x.n} label={String(x.n)} emoji="🧾" tint="blue" accessibilityLabel={`Footnote ${x.n}`} onPress={() => open(x.source)} />
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
-      ) : (
-        <View style={{ gap: 10 }}>
-          <Text style={[Type.subheadline, { color: Theme.ink }]}>A short memoir of you and {first}, written from your chats, with every line footnoted.</Text>
-          {writing ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator size="small" color={Theme.celebrateTone.ink} />
-              <Text style={[Type.footnote, { color: Theme.secondary }]}>Writing it. This takes up to half a minute.</Text>
-            </View>
-          ) : (
-            <Pressable accessibilityRole="button" onPress={write} style={({ pressed }) => [styles.pill, { backgroundColor: Theme.celebrateTone.ink }, pressed && { opacity: 0.8 }]}>
-              <Symbol name="pencil.and.outline" size={14} color="#FFFFFF" weight="semibold" />
-              <Text style={[Type.subheadline, { color: '#FFFFFF', fontWeight: '600' }]}>Write our story</Text>
-            </Pressable>
-          )}
-          {note ? <Text style={[Type.footnote, { color: Theme.secondary }]}>{note}</Text> : null}
-        </View>
-      )}
-    </Card>
-  );
-}
-
-export function LiveProfile({ name, first, state, retry }: { name: string; first: string; state: State; retry: () => void }) {
-  if (state.status === 'loading')
-    return (
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}>
-        <ActivityIndicator color={Theme.accent} />
-        <Text style={[Type.subheadline, { color: Theme.secondary }]}>Reading your chats with {first}…</Text>
-      </View>
-    );
-  if (state.status === 'error')
-    return (
-      <SectionCard tone={Theme.coralTone}>
-        <View style={{ gap: 8 }}>
-          <Text style={[Type.headline, { color: Theme.ink }]}>Couldn’t load what your chats say about {first}.</Text>
-          <Text style={[Type.subheadline, { color: Theme.secondary }]}>{state.message}</Text>
-          <Pressable onPress={retry} hitSlop={8}>
-            <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Try again</Text>
-          </Pressable>
-        </View>
-      </SectionCard>
-    );
-  const p = state.profile;
-  const quiet = p.facts.length === 0 && p.plans.length === 0 && p.episodes.length === 0;
-  return (
-    <View style={{ gap: 18 }}>
-      {p.topics.length > 0 ? (
-        <View style={{ gap: 8 }}>
-          <Text style={[Type.footnote, { color: Theme.secondary, fontWeight: '600' }]}>You two talk about · tap one to see it on your map</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {p.topics.slice(0, 8).map((t) => (
-              <Pressable
-                key={t.topic}
-                accessibilityRole="button"
-                accessibilityLabel={`${t.topic}: show it in your topics`}
-                onPress={() => {
-                  haptics.select();
-                  router.push({ pathname: '/portrait', params: { view: 'atlas/t/' + encodeURIComponent(t.topic) } });
-                }}
-                style={({ pressed }) => [styles.topic, pressed && { opacity: 0.7 }]}
-              >
-                <Text style={[Type.subheadline, { color: Theme.activitiesTone.ink, fontWeight: '500' }]}>{t.topic}</Text>
-                <Symbol name="map" size={11} color={Theme.activitiesTone.ink} weight="semibold" />
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      ) : null}
-      {p.stats ? <FriendStatsCard stats={p.stats} first={first} /> : null}
-      {quiet ? (
-        <SectionCard tone={Theme.activitiesTone}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <Image source={art.leaf} style={{ width: 64, height: 64 }} resizeMode="contain" />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[Type.headline, { color: Theme.ink }]}>Still getting to know {first}</Text>
-              <Text style={[Type.subheadline, { color: Theme.secondary }]}>
-                Your chats haven’t mentioned plans or details about {first} yet. They’ll show up here as you talk, each with the message it came from.
-              </Text>
-            </View>
-          </View>
-        </SectionCard>
-      ) : null}
-      {p.facts.length > 0 ? <Facts facts={p.facts} /> : null}
-      {p.plans.length > 0 ? (
-        <Card title="Plans from your chats" symbol="calendar" tone={Theme.plansTone}>
-          {p.plans.slice(0, 6).map((plan, i) => (
-            <View key={plan.episodeId + plan.what} style={{ gap: 10 }}>
-              {i > 0 ? <Divider /> : null}
-              <Row onPress={() => open(plan.source)}>
-                <Text style={[Type.subheadline, { color: Theme.ink, fontWeight: '600' }]}>{plan.what}</Text>
-                <Meta text={[plan.when, chatLabel(plan.source)].filter(Boolean).join(' · ')} />
-              </Row>
-            </View>
-          ))}
-        </Card>
-      ) : null}
-      {p.episodes.length > 0 ? (
-        <Card title="Recent moments" symbol="bubble.left.and.bubble.right.fill" tone={Theme.repliesTone}>
-          {p.episodes.slice(0, SHOWN_EPISODES).map((e, i) => (
-            <View key={e.id} style={{ gap: 10 }}>
-              {i > 0 ? <Divider /> : null}
-              <Row onPress={() => open(e.source)}>
-                <Text style={[Type.subheadline, { color: Theme.ink, fontWeight: '600' }]}>{e.title}</Text>
-                <Text style={[Type.footnote, { color: Theme.ink }]} numberOfLines={3}>
-                  {e.summary}
-                </Text>
-                <Meta text={[monthYear(e.start), e.isDm ? 'Your DM' : e.chat, e.messageCount + ' messages'].join(' · ')} />
-              </Row>
-              <ReelButton episodeId={e.id} />
-            </View>
-          ))}
-        </Card>
-      ) : null}
-      {quiet ? null : <StoryCard name={name} first={first} initial={p.story} />}
+      </ListSection>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  pressed: { backgroundColor: withAlpha(Theme.accentTone.fill, 0.6), opacity: 0.75, borderRadius: 12 },
-  footnote: { color: Theme.celebrateTone.ink, fontWeight: '800', fontSize: 12 },
-  pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 8, paddingHorizontal: 16, minHeight: 40, borderRadius: 20 },
-  topic: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: Theme.activitiesTone.fill },
-});
+/** Recent moments as rows, and a reel of whichever one you pick. */
+function Moments({ episodes }: { episodes: FriendProfile['episodes'] }) {
+  const shown = episodes.slice(0, SHOWN_EPISODES);
+  const [picked, setPicked] = useState(shown[0].id);
+  return (
+    <View style={{ gap: space.lg }}>
+      <ListSection header="Recent moments">
+        {shown.map((e) => (
+          <ListRow
+            key={e.id}
+            wrap
+            title={e.title}
+            subtitle={clip(e.summary, 110) + '\n' + [monthYear(e.start), e.isDm ? 'Your DM' : e.chat, e.messageCount + ' messages'].join(' · ')}
+            leading={<EmojiAvatar emoji={emojiFor(e.topics[0] ?? e.title, e.id)} color={fillFor(e.title)} size={36} />}
+            onPress={() => open(e.source)}
+          />
+        ))}
+      </ListSection>
+      {shown.length > 1 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -space.gutter }} contentContainerStyle={{ paddingHorizontal: space.gutter, gap: space.sm }}>
+          {shown.map((e) => (
+            <Chip key={e.id} label={clip(e.title, 26)} emoji="🎬" selected={e.id === picked} accessibilityLabel={'Reel of ' + e.title} onPress={() => setPicked(e.id)} />
+          ))}
+        </ScrollView>
+      ) : null}
+      <ReelButton key={picked} episodeId={picked} />
+    </View>
+  );
+}
+
+/** Opens this friend's Wrapped: the last month of your DM, in highlights. */
+export function WrappedButton({ conversationId, first }: { conversationId: string | null | undefined; first: string }) {
+  const ready = !!conversationId;
+  return (
+    <View style={{ gap: space.sm }}>
+      <BigButton
+        title={`Your Wrapped with ${first}`}
+        emoji="🎁"
+        kind="pink"
+        disabled={!ready}
+        onPress={() => router.push({ pathname: '/wrapped/[conversationId]', params: { conversationId: conversationId ?? '' } })}
+      />
+      <Txt variant="footnote" tone="secondary" style={{ textAlign: 'center' }}>
+        {conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights.' : 'Wrapped needs a DM with them.'}
+      </Txt>
+    </View>
+  );
+}
+
+export function LiveProfile({ name, first, state, retry }: { name: string; first: string; state: State; retry: () => void }) {
+  if (state.status === 'loading') return <Callout art={SLEEPY} text={`Reading your chats with ${first}…`} />;
+  if (state.status === 'error')
+    return (
+      <Callout art={GHOST} title={`Couldn’t load what your chats say about ${first}.`} text={state.message}>
+        <View style={{ paddingTop: space.sm }}>
+          <PillButton title="Try again" onPress={retry} small />
+        </View>
+      </Callout>
+    );
+  const p = state.profile;
+  const quiet = p.facts.length === 0 && p.plans.length === 0 && p.episodes.length === 0;
+  return (
+    <>
+      {p.stats ? <FriendStats stats={p.stats} first={first} /> : null}
+      {p.topics.length > 0 ? (
+        <View style={{ gap: space.lg }}>
+          <SectionTitle title="You two talk about" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -space.gutter }} contentContainerStyle={{ paddingHorizontal: space.gutter, gap: space.lg, paddingBottom: space.xs }}>
+            {p.topics.slice(0, 8).map((t, i) => (
+              <View key={t.topic} style={{ width: 72, alignItems: 'center', gap: space.sm }}>
+                <AppIconTile
+                  emoji={emojiFor(t.topic, i)}
+                  color={fillFor(t.topic)}
+                  size={64}
+                  accessibilityLabel={`${t.topic}: show it in your topics`}
+                  onPress={() => router.push({ pathname: '/portrait', params: { view: 'atlas/t/' + encodeURIComponent(t.topic) } })}
+                />
+                <Txt variant="caption" numberOfLines={2} style={{ textAlign: 'center', fontWeight: '600' }}>
+                  {t.topic[0].toUpperCase() + t.topic.slice(1)}
+                </Txt>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+      {quiet ? <Callout art={WAVE} title={`Still getting to know ${first}`} text={`Your chats haven’t mentioned plans or details about ${first} yet. They’ll show up here as you talk, each with the message it came from.`} /> : null}
+      {p.plans.length > 0 ? (
+        <ListSection header="Plans from your chats">
+          {p.plans.slice(0, 6).map((plan) => (
+            <ListRow
+              key={plan.episodeId + plan.what}
+              wrap
+              title={plan.what}
+              subtitle={[plan.when, chatLabel(plan.source)].filter(Boolean).join(' · ')}
+              leading={<EmojiAvatar emoji="📅" color="mint" size={36} />}
+              onPress={() => open(plan.source)}
+            />
+          ))}
+        </ListSection>
+      ) : null}
+      {p.facts.length > 0 ? <Facts facts={p.facts} /> : null}
+      {quiet ? null : <StoryCard name={name} first={first} initial={p.story} />}
+      {p.episodes.length > 0 ? <Moments episodes={p.episodes} /> : null}
+    </>
+  );
+}
+

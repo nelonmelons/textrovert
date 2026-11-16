@@ -43,7 +43,7 @@ const MAP = require('../../../assets/art/hedgehog-map.png');
 const SLEEPY = require('../../../assets/art/hedgehog-sleepy.png');
 const FALLBACK = ['💬', '✨', '🧩', '🌀', '🎈', '🪐'];
 
-const emojiFor = (topic: string, i: number) => EMOJI.find(([re]) => re.test(topic.toLowerCase()))?.[1] ?? FALLBACK[i % FALLBACK.length];
+export const emojiFor = (topic: string, i: number) => EMOJI.find(([re]) => re.test(topic.toLowerCase()))?.[1] ?? FALLBACK[i % FALLBACK.length];
 const openAtlas = (topic?: string) => router.push({ pathname: '/portrait', params: { view: topic ? 'atlas/t/' + encodeURIComponent(topic) : 'atlas' } });
 
 interface PortraitPeople {

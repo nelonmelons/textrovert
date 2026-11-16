@@ -1,55 +1,38 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { SymbolViewProps } from 'expo-symbols';
-import { Friend, firstName, NoteSection, sectionInfo, sectionOrder, upcomingMilestones } from '../../people';
+import { ActivityIndicator, Image, Platform, Pressable, TextInput, View } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+
+import { BigButton, DesignFonts, EmojiAvatar, LargeTitle, ListRow, ListSection, Screen, space, Txt, useDesign } from '@/design';
+import { deadlineText, Friend, firstName, NoteSection, sectionInfo, sectionOrder } from '../../people';
 import { useFriend } from '../../api/people';
-import { LiveProfile, useFriendProfile } from '../../features/friend/LiveProfile';
-import { haptics } from '../../lib/haptics';
+import { LiveProfile, useFriendProfile, WrappedButton } from '../../features/friend/LiveProfile';
 import { Note, useNotes } from '../../store';
-import { Rounded, sectionTone, Theme, Type, withAlpha } from '../../theme';
-import { art, DeadlineBadge, Divider, Face, RowChevron, SectionCard, ServiceIcon, Symbol, ToneTab } from '../../components/Paper';
-import { MilestoneRow } from '../../components/MilestoneRow';
-import { PaperScroll } from '../../components/PaperScroll';
-import { AskBox } from '../../components/AskBox';
-import { WrappedEntry } from '../../components/WrappedEntry';
+
+const HEART = require('../../../assets/art/hedgehog-heart.png');
+const DETECTIVE = require('../../../assets/art/hedgehog-detective.png');
+
+const SECTION_EMOJI: Record<NoteSection, string> = { reply: '↩️', plans: '📅', together: '🧑‍🤝‍🧑', memories: '📖', gifts: '🎁' };
 
 const openSource = (friend: Friend, messageID: string) => router.push({ pathname: '/source', params: { friend: friend.id, message: messageID } });
 const openEditor = (friend: Friend, section: NoteSection, id?: string) => router.push({ pathname: '/note', params: { friend: friend.id, section, ...(id ? { id } : {}) } });
 
 function NoteRow({ friend, note }: { friend: Friend; note: Note }) {
   const source = friend.messages.find((m) => m.id === note.sourceID);
+  const subtitle = [note.deadline ? deadlineText(note.deadline).text : '', note.detail ?? '', source ? (note.edited ? 'Edited by you' : '') : 'Added by you'].filter(Boolean).join(' · ');
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 4 }}>
-      <Pressable
-        onPress={() => (source ? openSource(friend, source.id) : openEditor(friend, note.section, note.id))}
-        style={({ pressed }) => [styles.noteBody, pressed && styles.pressed]}
-      >
-        <View style={{ flex: 1, gap: 4 }}>
-          {note.deadline ? <DeadlineBadge deadline={note.deadline} /> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <Text style={[Type.subheadline, { color: Theme.ink, fontWeight: '600' }]}>{note.title}</Text>
-            {source ? <ServiceIcon service={source.service} /> : null}
-          </View>
-          {note.detail ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>{note.detail}</Text> : null}
-          {source && note.edited ? <Provenance symbol="pencil" text="Edited by you" /> : null}
-          {!source ? <Provenance symbol="person.crop.circle" text="Added by you" /> : null}
-        </View>
-        {source ? <RowChevron /> : null}
-      </Pressable>
-      <Pressable onPress={() => openEditor(friend, note.section, note.id)} accessibilityLabel={`Edit ${note.title}`} style={styles.pencil}>
-        <Symbol name="pencil" size={15} color={Theme.accent} weight="semibold" />
-      </Pressable>
-    </View>
-  );
-}
-
-function Provenance({ symbol, text }: { symbol: SymbolViewProps['name']; text: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Symbol name={symbol} size={11} color={Theme.secondary} />
-      <Text style={[Type.caption, { color: Theme.secondary }]}>{text}</Text>
-    </View>
+    <ListRow
+      wrap
+      title={note.title}
+      subtitle={subtitle || undefined}
+      leading={<EmojiAvatar emoji={SECTION_EMOJI[note.section]} color="white" size={36} />}
+      onPress={() => (source ? openSource(friend, source.id) : openEditor(friend, note.section, note.id))}
+      chevron={false}
+      trailing={
+        <Pressable onPress={() => openEditor(friend, note.section, note.id)} accessibilityLabel={`Edit ${note.title}`} hitSlop={8} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
+          <Txt style={{ fontSize: 17 }}>✏️</Txt>
+        </Pressable>
+      }
+    />
   );
 }
 
@@ -58,93 +41,40 @@ function SectionBlock({ friend, section, hideEmpty }: { friend: Friend; section:
   const list = items(friend, section);
   if (hideEmpty && list.length === 0) return null;
   const info = sectionInfo[section];
-  const tone = sectionTone(section);
   return (
-    <SectionCard tone={tone}>
-      <View style={{ gap: 10 }}>
-        <View style={styles.header}>
-          <ToneTab title={info.title} symbol={info.symbol as SymbolViewProps['name']} tone={tone} style={{ alignSelf: 'center' }} />
-          <Pressable onPress={() => openEditor(friend, section)} accessibilityLabel={`Add to ${info.title}`} style={styles.add}>
-            <Symbol name="plus" size={14} color={Theme.accent} weight="semibold" />
-            <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>Add</Text>
-          </Pressable>
-        </View>
-        {list.length === 0 ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            {section === 'memories' ? <Image source={art.leaf} style={{ height: 56, width: 56 }} resizeMode="contain" /> : null}
-            <Text style={[Type.subheadline, { color: Theme.secondary, flex: 1 }]}>{info.empty(firstName(friend))}</Text>
-          </View>
-        ) : null}
-        {list.map((note, index) => (
-          <View key={note.id} style={{ gap: 10 }}>
-            {index > 0 ? <Divider /> : null}
-            <NoteRow friend={friend} note={note} />
-          </View>
-        ))}
-      </View>
-    </SectionCard>
+    <ListSection header={info.title} footer={list.length === 0 ? info.empty(firstName(friend)) : undefined}>
+      {list.map((note) => (
+        <NoteRow key={note.id} friend={friend} note={note} />
+      ))}
+      <ListRow title={'Add a ' + info.noun} accessibilityLabel={`Add to ${info.title}`} leading={<EmojiAvatar emoji="➕" color="white" size={36} />} onPress={() => openEditor(friend, section)} />
+    </ListSection>
   );
 }
 
 function Notepad({ friend }: { friend: Friend }) {
+  const { c } = useDesign();
   const { notepad, setNotepad } = useNotes();
   const [text, setText] = useState(notepad(friend));
   const [saved, setSaved] = useState(false);
   useEffect(() => setText(notepad(friend)), [notepad, friend]);
   return (
-    <SectionCard tone={Theme.accentTone}>
-      <View style={{ gap: 10 }}>
-        <View style={styles.header}>
-          <ToneTab title="Notepad" symbol="note.text" tone={Theme.accentTone} style={{ alignSelf: 'center' }} />
-          {saved && text === notepad(friend) ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44 }}>
-              <Symbol name="checkmark.circle.fill" size={13} color={Theme.activitiesTone.ink} weight="semibold" />
-              <Text style={[Type.subheadline, { color: Theme.activitiesTone.ink, fontWeight: '600' }]}>Saved</Text>
-            </View>
-          ) : null}
-        </View>
-        <TextInput
-          value={text}
-          onChangeText={(value) => {
-            setText(value);
-            setSaved(false);
-          }}
-          onEndEditing={async () => {
-            await setNotepad(friend, text);
-            setSaved(true);
-          }}
-          multiline
-          placeholder={`Anything else about ${firstName(friend)}: sizes, allergies, inside jokes…`}
-          placeholderTextColor={Theme.secondary}
-          style={[Type.subheadline, styles.notepad]}
-        />
-      </View>
-    </SectionCard>
-  );
-}
-
-/** Opens this friend's Wrapped (src/features/wrapped/, being added on nelson/app-wrapped). */
-function WrappedButton({ conversationId, first }: { conversationId: string | null | undefined; first: string }) {
-  const ready = !!conversationId;
-  return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={!ready}
-      onPress={() => {
-        haptics.impact('light');
-        router.push({ pathname: '/wrapped/[conversationId]', params: { conversationId: conversationId ?? '' } });
-      }}
-      style={({ pressed }) => [styles.wrapped, !ready && { opacity: 0.5 }, pressed && { opacity: 0.8 }]}
-    >
-      <Image source={art.dance} style={{ width: 52, height: 44 }} resizeMode="contain" />
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[Type.headline, { color: '#FFFFFF', fontFamily: Rounded.bold }]}>Your Wrapped with {first}</Text>
-        <Text style={[Type.subheadline, { color: withAlpha('rgba(255, 255, 255, 1)', 0.85) }]}>
-          {conversationId === undefined ? 'Getting it ready…' : ready ? 'The last month of your DM, in highlights' : 'Wrapped needs a DM with them'}
-        </Text>
-      </View>
-      <Symbol name="chevron.right" size={14} color="#FFFFFF" weight="bold" />
-    </Pressable>
+    <ListSection header="Notepad" footer={saved && text === notepad(friend) ? 'Saved ✓' : 'Only on this phone.'}>
+      <TextInput
+        value={text}
+        onChangeText={(value) => {
+          setText(value);
+          setSaved(false);
+        }}
+        onEndEditing={async () => {
+          await setNotepad(friend, text);
+          setSaved(true);
+        }}
+        multiline
+        placeholder={`Anything else about ${firstName(friend)}: sizes, allergies, inside jokes…`}
+        placeholderTextColor={c.textTertiary}
+        style={[{ minHeight: 110, padding: space.lg, fontSize: 16, lineHeight: 22, color: c.text, fontFamily: 'Geist_400Regular', textAlignVertical: 'top' }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null]}
+      />
+    </ListSection>
   );
 }
 
@@ -160,57 +90,47 @@ function LiveSections({ friend }: { friend: Friend }) {
 }
 
 export default function FriendProfile() {
+  const { c } = useDesign();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { friend, status } = useFriend(id);
+  const header = <Stack.Screen options={{ headerTitle: '', headerStyle: { backgroundColor: c.background }, headerTintColor: c.accentText }} />;
   if (!friend)
     return (
-      <PaperScroll contentContainerStyle={{ padding: 24 }}>
-        {status === 'loading' ? <ActivityIndicator color={Theme.accent} /> : <Text style={[Type.body, { color: Theme.secondary }]}>No one by that name in your chats.</Text>}
-      </PaperScroll>
+      <DesignFonts>
+        {header}
+        <Screen contentStyle={{ paddingTop: space.sm, alignItems: 'center' }}>
+          {status === 'loading' ? (
+            <ActivityIndicator color={c.accent} />
+          ) : (
+            <>
+              <Image source={DETECTIVE} resizeMode="contain" style={{ width: 160, height: 140 }} aria-hidden />
+              <Txt variant="callout" tone="secondary">
+                No one by that name in your chats.
+              </Txt>
+            </>
+          )}
+        </Screen>
+      </DesignFonts>
     );
-  const live = !!friend.person;
-  const milestones = upcomingMilestones().filter((m) => m.friend.id === friend.id);
+  const first = firstName(friend);
   return (
-    <PaperScroll contentContainerStyle={{ padding: 24, paddingBottom: 60, gap: 18 }} keyboardDismissMode="interactive">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <Face initials={friend.initials} />
-        <View style={{ gap: 4, flex: 1 }}>
-          <Text style={[Type.title, { fontFamily: Rounded.bold, color: Theme.ink }]}>{friend.name}</Text>
-          <Text style={[Type.body, { color: Theme.secondary }]}>{friend.handle}</Text>
+    <DesignFonts>
+      {header}
+      <Screen contentStyle={{ paddingTop: space.sm }}>
+        <View style={{ alignItems: 'center', gap: space.md }}>
+          <View>
+            <EmojiAvatar name={friend.name} size={112} />
+            <EmojiAvatar image={HEART} color="white" size={48} style={{ position: 'absolute', right: -8, bottom: -4 }} />
+          </View>
+          <LargeTitle center title={friend.name} subtitle={friend.handle} />
         </View>
-      </View>
-      {milestones.map((milestone) => (
-        <Pressable key={milestone.id} onPress={() => openSource(friend, milestone.sourceID)} style={({ pressed }) => pressed && styles.pressed}>
-          <SectionCard tone={Theme.celebrateTone} fillOpacity={0.55}>
-            <MilestoneRow milestone={milestone} />
-          </SectionCard>
-        </Pressable>
-      ))}
-      <AskBox friend={friend} ask={(q) => router.push({ pathname: '/chat', params: { friend: friend.id, q } })} />
-      {live ? <LiveSections friend={friend} /> : <WrappedEntry friend={friend} />}
-      {sectionOrder.map((section) => (
-        <SectionBlock key={section} friend={friend} section={section} hideEmpty={live} />
-      ))}
-      <Notepad friend={friend} />
-    </PaperScroll>
+        <BigButton title={`Ask about ${first}`} emoji="💬" onPress={() => router.push({ pathname: '/chat', params: { friend: friend.id } })} />
+        {friend.person ? <LiveSections friend={friend} /> : null}
+        {sectionOrder.map((section) => (
+          <SectionBlock key={section} friend={friend} section={section} hideEmpty={!!friend.person} />
+        ))}
+        <Notepad friend={friend} />
+      </Screen>
+    </DesignFonts>
   );
 }
-
-const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  add: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, minWidth: 44, justifyContent: 'center' },
-  noteBody: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  wrapped: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 18, backgroundColor: Theme.accent },
-  pencil: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  pressed: { backgroundColor: withAlpha(Theme.accentTone.fill, 0.6), opacity: 0.75, borderRadius: 12 },
-  notepad: {
-    minHeight: 96,
-    padding: 12,
-    color: Theme.ink,
-    backgroundColor: Theme.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: withAlpha(Theme.accent, 0.35),
-    textAlignVertical: 'top',
-  },
-});
