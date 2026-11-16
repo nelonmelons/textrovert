@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, useRef, useState, type ReactNode } from 'react';
 import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,6 +7,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, { FadeIn, FadeInRight } from 'react-native-reanimated';
 
+import { API_URL } from '../api/client';
+import { ensureAccount, saveOnboarding, uploadExport } from '../api/upload';
 import { useFirstRun } from '../firstRun';
 import { Backdrop, BigButton, Chevron, Field, FieldError, FormCard, Glass, Icon, IconButton, PillButton, PressScale, Sticker, Txt, Wordmark } from '@/design';
 
@@ -62,6 +64,9 @@ export default function Onboarding() {
   const [email, setEmail] = useState('');
   const [index, setIndex] = useState(0);
   const [finishing, setFinishing] = useState(false);
+  const [uploadError, setUploadError] = useState<string>();
+  // Kept across retries so a failed save of the answers doesn't upload the file twice.
+  const uploadedId = useRef<string | undefined>(undefined);
 
   const steps: StepId[] = ['type', 'app', ...(app === 'imessage' ? (['method'] as const) : []), 'upload', 'self', 'extra', 'email'];
   const step = steps[Math.min(index, steps.length - 1)];
@@ -87,17 +92,46 @@ export default function Onboarding() {
     }
   };
 
-  const finish = async (skipped = false) => {
+  const finish = async (skipped = false, upload = true) => {
     if (finishing) return;
     setFinishing(true);
+    setUploadError(undefined);
     const answers = { chatType, app, method, file: file ? { name: file.name, size: file.size } : null, selfName, extra, email, skipped, at: Date.now() };
     try {
       await AsyncStorage.setItem(ANSWERS_KEY, JSON.stringify(answers));
     } catch {
       // Keeping the answers is a nice-to-have; never block the app on it.
     }
+    let uploadId = uploadedId.current;
+    if (API_URL) {
+      try {
+        await ensureAccount();
+        if (!uploadId && !skipped && upload && file) {
+          uploadId = await uploadExport(file, selfName);
+          uploadedId.current = uploadId;
+        }
+        await saveOnboarding({
+          chatType,
+          app,
+          method,
+          selfName,
+          notes: extra,
+          email,
+          uploadId,
+          fileName: file?.name,
+          skippedUpload: !uploadId,
+        });
+      } catch (e) {
+        if (!skipped) {
+          setUploadError(e instanceof Error ? e.message : "Couldn't save your answers. Try again?");
+          setFinishing(false);
+          return;
+        }
+      }
+    }
     await firstRun.finish({ messagesExport: file ? { name: file.name, size: file.size } : undefined, contactsOptIn: false });
-    router.replace('/');
+    if (uploadId) router.replace({ pathname: '/indexing', params: { uploadId } });
+    else router.replace('/');
   };
 
   return (
@@ -263,8 +297,10 @@ export default function Onboarding() {
                     autoCorrect={false}
                     onSubmitEditing={() => finish()}
                   />
-                  <BigButton title={finishing ? 'Creating…' : 'Create my report'} onPress={() => finish()} disabled={finishing} />
+                  {uploadError ? <FieldError>{uploadError}</FieldError> : null}
+                  <BigButton title={finishing ? (file && API_URL ? 'Uploading…' : 'Creating…') : 'Create my report'} onPress={() => finish()} disabled={finishing} />
                 </FormCard>
+                {uploadError ? <TextLink onPress={() => finish(false, false)}>Continue without uploading</TextLink> : null}
               </>
             )}
           </Animated.View>

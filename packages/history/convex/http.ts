@@ -58,7 +58,7 @@ async function gate(ctx: ActionCtx, request: Request, owner: "fallback" | "requi
 }
 
 const preflight = httpAction(async () => new Response(null, { status: 204, headers: CORS }));
-for (const path of ["/ask", "/people", "/health", "/account", "/upload", "/upload/url", "/upload/commit", "/status", "/wrapped", "/friend", "/story", "/portrait", "/stats", "/reel"]) {
+for (const path of ["/ask", "/people", "/health", "/account", "/upload", "/upload/url", "/upload/commit", "/status", "/onboarding", "/wrapped", "/friend", "/story", "/portrait", "/stats", "/reel"]) {
   http.route({ path, method: "OPTIONS", handler: preflight });
 }
 
@@ -311,5 +311,56 @@ const friendHandler = httpAction(async (ctx, request) => {
 });
 for (const path of ["/friend", "/story", "/portrait", "/stats", "/reel"]) http.route({ path, method: "GET", handler: friendHandler });
 http.route({ path: "/reel", method: "POST", handler: friendHandler });
+
+/**
+ * POST /onboarding { chatType?, app?, method?, selfName?, notes?, email?, uploadId?, fileName?, skippedUpload? } →
+ * { ok: true }. Saves the onboarding answers on the x-owner-key account; GET /onboarding reads them back.
+ */
+const clean = (value: unknown, max: number) => (typeof value === "string" && value.trim() ? value.trim().slice(0, max) : null);
+http.route({
+  path: "/onboarding",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const owner = await gate(ctx, request, "required");
+    if (owner instanceof Response) return owner;
+    const raw = await request.text();
+    if (raw.length > 20_000) return json(413, { error: "Request too large" });
+    let b: Record<string, unknown>;
+    try {
+      b = JSON.parse(raw || "{}");
+    } catch {
+      return json(400, { error: "Body must be a JSON object" });
+    }
+    if (!b || typeof b !== "object" || Array.isArray(b)) return json(400, { error: "Body must be a JSON object" });
+    const email = clean(b.email, 200);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json(400, { error: "That email address doesn't look right." });
+    const saved = await ctx.runMutation(internal.owners.saveOnboarding, {
+      ownerKey: owner.ownerKey,
+      onboarding: {
+        chatType: clean(b.chatType, 40),
+        app: clean(b.app, 40),
+        method: clean(b.method, 40),
+        selfName: clean(b.selfName, 100),
+        notes: clean(b.notes, 4000),
+        email,
+        uploadId: clean(b.uploadId, 100),
+        fileName: clean(b.fileName, 200),
+        skippedUpload: b.skippedUpload === true,
+        savedAt: Date.now(),
+      },
+    });
+    return saved ? json(200, { ok: true }) : json(401, { error: "Unknown owner key" });
+  }),
+});
+
+http.route({
+  path: "/onboarding",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const owner = await gate(ctx, request, "required");
+    if (owner instanceof Response) return owner;
+    return json(200, { onboarding: await ctx.runQuery(internal.owners.getOnboarding, { ownerKey: owner.ownerKey }) });
+  }),
+});
 
 export default http;
