@@ -13,6 +13,7 @@ import {
 } from '@textrovert/wrapped';
 
 import { useSheet } from '@/components/Sheet';
+import { Backdrop } from '@/design/Backdrop';
 import { haptics } from '@/lib/haptics';
 
 import { useWrapped } from './data';
@@ -22,7 +23,7 @@ import {
   type MessageAction, type SlideState,
 } from './scenes';
 import { EditionList, SharePreview, SourcesSheet } from './sheets';
-import { fonts, text, worldFor } from './theme';
+import { fonts, sceneFor, text, worldFor } from './theme';
 
 type Slide =
   | { kind: 'opener'; edition: WrappedEdition }
@@ -261,6 +262,7 @@ function Pager({ conversationId, story, slides, phaseKey, onClose, render, sourc
   return (
     <View style={{ flex: 1, backgroundColor: world.deep, overflow: 'hidden' }} {...pan.panHandlers}>
       <Animated.View key={`${phaseKey}-${current}`} entering={entering} exiting={exiting} style={StyleSheet.absoluteFill}>
+        <Backdrop scene={sceneFor(world, current)} fade={false} />
         <SlideContext.Provider value={{ active: true, heading }}>
           {slide ? (render ? render(slide) : slide.kind === 'message' ? <MessageScene title={slide.title} message={slide.message} story={fallbackStory} friend={null} actions={slide.actions} /> : null) : null}
         </SlideContext.Provider>
@@ -271,18 +273,18 @@ function Pager({ conversationId, story, slides, phaseKey, onClose, render, sourc
           {slides.map((_, i) => <Segment key={i} filled={i <= current} reduced={reduced} />)}
         </View>
         <Pressable testID="wrappedClose" accessibilityRole="button" accessibilityLabel="Close Wrapped" onPress={onClose} style={styles.close}>
-          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor="#FFFFFF" size={18} weight="heavy" />
+          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor="#FFFFFF" size={18} weight="bold" />
         </Pressable>
       </View>
 
       <View pointerEvents="box-none" style={[styles.bottom, { paddingBottom: insets.bottom + 10 }]}>
-        <LinearGradient pointerEvents="none" colors={['transparent', 'rgba(0,0,0,0.55)']} style={[styles.shade, { height: 150 + insets.bottom }]} />
+        <LinearGradient pointerEvents="none" colors={['rgba(8, 23, 33, 0)', 'rgba(8, 23, 33, 0.6)']} style={[styles.shade, { height: 150 + insets.bottom }]} />
         <NavButton label="Back" testID="wrappedBack" symbol={{ ios: 'chevron.left', android: 'chevron_left', web: 'chevron_left' }} enabled={current > 0} onPress={() => go(-1)} />
         <View style={{ flex: 1, alignItems: 'center' }}>
           {openSources ? (
             <Pressable testID="wrappedSources" accessibilityRole="button" accessibilityLabel="Sources" onPress={() => { haptics.select(); openSources(); }} style={styles.sources}>
               <SymbolView name={{ ios: 'text.quote', android: 'format_quote', web: 'format_quote' }} tintColor="#FFFFFF" size={16} />
-              <Text style={{ ...text.subheadline, fontFamily: fonts.rounded, fontWeight: '800', color: '#FFFFFF' }}>Sources</Text>
+              <Text style={{ ...text.subheadline, fontFamily: fonts.rounded, fontWeight: '700', color: '#FFFFFF' }}>Sources</Text>
             </Pressable>
           ) : null}
         </View>
@@ -296,7 +298,7 @@ function Segment({ filled, reduced }: { filled: boolean; reduced: boolean }) {
   const style = useAnimatedStyle(() => ({ width: withTiming(filled ? '100%' : '0%', { duration: reduced ? 0 : 300 }) }));
   return (
     <View style={styles.segment}>
-      <Animated.View style={[{ height: 4, borderRadius: 2, backgroundColor: '#FFFFFF' }, style]} />
+      <Animated.View style={[{ height: 4, borderRadius: 2, backgroundColor: '#FFFFFF', boxShadow: '0px 0px 6px rgba(255, 255, 255, 0.6)' }, style]} />
     </View>
   );
 }
@@ -304,19 +306,31 @@ function Segment({ filled, reduced }: { filled: boolean; reduced: boolean }) {
 function NavButton({ label, testID, symbol, enabled, onPress }: { label: string; testID: string; symbol: Parameters<typeof SymbolView>[0]['name']; enabled: boolean; onPress: () => void }) {
   return (
     <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: !enabled }} disabled={!enabled} onPress={onPress} style={[styles.nav, { opacity: enabled ? 1 : 0.35 }]}>
-      <SymbolView name={symbol} tintColor="#FFFFFF" size={22} weight="heavy" />
+      <SymbolView name={symbol} tintColor="#FFFFFF" size={22} weight="bold" />
     </Pressable>
   );
 }
 
+/** Ditto's white/10 glass with the top-left highlight hairline, for the story chrome. */
+const glass = {
+  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  boxShadow: 'inset 0px 0px 8px 0px rgba(255, 255, 255, 0.15), 0px 6px 20px rgba(4, 12, 18, 0.2)',
+  borderWidth: 1,
+  borderTopColor: 'rgba(255, 255, 255, 0.5)',
+  borderLeftColor: 'rgba(255, 255, 255, 0.32)',
+  borderRightColor: 'rgba(255, 255, 255, 0.1)',
+  borderBottomColor: 'rgba(255, 255, 255, 0.16)',
+  ...(Platform.OS === 'web' ? ({ backdropFilter: 'blur(10px)' } as object) : null),
+};
+
 const styles = StyleSheet.create({
   top: { position: 'absolute', left: 0, right: 0, top: 0, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16 },
   progress: { flex: 1, flexDirection: 'row', gap: 4 },
-  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.4)', overflow: 'hidden' },
-  close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
+  segment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: 'rgba(255, 255, 255, 0.28)', overflow: 'hidden' },
+  close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', ...glass },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16 },
   shade: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  nav: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)' },
-  sources: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.55)' },
+  nav: { width: 52, height: 52, borderRadius: 26, alignItems: 'center', justifyContent: 'center', ...glass },
+  sources: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 44, paddingHorizontal: 16, borderRadius: 22, ...glass },
 });
 

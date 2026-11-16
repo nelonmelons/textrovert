@@ -1,12 +1,12 @@
-import { Image, Linking, Pressable, View } from 'react-native';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import type { ReactNode } from 'react';
+import { Linking, Pressable, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { firstName, friendById } from '../people';
-import { BigButton, ChatBubble, ChatPanel, DesignFonts, EmojiAvatar, fillFor, geist, Screen, space, Txt, useDesign } from '@/design';
+import { BackButton, BigButton, ChatBubble, ChatPanel, DesignFonts, EmojiAvatar, Eyebrow, fillFor, Glass, Icon, radii, Screen, space, sym, TopBar, Txt } from '@/design';
 import { sourceById } from '../api/sources';
 import { chatLabel, senderLabel, type Source as LiveMessage } from '../api/client';
 import { formatSent } from '../lib/answer';
-
-const detective = require('../../assets/art/hedgehog-detective.png');
 
 const links: Record<string, { app: string; web: string }> = {
   iMessage: { app: 'sms:', web: 'sms:' },
@@ -14,31 +14,32 @@ const links: Record<string, { app: string; web: string }> = {
   WhatsApp: { app: 'whatsapp://', web: 'https://web.whatsapp.com' },
 };
 
-const doneButton = () => (
-  <Pressable onPress={() => router.back()} hitSlop={10}>
-    <Txt variant="body" tone="accent" style={{ fontWeight: '600' }}>
-      Done
-    </Txt>
-  </Pressable>
-);
-
-/** The modal's header on the design canvas, with Done on the right. */
-function SourceHeaderBar() {
-  const { c } = useDesign();
-  return <Stack.Screen options={{ headerTitle: '', headerStyle: { backgroundColor: c.background }, headerTintColor: c.accentText, headerTitleStyle: { fontFamily: geist['600'] }, headerRight: doneButton }} />;
+/** The modal's glass top bar: a close button where a pushed screen has back. */
+function CloseBar() {
+  return <TopBar leading={<BackButton icon={sym('xmark', 'close')} />} />;
 }
 
-/** Who a message is from, big: avatar, name and what kind of chat it is. */
+/** A source page on the calm-horizon photograph, under the close bar. */
+function SourceScreen({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <DesignFonts>
+      <Screen scene="sky" scrim={0.12} contentStyle={{ paddingTop: insets.top + 76 }} overlay={<CloseBar />}>
+        {children}
+      </Screen>
+    </DesignFonts>
+  );
+}
+
+/** Who a message is from, big: avatar, a Spencer name and what kind of chat it is. */
 function Who({ name, detail, group }: { name: string; detail: string; group?: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, flex: 1 }}>
-      {group ? <EmojiAvatar emoji="👥" color={fillFor(group)} size={56} /> : <EmojiAvatar name={name} size={56} />}
-      <View style={{ gap: 2, flex: 1 }}>
-        <Txt variant="title2" accessibilityRole="header">
+      {group ? <EmojiAvatar emoji="👥" color={fillFor(group)} size={60} /> : <EmojiAvatar name={name} size={60} />}
+      <View style={{ gap: 4, flex: 1 }}>
+        <Eyebrow text={detail} />
+        <Txt variant="title1" accessibilityRole="header" numberOfLines={2}>
           {name}
-        </Txt>
-        <Txt variant="subhead" tone="secondary">
-          {detail}
         </Txt>
       </View>
     </View>
@@ -47,9 +48,11 @@ function Who({ name, detail, group }: { name: string; detail: string; group?: st
 
 function Provenance() {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-      <Image source={detective} style={{ width: 64, height: 64 }} resizeMode="contain" accessibilityIgnoresInvertColors />
-      <Txt variant="footnote" tone="secondary" style={{ flex: 1 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: space.xs }}>
+      <Glass tone="light" radius={20} style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={sym('lock.fill', 'lock')} size={16} />
+      </Glass>
+      <Txt variant="footnote" tone="secondary" shadow style={{ flex: 1 }}>
         Word for word from your imported chats. It stays on your devices.
       </Txt>
     </View>
@@ -74,58 +77,50 @@ export default function Source() {
   };
 
   return (
-    <DesignFonts>
-      <SourceHeaderBar />
-      <Screen contentStyle={{ paddingTop: space.sm }}>
-        {profile ? (
-          <Pressable
-            onPress={() => {
-              router.back();
-              router.push({ pathname: '/friend/[id]', params: { id: friend.id } });
-            }}
-            accessibilityHint={`Opens ${firstName(friend)}’s profile`}
-            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: space.sm }, pressed && { opacity: 0.75 }]}>
-            <Who name={friend.name} detail={message.service} />
-            <Txt variant="title3" tone="tertiary">
-              ›
-            </Txt>
-          </Pressable>
-        ) : (
+    <SourceScreen>
+      {profile ? (
+        <Pressable
+          onPress={() => {
+            router.back();
+            router.push({ pathname: '/friend/[id]', params: { id: friend.id } });
+          }}
+          accessibilityHint={`Opens ${firstName(friend)}’s profile`}
+          style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: space.sm }, pressed && { opacity: 0.75 }]}>
           <Who name={friend.name} detail={message.service} />
-        )}
-        <ChatPanel>
-          <ChatBubble name={friend.name} text={message.text} time={message.date} highlighted />
-        </ChatPanel>
-        <BigButton title={message.service === 'iMessage' ? 'Open in Messages' : `Open in ${message.service}`} emoji="💬" trailing="↗" onPress={open} />
-        <Provenance />
-      </Screen>
-    </DesignFonts>
+          <Txt variant="title3" tone="tertiary">
+            ›
+          </Txt>
+        </Pressable>
+      ) : (
+        <Who name={friend.name} detail={message.service} />
+      )}
+      <ChatPanel>
+        <ChatBubble name={friend.name} text={message.text} time={message.date} highlighted />
+      </ChatPanel>
+      <BigButton title={message.service === 'iMessage' ? 'Open in Messages' : `Open in ${message.service}`} trailing="↗" onPress={open} />
+      <Provenance />
+    </SourceScreen>
   );
 }
 
 /** A message from the API (a fact, plan, moment or answer receipt), quoted as a bubble in its chat. */
 function LiveSource({ message, quote }: { message: LiveMessage; quote?: string }) {
-  const { c } = useDesign();
   const name = message.isDm && !message.fromMe ? message.sender : message.isDm ? chatLabel(message) : message.chat;
   const q = quote?.trim();
   return (
-    <DesignFonts>
-      <SourceHeaderBar />
-      <Screen contentStyle={{ paddingTop: space.sm }}>
-        <Who name={name} detail={message.isDm ? 'Your DM' : 'Group chat'} group={message.isDm ? undefined : message.chatId} />
-        {q && q !== message.text.trim() ? (
-          <View style={{ gap: space.xs, padding: space.lg, borderRadius: 20, borderCurve: 'continuous', backgroundColor: c.accentSoft }}>
-            <Txt variant="footnote" tone="accent" style={{ fontWeight: '600' }}>
-              🔎 The part that mattered
-            </Txt>
-            <Txt variant="callout">“{q}”</Txt>
-          </View>
-        ) : null}
-        <ChatPanel>
-          <ChatBubble mine={message.fromMe} name={senderLabel(message)} text={message.text} time={formatSent(message.sentAt)} highlighted />
-        </ChatPanel>
-        <Provenance />
-      </Screen>
-    </DesignFonts>
+    <SourceScreen>
+      <Who name={name} detail={message.isDm ? 'Your DM' : 'Group chat'} group={message.isDm ? undefined : message.chatId} />
+      {q && q !== message.text.trim() ? (
+        <Glass tone="dark" radius={radii.xl} style={{ gap: space.sm, padding: space.lg }}>
+          <View style={{ position: 'absolute', left: 0, top: space.lg, bottom: space.lg, width: 3, borderRadius: 2, backgroundColor: '#FF2CAB' }} />
+          <Eyebrow text="The part that mattered" color="#FF7BCB" />
+          <Txt variant="title2">“{q}”</Txt>
+        </Glass>
+      ) : null}
+      <ChatPanel>
+        <ChatBubble mine={message.fromMe} name={senderLabel(message)} text={message.text} time={formatSent(message.sentAt)} highlighted />
+      </ChatPanel>
+      <Provenance />
+    </SourceScreen>
   );
 }

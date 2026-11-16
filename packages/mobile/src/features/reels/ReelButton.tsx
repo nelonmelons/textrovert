@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { fetchReel, reelUrl, startReel, type Reel } from '../../api/friend';
-import { Symbol } from '../../components/Paper';
+import { Icon, PillButton } from '@/design';
 import { haptics } from '../../lib/haptics';
-import { Theme, Type, withAlpha } from '../../theme';
+import { Theme, Type } from '../../theme';
 
 const POLL_MS = 3000;
 
@@ -50,24 +50,21 @@ export function ReelButton({ episodeId }: { episodeId: number }) {
   if (reel?.status === 'unavailable')
     return (
       <View style={styles.note}>
-        <Symbol name="film" size={14} color={Theme.plansTone.ink} weight="semibold" />
-        <Text style={[Type.footnote, { flex: 1, color: Theme.plansTone.ink }]}>{reel.message}</Text>
+        <Icon name="film" size={14} color="rgba(255, 255, 255, 0.8)" />
+        <Text style={[Type.footnote, { flex: 1, color: Theme.secondary }]}>{reel.message}</Text>
       </View>
     );
   if (reel?.status === 'rendering')
     return (
       <View style={styles.note}>
-        <ActivityIndicator size="small" color={Theme.accent} />
+        <ActivityIndicator size="small" color="#FFFFFF" />
         <Text style={[Type.footnote, { flex: 1, color: Theme.secondary }]}>Making your reel. It takes about a minute.</Text>
       </View>
     );
   return (
     <View style={{ gap: 6 }}>
-      <Pressable accessibilityRole="button" onPress={make} style={({ pressed }) => [styles.button, pressed && { opacity: 0.7 }]}>
-        <Symbol name="film" size={13} color={Theme.accent} weight="semibold" />
-        <Text style={[Type.subheadline, { color: Theme.accent, fontWeight: '600' }]}>{reel?.status === 'failed' ? 'Try the reel again' : 'Make a reel'}</Text>
-      </Pressable>
-      {reel?.status === 'failed' || error ? <Text style={[Type.caption, { color: Theme.deadline }]}>{error ?? (reel?.status === 'failed' ? reel.error : '')}</Text> : null}
+      <PillButton small title={reel?.status === 'failed' ? 'Try the reel again' : 'Make a reel'} icon={<Icon name="film" size={12} />} onPress={make} />
+      {reel?.status === 'failed' || error ? <Text style={[Type.caption, { color: '#FF7BCB' }]}>{error ?? (reel?.status === 'failed' ? reel.error : '')}</Text> : null}
     </View>
   );
 }
@@ -81,7 +78,6 @@ function ReelPlayer({ url }: { url: string }) {
 }
 
 const styles = StyleSheet.create({
-  button: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, paddingHorizontal: 12, minHeight: 34, borderRadius: 17, backgroundColor: withAlpha(Theme.accentTone.fill, 0.9) },
-  note: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 12, backgroundColor: withAlpha(Theme.plansTone.fill, 0.6) },
-  video: { width: '100%', aspectRatio: 9 / 16, maxHeight: 420, borderRadius: 14, backgroundColor: '#000', overflow: 'hidden' },
+  note: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 16, backgroundColor: 'rgba(255, 255, 255, 0.08)', borderWidth: 0.5, borderColor: 'rgba(255, 255, 255, 0.14)' },
+  video: { width: '100%', aspectRatio: 9 / 16, maxHeight: 420, borderRadius: 20, backgroundColor: '#081721', overflow: 'hidden' },
 });

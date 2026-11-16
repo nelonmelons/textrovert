@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Chip, EmojiAvatar, ListRow, ListSection, PillButton, space, StatCard, Txt, useDesign, type FillName } from '@/design';
+import { Chip, Glass, ListRow, ListSection, PillButton, space, StatCard, Txt } from '@/design';
 import { fetchStats, type Stats, type StatsPerson } from '../../api/friend';
 import { haptics } from '../../lib/haptics';
-import { argmax, BarChart, compact, count, duration, hourLabel, percent, shortHour, WEEKDAYS, WEEKDAYS_LONG } from './parts';
+import { argmax, BarChart, compact, count, duration, GlassBadge, hourLabel, Initials, percent, shortHour, WEEKDAYS, WEEKDAYS_LONG } from './parts';
 
 type State = { status: 'loading' } | { status: 'ready'; stats: Stats } | { status: 'error'; message: string };
 
@@ -71,12 +71,12 @@ export function HeadlineStats({ stats, range }: { stats: Stats; range: number })
   return (
     <View style={{ gap: space.md }}>
       <Pair>
-        <StatCard value={compact(sent)} label="Messages sent" emoji="📤" color="mint" />
-        <StatCard value={compact(insights.totals.people)} label="People" emoji="👯" color="pink" />
+        <StatCard value={compact(sent)} label="Messages sent" emoji="📤" color="pink" />
+        <StatCard value={compact(insights.totals.people)} label="People" emoji="👯" color="white" />
       </Pair>
       <Pair>
-        <StatCard value={shortHour(argmax(hoursOf(insights.heatmap)))} label="Peak hour" emoji="🌙" color="lilac" />
-        <StatCard value={top ?? '–'} label="Top emoji" emoji="🏆" color="yellow" />
+        <StatCard value={shortHour(argmax(hoursOf(insights.heatmap)))} label="Peak hour" emoji="🌙" color="white" />
+        <StatCard value={top ?? '–'} label="Top emoji" emoji="🏆" color="white" />
       </Pair>
     </View>
   );
@@ -95,11 +95,11 @@ function PersonRow({ p }: { p: StatsPerson }) {
   const first = p.name.split(/\s+/)[0];
   const starts = whoFirst(p.initiatedByMe, p.initiatedByThem, first);
   const details = [count(p.messages) + ' messages', starts ?? percent(p.fromMe / Math.max(1, p.messages)) + ' from you', p.theirReplyMedianSec != null ? 'replies in ' + duration(p.theirReplyMedianSec) : null];
-  return <ListRow title={p.name} subtitle={details.filter(Boolean).join(' · ')} leading={<EmojiAvatar name={p.name} size={40} />} onPress={() => openPerson(p.name)} />;
+  return <ListRow title={p.name} subtitle={details.filter(Boolean).join(' · ')} leading={<Initials name={p.name} />} onPress={() => openPerson(p.name)} />;
 }
 
-function Habit({ emoji, color, title, value }: { emoji: string; color: FillName; title: string; value: string }) {
-  return <ListRow title={title} value={value} leading={<EmojiAvatar emoji={emoji} color={color} size={36} />} />;
+function Habit({ emoji, title, value }: { emoji: string; title: string; value: string }) {
+  return <ListRow title={title} value={value} leading={<GlassBadge emoji={emoji} />} />;
 }
 
 /** Everything under the headline: when you text, your closest people, your habits and your style. */
@@ -118,12 +118,12 @@ export function StatsBreakdown({ stats }: { stats: Stats }) {
       </ListSection>
 
       <ListSection header="Breakdown">
-        <Habit emoji="⚡️" color="yellow" title="Your usual reply time" value={duration(insights.reply.myMedianSec)} />
-        <Habit emoji="🐢" color="lilac" title="Friends’ usual reply time" value={duration(insights.reply.theirMedianSec)} />
-        <Habit emoji="👋" color="mint" title="DMs you start" value={percent(h.initiationRate)} />
-        <Habit emoji="🦉" color="blue" title="Texts late at night" value={percent(h.nightOwlRate)} />
-        {h.doubleTextRate != null ? <Habit emoji="✌️" color="pink" title="Double texts" value={percent(h.doubleTextRate)} /> : null}
-        {h.avgWordsPerMessage != null ? <Habit emoji="📝" color="peach" title="Words per text" value={String(Math.round(h.avgWordsPerMessage * 10) / 10)} /> : null}
+        <Habit emoji="⚡️" title="Your usual reply time" value={duration(insights.reply.myMedianSec)} />
+        <Habit emoji="🐢" title="Friends’ usual reply time" value={duration(insights.reply.theirMedianSec)} />
+        <Habit emoji="👋" title="DMs you start" value={percent(h.initiationRate)} />
+        <Habit emoji="🦉" title="Texts late at night" value={percent(h.nightOwlRate)} />
+        {h.doubleTextRate != null ? <Habit emoji="✌️" title="Double texts" value={percent(h.doubleTextRate)} /> : null}
+        {h.avgWordsPerMessage != null ? <Habit emoji="📝" title="Words per text" value={String(Math.round(h.avgWordsPerMessage * 10) / 10)} /> : null}
       </ListSection>
 
       <ChartSection header="When you text">
@@ -131,20 +131,20 @@ export function StatsBreakdown({ stats }: { stats: Stats }) {
           Most around <Txt variant="callout" style={{ fontWeight: '700' }}>{hourLabel(argmax(hours))}</Txt>, and most on{' '}
           <Txt variant="callout" style={{ fontWeight: '700' }}>{WEEKDAYS_LONG[argmax(days)]}</Txt>.
         </Txt>
-        <BarChart values={hours} labels={hours.map((_, i) => (i % 12 || 12) + (i < 12 ? 'a' : 'p'))} labelEvery={6} color="blue" />
-        <BarChart values={days} labels={WEEKDAYS} color="lilac" height={56} />
+        <BarChart values={hours} labels={hours.map((_, i) => (i % 12 || 12) + (i < 12 ? 'a' : 'p'))} labelEvery={6} />
+        <BarChart values={days} labels={WEEKDAYS} height={56} />
       </ChartSection>
 
       {months.length > 1 ? (
         <ChartSection header="Month by month">
-          <BarChart values={months.map((m) => m.sent + m.received)} labels={months.map((m) => new Date(m.month + '-15').toLocaleDateString('en-US', { month: 'short' }))} color="mint" />
+          <BarChart values={months.map((m) => m.sent + m.received)} labels={months.map((m) => new Date(m.month + '-15').toLocaleDateString('en-US', { month: 'short' }))} />
         </ChartSection>
       ) : null}
 
       {insights.archetypes.length || insights.topEmojis.length ? (
         <ListSection header="Your style">
           {insights.archetypes.map((a, i) => (
-            <ListRow key={a.id} title={a.label} subtitle={a.reason} leading={<EmojiAvatar emoji={['✨', '🎭', '🔥', '🌈'][i % 4]} color={(['coral', 'lilac', 'peach', 'lime'] as const)[i % 4]} size={36} />} />
+            <ListRow key={a.id} title={a.label} subtitle={a.reason} leading={<GlassBadge emoji={['✨', '🎭', '🔥', '🌈'][i % 4]} />} />
           ))}
           {insights.topEmojis.length ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, padding: space.lg }}>
@@ -160,7 +160,6 @@ export function StatsBreakdown({ stats }: { stats: Stats }) {
 }
 
 export function StatsLoading({ state, retry }: { state: State; retry: () => void }) {
-  const { c } = useDesign();
   if (state.status === 'error')
     return (
       <ListSection>
@@ -171,11 +170,11 @@ export function StatsLoading({ state, retry }: { state: State; retry: () => void
       </ListSection>
     );
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: 20, borderCurve: 'continuous', backgroundColor: c.grouped }}>
-      <ActivityIndicator color={c.accent} />
+    <Glass tone="dark" radius={24} style={{ flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg }}>
+      <ActivityIndicator color="#FFFFFF" />
       <Txt variant="callout" tone="secondary">
         Counting every message…
       </Txt>
-    </View>
+    </Glass>
   );
 }

@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "textrovert",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.textrovert.app",
@@ -56,7 +56,8 @@
       "bundler": "metro",
       "output": "single",
       "name": "Textrovert",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "backgroundColor": "#081721"
     },
     "plugins": [
       "expo-router",
@@ -74,6 +75,7 @@
         }
       ],
       "expo-video"
-    ]
+    ],
+    "backgroundColor": "#081721"
   }
 }

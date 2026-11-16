@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { Glass } from './Backdrop';
 import { PressScale, Tactile } from './Tactile';
 import { useDesign } from './theme';
 import { Txt } from './Txt';
-import { fills, iconRadius, space, tileGradient, type FillName } from './tokens';
+import { fills, iconRadius, radii, space, tileGradient, type FillName } from './tokens';
 
 /** An iOS app-icon square: a gradient cut from a fill, one big emoji, and a darker lip underneath. */
 export function AppIconTile({ emoji, color = 'blue', size = 64, onPress, accessibilityLabel }: { emoji: string; color?: FillName; size?: number; onPress?: () => void; accessibilityLabel?: string }) {
@@ -13,7 +14,8 @@ export function AppIconTile({ emoji, color = 'blue', size = 64, onPress, accessi
       face={tileGradient(color)}
       edge={fills[color].edge}
       radius={iconRadius(size)}
-      lip={Math.max(3, Math.round(size * 0.06))}
+      lip={0}
+      ring={0}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
       style={{ width: size }}
@@ -23,10 +25,13 @@ export function AppIconTile({ emoji, color = 'blue', size = 64, onPress, accessi
   );
 }
 
-/** The dark rounded card that holds tile grids and feature callouts. */
+/** The navy glass card that holds tile grids and feature callouts. */
 export function DarkCard({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
-  const { c, shadow } = useDesign();
-  return <View style={[{ backgroundColor: c.darkCard, borderRadius: 32, borderCurve: 'continuous', padding: 10, gap: 10, boxShadow: shadow.float }, style]}>{children}</View>;
+  return (
+    <Glass tone="dark" radius={radii.sheet} style={[{ padding: 10, gap: 10 }, style]}>
+      {children}
+    </Glass>
+  );
 }
 
 export interface TileItem {

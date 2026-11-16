@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { ActionSheetIOS, Alert, FlatList, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { router, Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { Contact, ContactField, requestPermissionsAsync } from 'expo-contacts';
 import { SymbolViewProps } from 'expo-symbols';
 import { useDataMode } from '../api/mode';
 import { useFriends } from '../api/people';
 import { useNotes } from '../store';
 import { useFirstRun } from '../firstRun';
-import { Rounded, Theme, Type } from '../theme';
-import { Divider, Face, SectionCard, Symbol, ToneTab } from '../components/Paper';
-import { PaperScroll } from '../components/PaperScroll';
+import { Theme, Type } from '../theme';
+import { Divider, SectionCard, Symbol, ToneTab } from '../components/Paper';
+import { BigButton, Screen, Txt } from '@/design';
 
 const accounts: { id: string; name: string; symbol: SymbolViewProps['name']; purpose: string }[] = [
   { id: 'imessage', name: 'iMessage', symbol: 'message.fill', purpose: 'So I can spot plans, replies and birthdays in your texts.' },
@@ -69,17 +69,16 @@ export default function Settings() {
 
   return (
     <>
-      <Stack.Screen options={{ headerTitle: 'Settings', headerTitleStyle: { color: Theme.ink, fontWeight: '600' } }} />
-      <PaperScroll contentContainerStyle={{ padding: 24, gap: 22, paddingBottom: 60 }}>
-        <SectionCard tone={Theme.accentTone}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-            <Face initials="ED" />
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[Type.title2, { fontFamily: Rounded.bold, color: Theme.ink }]}>Emma Di</Text>
-              <Text style={[Type.subheadline, { color: Theme.secondary }]}>{friends.length ? `${friends.length} friends` : 'No people yet'}</Text>
-            </View>
+      <Screen back title="Settings" scene="sky" contentStyle={{ gap: 16 }}>
+        <View style={{ alignItems: 'center', gap: 10, paddingBottom: 8 }}>
+          <View style={styles.avatar}>
+            <Txt variant="title1">ED</Txt>
           </View>
-        </SectionCard>
+          <Txt variant="largeTitle">Emma Di</Txt>
+          <Txt variant="subhead" tone="secondary" shadow>
+            {friends.length ? `${friends.length} people` : 'No people yet'}
+          </Txt>
+        </View>
 
         <SectionCard tone={Theme.celebrateTone}>
           <View style={{ gap: 14 }}>
@@ -90,7 +89,7 @@ export default function Settings() {
                   {index > 0 ? <Divider /> : null}
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 14 }}>
                     <View style={styles.icon}>
-                      <Symbol name={account.symbol} size={17} color={Theme.accent} weight="semibold" />
+                      <Symbol name={account.symbol} size={17} color="#FFFFFF" weight="semibold" />
                     </View>
                     <View style={{ flex: 1, gap: 4 }}>
                       <Text style={[Type.headline, { color: Theme.ink }]}>{account.name}</Text>
@@ -100,8 +99,8 @@ export default function Settings() {
                         <Text style={[Type.subheadline, { fontWeight: '600', color: Theme.secondary }]}>Not connected</Text>
                       </View>
                     </View>
-                    <View accessibilityLabel={`Connect ${account.name}, not available yet`} style={[styles.action, { backgroundColor: Theme.tertiaryFill }]}>
-                      <Text style={[Type.subheadline, { fontWeight: '600', color: Theme.secondary }]}>Connect</Text>
+                    <View accessibilityLabel={`Connect ${account.name}, not available yet`} style={styles.action}>
+                      <Text style={[Type.footnote, { fontWeight: '700', color: Theme.secondary }]}>Soon</Text>
                     </View>
                   </View>
                 </View>
@@ -126,8 +125,8 @@ export default function Settings() {
           <View style={{ gap: 12 }}>
             <ToneTab title="Your people" symbol="person.2.fill" tone={Theme.plansTone} />
             <Pressable onPress={importContacts} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }, pressed && { opacity: 0.6 }]}>
-              <Symbol name="person.crop.circle.badge.plus" size={18} color={Theme.accent} />
-              <Text style={[Type.body, { color: Theme.accent }]}>Import from Contacts</Text>
+              <Symbol name="person.crop.circle.badge.plus" size={18} color="#FFFFFF" />
+              <Text style={[Type.body, { color: Theme.ink, fontWeight: '700' }]}>Import from Contacts</Text>
             </Pressable>
             {contactsMessage ? <Text style={[Type.subheadline, { color: Theme.secondary }]}>{contactsMessage}</Text> : null}
             <Text style={[Type.footnote, { color: Theme.secondary }]}>Contacts are only read after you tap import.</Text>
@@ -139,35 +138,32 @@ export default function Settings() {
               </Text>
             </View>
             <Pressable onPress={() => router.push('/setup')} style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }, pressed && { opacity: 0.6 }]}>
-              <Symbol name="slider.horizontal.3" size={16} color={Theme.accent} />
-              <Text style={[Type.body, { color: Theme.accent }]}>Change sources</Text>
+              <Symbol name="slider.horizontal.3" size={16} color="#FFFFFF" />
+              <Text style={[Type.body, { color: Theme.ink, fontWeight: '700' }]}>Change sources</Text>
             </Pressable>
           </View>
         </SectionCard>
 
-        <Pressable onPress={confirmLogout} style={({ pressed }) => [styles.logout, pressed && { opacity: 0.75 }]}>
-          <Symbol name="rectangle.portrait.and.arrow.right" size={16} color={Theme.accent} weight="semibold" />
-          <Text style={[Type.body, { fontWeight: '600', color: Theme.accent }]}>Log out</Text>
-        </Pressable>
-      </PaperScroll>
+        <BigButton title="Log out" kind="secondary" icon="rectangle.portrait.and.arrow.right" onPress={confirmLogout} />
+      </Screen>
 
       <Modal visible={showingContacts} presentationStyle="pageSheet" animationType="slide" onRequestClose={() => setShowingContacts(false)}>
-        <View style={{ flex: 1, backgroundColor: Theme.secondaryBackground }}>
+        <View style={{ flex: 1, backgroundColor: '#081721' }}>
           <View style={styles.sheetHeader}>
             <Text style={[Type.headline, { color: Theme.ink }]}>Your contacts</Text>
             <Pressable onPress={() => setShowingContacts(false)} hitSlop={10} style={{ position: 'absolute', right: 16 }}>
-              <Text style={[Type.body, { fontWeight: '600', color: Theme.accent }]}>Done</Text>
+              <Text style={[Type.body, { fontWeight: '700', color: Theme.accentTone.ink }]}>Done</Text>
             </Pressable>
           </View>
           {contacts && contacts.length > 0 ? (
             <FlatList
               data={contacts}
               keyExtractor={(name, index) => name + index}
-              contentContainerStyle={{ margin: 16, borderRadius: 12, overflow: 'hidden', backgroundColor: Theme.background }}
+              contentContainerStyle={{ margin: 16, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
               ItemSeparatorComponent={() => <View style={{ height: StyleSheet.hairlineWidth, marginLeft: 52, backgroundColor: Theme.separator }} />}
               renderItem={({ item }) => (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, minHeight: 44 }}>
-                  <Symbol name="person.crop.circle" size={20} color={Theme.accent} />
+                  <Symbol name="person.crop.circle" size={20} color={Theme.secondary} />
                   <Text style={[Type.body, { color: Theme.ink }]}>{item}</Text>
                 </View>
               )}
@@ -185,8 +181,8 @@ export default function Settings() {
 }
 
 const styles = StyleSheet.create({
-  icon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: Theme.accentTone.fill },
-  action: { paddingHorizontal: 12, minHeight: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', alignSelf: 'center' },
-  logout: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, minHeight: 50, borderRadius: 25, borderWidth: 1.5, borderColor: Theme.accent, backgroundColor: Theme.background },
+  avatar: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.14)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.5)' },
+  icon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+  action: { paddingHorizontal: 12, minHeight: 30, borderRadius: 999, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', backgroundColor: 'rgba(255, 255, 255, 0.1)' },
   sheetHeader: { height: 56, alignItems: 'center', justifyContent: 'center' },
 });

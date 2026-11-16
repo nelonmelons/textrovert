@@ -11,7 +11,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { firstName, formatDate, type WrappedDateRange, type WrappedParticipant, type WrappedQuote } from '@textrovert/wrapped';
 
-import { displaySize, displayStyle, fonts, palette, rainbowRing, text, withAlpha, type DisplayType, type World } from './theme';
+import { displaySize, displayStyle, fonts, lift, rainbowRing, text, type DisplayType, type World } from './theme';
 
 /** Everything a slide needs to name people and dates. */
 export interface Story {
@@ -176,30 +176,31 @@ function mixHex(a: string, b: string, t: number) {
 }
 
 export function Eyebrow({ text: label, color }: { text: string; color: string }) {
-  return <Text style={{ ...text.caption, fontFamily: fonts.rounded, fontWeight: '800', letterSpacing: 2.6, color, textTransform: 'uppercase' }}>{label}</Text>;
+  return <Text style={{ ...text.caption, fontFamily: fonts.rounded, fontWeight: '700', letterSpacing: 2.2, color, textTransform: 'uppercase', ...lift }}>{label}</Text>;
 }
 
-/** A pill button with a tap glyph, at least 44 pt tall. */
-export function TapPill({ title, color, ink, testID, onPress }: { title: string; color: string; ink: string; testID: string; onPress: () => void }) {
+/** Ditto's primary key with a tap glyph: the white/95 pill with bold pink ink. color and ink are ignored. */
+export function TapPill({ title, testID, onPress }: { title: string; color?: string; ink?: string; testID: string; onPress: () => void }) {
   return (
-    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.pill, { backgroundColor: color, opacity: pressed ? 0.8 : 1 }]}>
-      <Text style={{ ...text.headline, fontFamily: fonts.rounded, fontWeight: '800', color: ink }}>{title}</Text>
-      <SymbolView name={{ ios: 'hand.tap.fill', android: 'touch_app', web: 'touch_app' }} tintColor={ink} size={18} />
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={title} onPress={onPress} style={({ pressed }) => [styles.pill, styles.key, { transform: [{ scale: pressed ? 0.97 : 1 }] }]}>
+      <Text style={{ ...text.headline, fontFamily: fonts.rounded, fontWeight: '700', color: DITTO_PINK }}>{title}</Text>
+      <SymbolView name={{ ios: 'hand.tap.fill', android: 'touch_app', web: 'touch_app' }} tintColor={DITTO_PINK} size={18} />
     </Pressable>
   );
 }
 
-/** A full-width capsule action, filled or outlined. */
-export function WideButton({ title, fill, ink, testID, onPress, icon }: { title: string; fill: string | null; ink: string; testID: string; onPress: () => void; icon?: Parameters<typeof SymbolView>[0]['name'] }) {
+/** A full-width capsule: with a fill, Ditto's white key with pink ink; without, the white/10 glass pill. */
+export function WideButton({ title, fill, testID, onPress, icon }: { title: string; fill: string | null; ink?: string; testID: string; onPress: () => void; icon?: Parameters<typeof SymbolView>[0]['name'] }) {
+  const ink = fill ? DITTO_PINK : '#FFFFFF';
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      style={({ pressed }) => [styles.wide, fill ? { backgroundColor: fill } : { borderWidth: 2, borderColor: withAlpha(ink.startsWith('#') ? ink : palette.butter, 0.8) }, { opacity: pressed ? 0.8 : 1 }]}>
+      style={({ pressed }) => [styles.wide, fill ? styles.key : styles.glass, { transform: [{ scale: pressed ? 0.98 : 1 }] }]}>
       {icon ? <SymbolView name={icon} tintColor={ink} size={18} /> : null}
-      <Text style={{ ...text.headline, fontFamily: fonts.rounded, fontWeight: '800', color: ink }}>{title}</Text>
+      <Text style={{ ...text.headline, fontFamily: fonts.rounded, fontWeight: '700', color: ink }}>{title}</Text>
     </Pressable>
   );
 }
@@ -268,12 +269,12 @@ export function Bubble({ quote, story, fill, color, caption }: { quote: WrappedQ
     <View accessible accessibilityLabel={`${who(story, quote)} said, ${quote.text}. ${attribution(story, quote)}`} style={{ alignItems: mine ? 'flex-end' : 'flex-start', gap: 6 }}>
       <View
         style={{
-          backgroundColor: fill, paddingHorizontal: 16, paddingVertical: 12, maxWidth: '88%',
-          borderTopLeftRadius: 22, borderTopRightRadius: 22, borderBottomLeftRadius: mine ? 22 : 6, borderBottomRightRadius: mine ? 6 : 22,
+          backgroundColor: fill, paddingHorizontal: 16, paddingVertical: 12, maxWidth: '88%', boxShadow: '0px 6px 18px rgba(4, 12, 18, 0.18)',
+          borderTopLeftRadius: 20, borderTopRightRadius: 20, borderBottomLeftRadius: mine ? 20 : 6, borderBottomRightRadius: mine ? 6 : 20,
         }}>
-        <Text style={{ ...text.title3, fontFamily: fonts.rounded, fontWeight: '600', color }}>{quote.text}</Text>
+        <Text style={{ ...text.title3, fontFamily: fonts.rounded, fontWeight: '400', color }}>{quote.text}</Text>
       </View>
-      <Text style={{ ...text.caption, fontWeight: '500', color: caption }}>{attribution(story, quote)}</Text>
+      <Text style={{ ...text.caption, fontFamily: fonts.rounded, fontWeight: '700', color: caption, ...lift }}>{attribution(story, quote)}</Text>
     </View>
   );
 }
@@ -289,7 +290,7 @@ export function Scroll({ bottom = 124, children }: { bottom?: number; children: 
 }
 
 export function Footnote({ children, color }: { children: string; color: string }) {
-  return <Text style={{ ...text.footnote, color }}>{children}</Text>;
+  return <Text style={{ ...text.footnote, fontFamily: fonts.rounded, color, ...lift }}>{children}</Text>;
 }
 
 // Shapes from WrappedTheme.swift, as SVG paths.
@@ -320,7 +321,19 @@ export function tangentPath(w: number, h: number) {
   return `M0 ${h * 0.22} L${w * 0.44} ${h * 0.22} C${w * 0.74} ${h * 0.22} ${w * 0.42} ${h * 0.72} ${w * 0.6} ${h * 0.88} C${w * 0.8} ${h * 1.02} ${w * 0.82} ${h * 0.45} ${w * 0.97} ${h * 0.45}`;
 }
 
+const DITTO_PINK = '#FF2CAB';
+
 const styles = StyleSheet.create({
-  pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 10, paddingHorizontal: 22, paddingVertical: 15, minHeight: 44, borderRadius: 999 },
-  wide: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, minHeight: 52, borderRadius: 999, alignSelf: 'stretch' },
+  pill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 10, paddingHorizontal: 22, paddingVertical: 14, minHeight: 48, borderRadius: 999 },
+  wide: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 15, minHeight: 52, borderRadius: 999, alignSelf: 'stretch' },
+  key: { backgroundColor: 'rgba(255, 255, 255, 0.95)', boxShadow: '0px 2px 8px rgba(4, 12, 18, 0.18)' },
+  glass: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    boxShadow: 'inset 0px 0px 8px 0px rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.5)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.32)',
+    borderRightColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(255, 255, 255, 0.16)',
+  },
 });

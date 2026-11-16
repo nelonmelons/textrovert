@@ -1,8 +1,25 @@
 # @textrovert/mobile
 
-Textrovert's phone app: Expo (SDK 58, expo-router, TypeScript) for iOS, Android and web. Screens, layout and visual
-design follow Emma's SwiftUI app (fe/textrovert-app); data comes from the Textrovert API when one is set up, and from
-Emma's sample friends otherwise, so the app runs with no backend.
+Textrovert's phone app: Expo (SDK 58, expo-router, TypeScript) for iOS, Android and web. Screens follow Emma's
+SwiftUI app (fe/textrovert-app); data comes from the Textrovert API when one is set up, and screens show their empty
+states otherwise, so the app runs with no backend.
+
+## Design
+
+The look is Ditto's frontpage design language (austincupid.com; dodo-world/ditto `apps/frontpage`) on a different app.
+Each screen sits on one of the frontpage's scenes (`Backdrop`, art in `assets/ditto/`): the painted, dithered sky for
+Today, the moonlit beach for Ask, the blue-duotone aquarium for People, the blue-duotone couple for You, and the
+blurred painted landscape (teal) for pushed screens. On top of that:
+
+- type: white Spencer titles with the frontpage's soft navy shadow, a Bitter Sour script accent, Argent Pixel for big
+  numbers, the Arial-first stack for body, and a heavy rounded wordmark;
+- labels: black stickers with one word in Ditto pink (`Sticker`; `Eyebrow` and `SectionTitle` render one);
+- surfaces: the hero phone's clear liquid glass (`Glass`), deep-blue sections with scalloped edges (`Scallop`);
+- actions: the white pill with ink text (`BigButton`), clear glass pills with a white rim for secondary actions.
+
+Pushed screens have no native header: they draw a glass back button (`Screen back` / `TopBar`). On wide web windows
+the app sits in a liquid-glass phone over the painted sky. Tokens live in `src/design/tokens.ts`; the older screens'
+`src/theme.ts` maps onto the same palette.
 
 ## Navigation
 

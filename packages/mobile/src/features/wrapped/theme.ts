@@ -1,19 +1,26 @@
-import { PixelRatio, Platform, type TextStyle } from 'react-native';
+import { PixelRatio, type TextStyle } from 'react-native';
 
-/** Wrapped's art direction (WrappedTheme.swift): Emma's anchors, the rainbow for big moments only, one world per chat. */
+import { fonts as ditto } from '@/design/fonts';
+import type { SceneName } from '@/design/Backdrop';
+
+/**
+ * Wrapped on Ditto's design language: every slide sits on one of Ditto's photographs, white type, Spencer for titles,
+ * Argent Pixel for big numbers, and Ditto pink for the moments. The old names stay so the scenes read the same:
+ * butter is now the white type colour, ink is Ditto navy, plum is Ditto pink.
+ */
 export const palette = {
-  plum: '#6843A5',
-  periwinkle: '#DCE5FF',
-  butter: '#FFF0CE',
-  coral: '#F6B3A6',
-  leaf: '#B9D9A6',
-  ink: '#29252D',
+  plum: '#FF2CAB',
+  periwinkle: '#C9B8FF',
+  butter: '#FFFFFF',
+  coral: '#FF8AD0',
+  leaf: '#8FE3C4',
+  ink: '#081721',
 };
 
-export const rainbow = [palette.plum, '#C8479B', palette.coral, palette.butter, palette.leaf, palette.periwinkle];
-/** For text on the dark scenes: starts light so every letter keeps contrast. */
-export const rainbowText = ['#F2A6D8', palette.coral, palette.butter, palette.leaf, palette.periwinkle];
-export const rainbowRing = [...rainbow, palette.plum];
+export const rainbow = ['#FF2CAB', '#F748B1', palette.coral, '#FFFFFF', palette.periwinkle, '#9CC8FF'];
+/** For text over the photographs: white into pinks and lilacs, light enough for every letter. */
+export const rainbowText = ['#FFFFFF', '#FFD6EE', palette.coral, palette.periwinkle, '#CFE6FF'];
+export const rainbowRing = [...rainbow, '#FF2CAB'];
 
 export interface World {
   deep: string;
@@ -21,13 +28,18 @@ export interface World {
   hot: string;
   glow: string;
   name: string;
+  /** The Ditto photographs this chat's slides cycle through, first one first. */
+  scenes: SceneName[];
 }
 
 export const worlds: World[] = [
-  { deep: '#1D1030', mid: palette.plum, hot: palette.coral, glow: palette.butter, name: 'plum' },
-  { deep: '#15231A', mid: '#3F6B47', hot: palette.leaf, glow: palette.periwinkle, name: 'leaf' },
-  { deep: '#151B3D', mid: '#4658B8', hot: palette.periwinkle, glow: palette.coral, name: 'periwinkle' },
+  { deep: '#0E1638', mid: '#5B5FC7', hot: '#FF2CAB', glow: '#FFD6EE', name: 'dusk', scenes: ['dusk', 'twilight', 'clouds', 'ocean'] },
+  { deep: '#062035', mid: '#1F5E96', hot: '#FF7BCB', glow: '#CFE6FF', name: 'ocean', scenes: ['ocean', 'clouds', 'dusk', 'twilight'] },
+  { deep: '#0B2747', mid: '#3A7BD5', hot: '#FF2CAB', glow: '#FFFFFF', name: 'clouds', scenes: ['clouds', 'twilight', 'ocean', 'dusk'] },
 ];
+
+/** The photograph behind slide `index` of a chat's story. */
+export const sceneFor = (world: World, index: number): SceneName => world.scenes[index % world.scenes.length];
 
 /** FNV-1a over the conversation id's UTF-8 bytes, as in Swift, so a chat keeps its world on every platform. */
 export function worldFor(conversationId: string): World {
@@ -49,15 +61,21 @@ export function mix(a: string, b: string, t: number): string {
   return '#' + [16, 8, 0].map((s) => c(s).toString(16).padStart(2, '0')).join('');
 }
 
-const web = Platform.OS === 'web';
-/** System families that stand in for SwiftUI's serif, compressed, expanded, monospaced and rounded designs. */
+/**
+ * Ditto's faces in the slots the SwiftUI designs used: Spencer stands in for the serif, compressed and typewriter
+ * designs (it has one weight, so callers pass 400), Arial for expanded and rounded, Argent Pixel for numbers.
+ */
 export const fonts = {
-  serif: web ? 'ui-serif, "New York", Georgia, serif' : Platform.OS === 'ios' ? 'Georgia' : 'serif',
-  compressed: web ? '"SF Compact", "Avenir Next Condensed", "Arial Narrow", Impact, sans-serif' : Platform.OS === 'ios' ? 'AvenirNextCondensed-Heavy' : 'sans-serif-condensed',
-  expanded: web ? 'system-ui, -apple-system, "Helvetica Neue", sans-serif' : undefined,
-  mono: web ? 'ui-monospace, Menlo, monospace' : Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  rounded: web ? 'ui-rounded, "SF Pro Rounded", system-ui, sans-serif' : undefined,
+  serif: ditto.serif,
+  compressed: ditto.serif,
+  expanded: ditto.ui,
+  mono: ditto.serif,
+  rounded: ditto.ui,
+  pixel: ditto.pixel,
 };
+
+/** Ditto's title shadow, for white type straight on a photograph. */
+export const lift = { textShadowColor: 'rgba(4, 12, 18, 0.35)', textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 6 } as const;
 
 export type DisplayType = 'serifItalic' | 'poster' | 'wide' | 'typewriter' | 'rounded';
 
@@ -71,15 +89,15 @@ export function displaySize(text: string): number {
 export function displayStyle(type: DisplayType, size: number): TextStyle {
   switch (type) {
     case 'serifItalic':
-      return { fontFamily: fonts.serif, fontWeight: '900', fontStyle: 'italic', fontSize: size, lineHeight: size * 1.02, letterSpacing: -0.8 };
+      return { fontFamily: fonts.serif, fontWeight: '400', fontSize: size, lineHeight: size * 1.04, letterSpacing: -0.4, ...lift };
     case 'poster':
-      return { fontFamily: fonts.compressed, fontWeight: '900', fontSize: size * 1.08, lineHeight: size * 1.08, letterSpacing: 0.5, textTransform: 'uppercase' };
+      return { fontFamily: fonts.compressed, fontWeight: '400', fontSize: size * 1.08, lineHeight: size * 1.08, letterSpacing: 0.2, textTransform: 'uppercase', ...lift };
     case 'wide':
-      return { fontFamily: fonts.expanded, fontWeight: '800', fontSize: size * 0.82, lineHeight: size * 0.9, letterSpacing: -0.5 };
+      return { fontFamily: fonts.serif, fontWeight: '400', fontSize: size * 0.9, lineHeight: size * 0.96, letterSpacing: -0.3, ...lift };
     case 'typewriter':
-      return { fontFamily: fonts.mono, fontWeight: '700', fontSize: size * 0.66, lineHeight: size * 0.66 + 10, letterSpacing: -0.4 };
+      return { fontFamily: fonts.mono, fontWeight: '400', fontSize: size * 0.74, lineHeight: size * 0.74 + 8, letterSpacing: -0.2, ...lift };
     case 'rounded':
-      return { fontFamily: fonts.rounded, fontWeight: '800', fontSize: size * 0.92, lineHeight: size * 0.98, letterSpacing: -0.8 };
+      return { fontFamily: fonts.rounded, fontWeight: '700', fontSize: size * 0.8, lineHeight: size * 0.9, letterSpacing: -0.6, ...lift };
   }
 }
 

@@ -1,33 +1,36 @@
 /**
- * Textrovert's design tokens, ported from the SwiftUI app's Theme and Paper.swift: paper, ink, the section tones and
- * the type scale. Colors keep the Swift component values (0...1) so they can be diffed against the original.
+ * The older screen theme (ported from Emma's SwiftUI app), remapped onto Ditto's design language: white ink on sky
+ * photographs, navy glass for cards, Ditto pink for the accent, Spencer for titles and Arial for text. Every colour
+ * stays an rgba() string so withAlpha can re-weight it.
  */
-const rgb = (r: number, g: number, b: number, a = 1) =>
-  `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
+import { fonts } from './design/fonts';
 
 export type Tone = { ink: string; fill: string };
 
 export const Theme = {
-  ink: rgb(0.153, 0.137, 0.129),
-  secondary: 'rgba(60, 60, 67, 0.6)',
-  separator: 'rgba(60, 60, 67, 0.29)',
-  tertiaryFill: 'rgba(118, 118, 128, 0.12)',
-  secondaryBackground: '#F2F2F7',
-  background: '#FFFFFF',
-  paper: rgb(0.961, 0.941, 0.902),
-  panel: rgb(1.0, 0.992, 0.976),
-  gridLine: rgb(0.45, 0.36, 0.3, 0.08),
-  gridMajor: rgb(0.45, 0.36, 0.3, 0.13),
-  deadline: rgb(0.74, 0.29, 0.0),
-  accentTone: { ink: rgb(0.659, 0.306, 0.345), fill: rgb(0.957, 0.89, 0.886) } as Tone,
-  plansTone: { ink: rgb(0.24, 0.37, 0.55), fill: rgb(0.827, 0.878, 0.941) } as Tone,
-  celebrateTone: { ink: rgb(0.54, 0.35, 0.04), fill: rgb(0.969, 0.875, 0.659) } as Tone,
-  repliesTone: { ink: rgb(0.42, 0.3, 0.55), fill: rgb(0.89, 0.843, 0.933) } as Tone,
-  coralTone: { ink: rgb(0.64, 0.29, 0.16), fill: rgb(0.973, 0.824, 0.753) } as Tone,
-  activitiesTone: { ink: rgb(0.29, 0.42, 0.18), fill: rgb(0.839, 0.898, 0.765) } as Tone,
-  get accent() {
-    return this.accentTone.ink;
-  },
+  ink: 'rgba(255, 255, 255, 1)',
+  secondary: 'rgba(255, 255, 255, 0.72)',
+  separator: 'rgba(255, 255, 255, 0.14)',
+  tertiaryFill: 'rgba(255, 255, 255, 0.12)',
+  secondaryBackground: 'rgba(255, 255, 255, 0.12)',
+  /** Cards, bubbles and fields: navy glass. */
+  background: 'rgba(8, 23, 33, 0.45)',
+  /** Page canvas: transparent, so the screen's photograph shows. */
+  paper: 'rgba(8, 23, 33, 0)',
+  /** Docked panels and overlays: near-opaque navy (#081721). */
+  panel: 'rgba(8, 23, 33, 0.82)',
+  /** Solid navy for full overlays that must hide what is under them. */
+  solid: 'rgba(8, 23, 33, 1)',
+  gridLine: 'rgba(255, 255, 255, 0)',
+  gridMajor: 'rgba(255, 255, 255, 0.12)',
+  deadline: 'rgba(255, 44, 171, 1)',
+  accent: 'rgba(255, 44, 171, 1)',
+  accentTone: { ink: 'rgba(255, 123, 203, 1)', fill: 'rgba(255, 44, 171, 0.24)' } as Tone,
+  plansTone: { ink: 'rgba(156, 200, 255, 1)', fill: 'rgba(92, 156, 242, 0.26)' } as Tone,
+  celebrateTone: { ink: 'rgba(255, 224, 138, 1)', fill: 'rgba(242, 193, 78, 0.24)' } as Tone,
+  repliesTone: { ink: 'rgba(201, 184, 255, 1)', fill: 'rgba(159, 135, 245, 0.26)' } as Tone,
+  coralTone: { ink: 'rgba(255, 157, 174, 1)', fill: 'rgba(242, 106, 132, 0.24)' } as Tone,
+  activitiesTone: { ink: 'rgba(143, 227, 196, 1)', fill: 'rgba(76, 198, 155, 0.24)' } as Tone,
 };
 
 export const sectionTone = (section: 'reply' | 'plans' | 'together' | 'memories' | 'gifts'): Tone =>
@@ -36,29 +39,35 @@ export const sectionTone = (section: 'reply' | 'plans' | 'together' | 'memories'
 /** The same rgba color at another opacity, for washes and highlights. */
 export const withAlpha = (color: string, alpha: number) => color.replace(/, [\d.]+\)$/, `, ${alpha})`);
 
+/** Title faces. Both resolve to Spencer, Ditto's serif, which has a single weight. */
 export const Rounded = {
-  bold: 'Nunito_700Bold',
-  heavy: 'Nunito_800ExtraBold',
+  bold: fonts.serif,
+  heavy: fonts.serif,
 };
 
-/** iOS Dynamic Type sizes at the default setting. */
+const ui = { fontFamily: fonts.ui };
+
+/** Text sizes on Ditto's scale, in the Arial UI stack. */
 export const Type = {
-  largeTitle: { fontSize: 34, lineHeight: 40 },
-  title: { fontSize: 28, lineHeight: 33 },
-  title2: { fontSize: 22, lineHeight: 27 },
-  title3: { fontSize: 20, lineHeight: 24 },
-  headline: { fontSize: 17, lineHeight: 21, fontWeight: '600' as const },
-  body: { fontSize: 17, lineHeight: 21 },
-  callout: { fontSize: 16, lineHeight: 21 },
-  subheadline: { fontSize: 15, lineHeight: 19 },
-  footnote: { fontSize: 13, lineHeight: 17 },
-  caption: { fontSize: 12, lineHeight: 15 },
-  caption2: { fontSize: 11, lineHeight: 13 },
+  largeTitle: { fontSize: 36, lineHeight: 39, ...ui },
+  title: { fontSize: 30, lineHeight: 33, ...ui },
+  title2: { fontSize: 24, lineHeight: 28, ...ui },
+  title3: { fontSize: 19, lineHeight: 24, ...ui },
+  headline: { fontSize: 16, lineHeight: 21, fontWeight: '700' as const, ...ui },
+  body: { fontSize: 16, lineHeight: 22, ...ui },
+  callout: { fontSize: 15, lineHeight: 21, ...ui },
+  subheadline: { fontSize: 14, lineHeight: 19, ...ui },
+  footnote: { fontSize: 13, lineHeight: 17, ...ui },
+  caption: { fontSize: 12, lineHeight: 15, ...ui },
+  caption2: { fontSize: 11, lineHeight: 13, ...ui },
 };
 
-export const radius = { bubble: 18, tile: 14, card: 18, sheet: 24, capsule: 999 };
+/** Ditto's title shadow for white serif on bright sky. */
+export const titleShadow = { textShadowColor: 'rgba(0, 0, 0, 0.25)', textShadowOffset: { width: 0, height: 4 }, textShadowRadius: 4 };
+
+export const radius = { bubble: 20, tile: 16, card: 24, sheet: 32, capsule: 999 };
 
 export const shadow = {
-  soft: { shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
-  lifted: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -3 }, elevation: 6 },
+  soft: { shadowColor: '#04121A', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 1 },
+  lifted: { shadowColor: '#04121A', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: -3 }, elevation: 6 },
 };

@@ -1,0 +1,62 @@
+import type { SymbolViewProps } from 'expo-symbols';
+
+/** SF Symbols the app uses, with the Material Symbol web and Android draw instead (a bare SF name renders nothing there). */
+const material: Record<string, string> = {
+  'arrow.right': 'arrow_forward',
+  'arrow.up': 'arrow_upward',
+  'arrow.up.circle.fill': 'arrow_circle_up',
+  'arrowshape.turn.up.left.fill': 'reply',
+  'birthday.cake.fill': 'cake',
+  'book.closed.fill': 'menu_book',
+  'bubble.left.and.bubble.right.fill': 'forum',
+  'bubble.left.and.text.bubble.right.fill': 'forum',
+  calendar: 'calendar_today',
+  camera: 'photo_camera',
+  'chart.bar.fill': 'bar_chart',
+  checkmark: 'check',
+  'checkmark.circle.fill': 'check_circle',
+  'chevron.left': 'chevron_left',
+  'chevron.right': 'chevron_right',
+  'circle.dashed': 'radio_button_unchecked',
+  clock: 'schedule',
+  'clock.badge.exclamationmark.fill': 'alarm',
+  'exclamationmark.circle.fill': 'error',
+  'externaldrive.fill': 'storage',
+  'bolt.heart.fill': 'bolt',
+  'camera.fill': 'photo_camera',
+  'message.fill': 'chat_bubble',
+  'music.note': 'music_note',
+  'phone.bubble.fill': 'phone_in_talk',
+  'figure.2': 'diversity_3',
+  film: 'movie',
+  gift: 'redeem',
+  'heart.fill': 'favorite',
+  link: 'link',
+  'lock.shield': 'shield',
+  magnifyingglass: 'search',
+  map: 'map',
+  message: 'chat_bubble',
+  'note.text': 'sticky_note_2',
+  pencil: 'edit',
+  'pencil.and.outline': 'edit_note',
+  'person.2.fill': 'group',
+  'person.crop.circle': 'account_circle',
+  'person.crop.circle.badge.plus': 'person_add',
+  'person.crop.circle.fill': 'account_circle',
+  'phone.bubble': 'phone_in_talk',
+  'photo.badge.plus': 'add_photo_alternate',
+  plus: 'add',
+  'quote.bubble': 'format_quote',
+  'rectangle.portrait.and.arrow.right': 'logout',
+  'slider.horizontal.3': 'tune',
+  sparkles: 'auto_awesome',
+  xmark: 'close',
+  'xmark.circle.fill': 'cancel',
+};
+
+/** A symbol name that draws on every platform: SF on iOS, the mapped Material Symbol elsewhere. */
+export function symbolName(name: SymbolViewProps['name']): SymbolViewProps['name'] {
+  if (typeof name !== 'string') return name;
+  const m = material[name];
+  return m ? ({ ios: name, android: m, web: m } as SymbolViewProps['name']) : name;
+}
